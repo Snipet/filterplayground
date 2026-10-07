@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import ShareLink from '../content/ShareLink.svelte';
 	import { categoryById, toolBySlug } from '$lib/tools';
 	import { toolHref } from '$lib/paths';
 
@@ -15,8 +16,10 @@
 		related?: string[];
 		/** Wider control column (e.g. band editors). */
 		wideControls?: boolean;
+		/** Serializable design state; shows a "Copy link" button in the header. */
+		share?: unknown;
 	}
-	let { slug, controls, children, theory, related = [], wideControls = false }: Props = $props();
+	let { slug, controls, children, theory, related = [], wideControls = false, share }: Props = $props();
 	const tool = $derived(toolBySlug(slug)!);
 	const cat = $derived(categoryById(tool.category));
 	const relatedTools = $derived(related.map(toolBySlug).filter((t) => !!t));
@@ -30,7 +33,10 @@
 <article class="tool">
 	<header class="tool-head">
 		<div class="crumb">{cat.title}</div>
-		<h1>{tool.title}</h1>
+		<div class="title-row">
+			<h1>{tool.title}</h1>
+			{#if share !== undefined}<ShareLink value={share} />{/if}
+		</div>
 		<p class="lede">{tool.description}</p>
 	</header>
 
@@ -78,6 +84,13 @@
 	}
 	h1 {
 		margin-bottom: 0.3rem;
+	}
+	.title-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		flex-wrap: wrap;
 	}
 	.lede {
 		color: var(--text-2);

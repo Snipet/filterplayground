@@ -106,6 +106,21 @@ src/routes/<slug>/+page.svelte   One folder per tool
 related links. Omit `controls` for a full-width page; pass `wideControls` for a
 360 px control column.
 
+### Shareable links
+
+Pass a serializable snapshot of the design to `ToolLayout`'s `share` prop to get a
+"Copy link" button; restore it on mount with `readSharedState()` from
+`$lib/share` (validate every field — links can be edited by hand):
+
+```ts
+const shared = $derived({ family, order, f1 });
+onMount(() => {
+	const st = readSharedState<typeof shared>();
+	if (typeof st?.order === 'number') order = st.order;
+	// …
+});
+```
+
 In Svelte templates, write TeX in a JS string to avoid brace issues:
 `<Tex math={'\\frac{1}{1+s}'} />`.
 

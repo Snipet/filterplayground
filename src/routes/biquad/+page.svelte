@@ -15,6 +15,8 @@
 	import { evaluate } from '$lib/dsp/response';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import { num } from '$lib/export';
+	import { readSharedState } from '$lib/share';
+	import { onMount } from 'svelte';
 
 	let type = $state<BiquadType>('peaking');
 	let fs = $state(48000);
@@ -22,6 +24,17 @@
 	let q = $state(1.0);
 	let gainDb = $state(6);
 	let qMode = $state<'q' | 'bw'>('q');
+
+	const shared = $derived({ type, fs, f0, q, gainDb });
+	onMount(() => {
+		const st = readSharedState<typeof shared>();
+		if (!st) return;
+		if (st.type && BIQUAD_TYPES.some((t) => t.id === st.type)) type = st.type;
+		if (typeof st.fs === 'number' && st.fs > 0) fs = st.fs;
+		if (typeof st.f0 === 'number' && st.f0 > 0) f0 = st.f0;
+		if (typeof st.q === 'number' && st.q > 0) q = st.q;
+		if (typeof st.gainDb === 'number') gainDb = st.gainDb;
+	});
 
 	const info = $derived(BIQUAD_TYPES.find((t) => t.id === type)!);
 	const bw = $derived(qToBw(q));
@@ -79,7 +92,7 @@
 	);
 </script>
 
-<ToolLayout slug="biquad" related={['parametric-eq', 'iir-designer', 'structures', 'quantization']}>
+<ToolLayout slug="biquad" share={shared} related={['parametric-eq', 'iir-designer', 'structures', 'quantization']}>
 	{#snippet controls()}
 		<ControlGroup title="Type">
 			<Select label="Filter type" bind:value={type} options={typeOptions} />

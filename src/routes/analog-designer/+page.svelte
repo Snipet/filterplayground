@@ -20,6 +20,8 @@
 	import { format as fmtC } from '$lib/dsp/complex';
 	import type { BandType } from '$lib/dsp/types';
 	import { specRegions } from '$lib/specmask';
+	import { readSharedState } from '$lib/share';
+	import { onMount } from 'svelte';
 
 	let family = $state<AnalogFamily>('butter');
 	let band = $state<BandType>('lowpass');
@@ -37,6 +39,22 @@
 		highpass: { fp: [2000, 2000], fs: [1000, 1000] },
 		bandpass: { fp: [1000, 2000], fs: [700, 3000] },
 		bandstop: { fp: [700, 3000], fs: [1000, 2000] }
+	});
+
+	const shared = $derived({ family, band, mode, order, f1, f2, rp, rs, besselNorm, specs });
+	onMount(() => {
+		const st = readSharedState<typeof shared>();
+		if (!st) return;
+		if (st.family && FAMILIES.some((f) => f.id === st.family)) family = st.family;
+		if (st.band && st.band in specs) band = st.band;
+		if (st.mode === 'order' || st.mode === 'spec') mode = st.mode;
+		if (typeof st.order === 'number') order = Math.max(1, Math.round(st.order));
+		if (typeof st.f1 === 'number' && st.f1 > 0) f1 = st.f1;
+		if (typeof st.f2 === 'number' && st.f2 > 0) f2 = st.f2;
+		if (typeof st.rp === 'number' && st.rp > 0) rp = st.rp;
+		if (typeof st.rs === 'number' && st.rs > 0) rs = st.rs;
+		if (st.besselNorm) besselNorm = st.besselNorm;
+		if (st.specs) specs = { ...specs, ...st.specs };
 	});
 
 	const info = $derived(familyInfo(family));
@@ -149,7 +167,7 @@
 	const familyOptions = FAMILIES.map((f) => ({ value: f.id, label: f.name }));
 </script>
 
-<ToolLayout slug="analog-designer" related={['family-compare', 'active-filters', 'lc-ladder', 'iir-designer', 'order-calculator']}>
+<ToolLayout slug="analog-designer" share={shared} related={['family-compare', 'active-filters', 'lc-ladder', 'iir-designer', 'order-calculator']}>
 	{#snippet controls()}
 		<ControlGroup title="Filter">
 			<Select label="Family" bind:value={family} options={familyOptions} />
