@@ -1,5 +1,17 @@
 <script lang="ts" module>
+	import type { Snippet } from 'svelte';
 	import type { Complex } from '$lib/dsp/complex';
+
+	/** Coordinate helpers passed to the `overlay` snippet. */
+	export interface PzContext {
+		/** Data → pixel. */
+		X: (re: number) => number;
+		Y: (im: number) => number;
+		/** Pixels per data unit. */
+		k: number;
+		/** Visible half-width in data units. */
+		R: number;
+	}
 
 	export interface PzHandle {
 		id: string | number;
@@ -37,6 +49,8 @@
 		snap?: number;
 		/** s-plane coordinates are given in Hz (σ/2π, ω/2π) rather than rad/s. */
 		sHz?: boolean;
+		/** Extra SVG drawn above the grid and below the poles/zeros. */
+		overlay?: Snippet<[PzContext]>;
 	}
 
 	let {
@@ -54,7 +68,8 @@
 		fs,
 		title,
 		snap = 0,
-		sHz = false
+		sHz = false,
+		overlay
 	}: Props = $props();
 
 	let width = $state(0);
@@ -308,10 +323,12 @@
 					<text class="axis-name" x={cx + side / 2 - 2} y={Y(0) - 5} text-anchor="end"
 						>{domain === 's' ? (sHz ? 'σ/2π' : 'σ') : 'Re'}</text
 					>
-					<text class="axis-name" x={X(0) + 5} y={cy - side / 2 + 12}
+					<text class="axis-name" x={X(0) - 5} y={cy - side / 2 + 12} text-anchor="end"
 						>{domain === 's' ? (sHz ? 'ω/2π (Hz)' : 'jω') : 'Im'}</text
 					>
 				</g>
+
+				{#if overlay}{@render overlay({ X, Y, k, R })}{/if}
 
 				{#each zGroups as g, i (i)}
 					<g class="zero">
