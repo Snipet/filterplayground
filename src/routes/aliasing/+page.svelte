@@ -326,7 +326,7 @@
 	<!-- ============================ Part A ============================ -->
 	<Card title="A · A sinusoid, sampled" subtitle="Samples taken at fs cannot tell f apart from any f ± k·fs. The dashed curve is the lowest-frequency sinusoid through the same samples.">
 		<div class="ctrl">
-			<Slider label="Sample rate fs" bind:value={fsA} min={10} max={100000} log unit="Hz" />
+			<Slider label="Sample rate fs" bind:value={fsA} min={10} max={100000} log unit="Hz" onchange={(v) => (fA = Math.min(fA, 3 * v))} />
 			<Slider label="Signal frequency f" bind:value={fA} min={0} max={3 * fsA} step={fsA / 1000} unit="Hz" />
 			<Slider label="Phase φ" bind:value={phiDeg} min={-180} max={180} step={1} unit="°" />
 			<Slider label="Samples shown" bind:value={nShow} min={6} max={60} integer />

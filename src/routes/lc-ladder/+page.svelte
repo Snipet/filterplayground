@@ -199,10 +199,10 @@
 		];
 		if (showRounded) {
 			const dev = maxOver(passMask, pass.rounded, (v, i) => Math.abs(v - pass.ideal[i]));
-			out.push({ label: `Passband error (${series})`, value: `${trimNumber(dev, 3)} dB`, hint: 'Largest |S21| deviation from the ideal design inside the passband, caused by rounding to preferred values' });
+			out.push({ label: `Passband error (${series})`, value: `${trimNumber(dev, 3)} dB`, hint: `Largest |S21| deviation from the ideal design inside the passband (${family === 'cheby1' ? 'the ripple band' : 'where the ideal |S21| ≥ −1 dB'}), caused by rounding to preferred values` });
 		}
 		const rlWorst = -maxOver(passMask, showRounded ? pass.rlRounded : pass.rlExact, (v) => -v);
-		out.push({ label: 'Worst return loss', value: Number.isFinite(rlWorst) ? `${trimNumber(rlWorst, 3)} dB` : '—', hint: 'Smallest −20·log|S11| in the passband (higher is a better match)' });
+		out.push({ label: 'Worst return loss', value: Number.isFinite(rlWorst) ? `${trimNumber(rlWorst, 3)} dB` : '—', hint: `Smallest −20·log|S11| in the passband (${family === 'cheby1' ? 'the ripple band' : 'where the ideal |S21| ≥ −1 dB, so at most 6.9 dB'}); higher is a better match` });
 		const spread = Math.max(...synth.syn.g) / Math.min(...synth.syn.g);
 		out.push({ label: 'g-value spread', value: `${trimNumber(spread, 3)} : 1`, hint: 'Ratio of the largest to the smallest normalised element' });
 		return out;
@@ -238,12 +238,18 @@
 		exact && rounded
 			? spiceNetlist(
 					showRounded ? rounded : exact,
-					`${order}th-order ${famInfo.name}${family === 'cheby1' ? ` ${rp} dB` : ''} ${band} ladder, ${formatSI(r0, 'Ohm', 4)}, ${isBP ? `f0 = ${formatSI(f0, 'Hz', 4)}, BW = ${formatSI(bwSafe, 'Hz', 4)}` : `fc = ${formatSI(f0, 'Hz', 4)}`}${showRounded ? ` (${series} values)` : ''}`,
+					`${ordinal(order)}-order ${famInfo.name}${family === 'cheby1' ? ` ${rp} dB` : ''} ${band} ladder, ${formatSI(r0, 'Ohm', 4)}, ${isBP ? `f0 = ${formatSI(f0, 'Hz', 4)}, BW = ${formatSI(bwSafe, 'Hz', 4)}` : `fc = ${formatSI(f0, 'Hz', 4)}`}${showRounded ? ` (${series} values)` : ''}`,
 					range[0],
 					range[1]
 				)
 			: ''
 	);
+
+	function ordinal(n: number): string {
+		const t = n % 100;
+		if (t >= 11 && t <= 13) return `${n}th`;
+		return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+	}
 
 	const familyOptions = LADDER_FAMILIES.map((f) => ({ value: f.id, label: f.name }));
 	const R_PRESETS = [50, 75, 600, 8];

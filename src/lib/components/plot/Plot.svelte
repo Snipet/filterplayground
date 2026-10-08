@@ -14,6 +14,8 @@
 		opacity?: number;
 		/** Exclude from tooltip / legend. */
 		hidden?: boolean;
+		/** Keep in the legend but leave out of the tooltip (e.g. Monte-Carlo traces). */
+		noTooltip?: boolean;
 		/** Custom value formatter for the tooltip. */
 		format?: (v: number) => string;
 	}
@@ -318,9 +320,10 @@
 		if (hoverX === null) return [];
 		return series
 			.map((s, i) => ({ s, i }))
-			.filter(({ s }) => !s.hidden && s.x.length > 0)
+			.filter(({ s }) => !s.hidden && !s.noTooltip && s.x.length > 0)
 			.map(({ s, i }) => {
-				const idx = nearestIndex(s.x, hoverX);
+				// scatter data need not be sorted by x: search linearly
+				const idx = s.kind === 'points' ? nearestLinear(s.x, hoverX) : nearestIndex(s.x, hoverX);
 				return {
 					label: s.label ?? `Series ${i + 1}`,
 					color: s.color ?? seriesColor(i),
@@ -331,6 +334,12 @@
 				};
 			});
 	});
+
+	function nearestLinear(xsArr: ArrayLike<number>, v: number): number {
+		let best = 0;
+		for (let i = 1; i < xsArr.length; i++) if (Math.abs(xsArr[i] - v) < Math.abs(xsArr[best] - v)) best = i;
+		return best;
+	}
 
 	const snapX = $derived(hoverRows.length ? hoverRows[0].x : hoverX);
 
@@ -458,18 +467,22 @@
 					{#each series as s, i (i)}
 						{#if s.label && !s.hidden}
 							<li>
-								<svg width="18" height="8" aria-hidden="true"
-									><line
-										x1="1"
-										y1="4"
-										x2="17"
-										y2="4"
-										stroke={s.color ?? seriesColor(i)}
-										stroke-width="2.5"
-										stroke-dasharray={s.dash}
-										stroke-linecap="round"
-									/></svg
-								>
+								<svg width="18" height="8" aria-hidden="true">
+									{#if s.kind === 'points'}
+										<circle cx="9" cy="4" r="3.5" fill={s.color ?? seriesColor(i)} />
+									{:else}
+										<line
+											x1="1"
+											y1="4"
+											x2="17"
+											y2="4"
+											stroke={s.color ?? seriesColor(i)}
+											stroke-width="2.5"
+											stroke-dasharray={s.dash}
+											stroke-linecap="round"
+										/>
+									{/if}
+								</svg>
 								{s.label}
 							</li>
 						{/if}

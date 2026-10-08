@@ -381,7 +381,7 @@
 					<Segmented label="Way" bind:value={exportWay} options={exportOptions} size="small" />
 					{#if digitalDev}
 						<p class="small muted">
-							Digital sum vs analog up to {formatSI(digitalDev.top, 'Hz', 3)}: max difference {trimNumber(digitalDev.worst, 2)} dB.
+							Digital sum vs analog up to {formatSI(digitalDev.top, 'Hz', 3)}: max difference {digitalDev.worst < 0.01 ? '< 0.01' : trimNumber(digitalDev.worst, 2)} dB.
 							{#if exportSel.delaySamples !== 0}Delay: {exportSel.delaySamples} samples (rounded from {trimNumber(delayMs, 3)} ms).{/if}
 						</p>
 					{/if}
@@ -397,7 +397,7 @@
 		</Card>
 
 		{#if passive && passiveType}
-			<Card title="Passive network" subtitle="Second-order: series element, then a shunt element across the driver. Assumes a purely resistive driver — real drivers need an impedance-compensation (Zobel) network first.">
+			<Card title="Passive network" subtitle="{passiveType === 'bw1' ? 'First order: one series element per driver.' : 'Second order: a series element, then a shunt element across the driver.'} Assumes a purely resistive driver — real drivers need an impedance-compensation (Zobel) network first.">
 				<div class="table-wrap">
 					<table>
 						<thead>

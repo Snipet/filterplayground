@@ -171,7 +171,7 @@
 		const out: Stat[] = [];
 		const nOrder = stages.reduce((s, st) => s + st.spec.order, 0);
 		out.push({ label: 'Order / op-amps', value: `${nOrder} / ${stages.length}` });
-		const grid = logspace(fRef / 1000, fRef * 1000, 3000);
+		const grid = logspace(fRef / 1000, fRef * 1000, 1200);
 		const rt = evaluate(target, grid);
 		const rb = evaluate(built, grid);
 		const sign = stages.reduce((s, st) => s * Math.sign(st.realizedParams.gain || 1), 1);
@@ -224,7 +224,7 @@
 		if (!mc || !stages.length) return null;
 		const lo = fRef / (effBand === 'bandpass' ? Math.max(4, (f2 / f1) * 2) : 8);
 		const hi = fRef * (effBand === 'bandpass' ? Math.max(4, (f2 / f1) * 2) : 8);
-		const grid = logspace(lo, hi, 240);
+		const grid = logspace(lo, hi, 200);
 		const runs = monteCarlo(stages, tol, grid, 40);
 		const nominal = evaluate(built, grid).magDb;
 		const tgt = evaluate(target, grid).magDb;

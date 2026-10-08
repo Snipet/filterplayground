@@ -97,8 +97,10 @@
 			return [
 				{ label: 'Corner frequency fc', value: formatSI(w1 / TWO_PI, 'Hz', 4), hint: info.family === 'rc' ? 'fc = 1/(2πRC)' : 'fc = R/(2πL)' },
 				{ label: 'Time constant τ', value: formatSI(tau, 's', 4), hint: info.family === 'rc' ? 'τ = RC' : 'τ = L/R' },
-				{ label: 'Rise time 10–90 %', value: formatSI(tau * Math.log(9), 's', 3), hint: 'τ·ln 9 ≈ 2.2 τ' },
-				{ label: 'Settling to 1 %', value: formatSI(tau * Math.log(100), 's', 3), hint: 'τ·ln 100 ≈ 4.6 τ' },
+				info.band === 'lowpass'
+					? { label: 'Rise time 10–90 %', value: formatSI(tau * Math.log(9), 's', 3), hint: 'τ·ln 9 ≈ 2.2 τ' }
+					: { label: 'Step decays to 10 %', value: formatSI(tau * Math.log(10), 's', 3), hint: 'The high-pass step response is e^(−t/τ): τ·ln 10 ≈ 2.3 τ' },
+				{ label: info.band === 'lowpass' ? 'Settling to 1 %' : 'Decays to 1 %', value: formatSI(tau * Math.log(100), 's', 3), hint: 'τ·ln 100 ≈ 4.6 τ' },
 				{ label: 'Gain / phase at fc', value: `−3.01 dB / ${info.band === 'lowpass' ? '−45°' : '+45°'}` },
 				{ label: 'Roll-off', value: '20 dB/decade', hint: '6 dB per octave — one pole' }
 			];

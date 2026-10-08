@@ -550,6 +550,21 @@ export function mulberry32(seed: number): () => number {
 	};
 }
 
+/** |H(jω)|² of a stage transfer function, without allocating complex numbers. */
+export function tfMag2(tf: StageTf, w: number): number {
+	const ev = (p: number[]) => {
+		let re = 0;
+		let im = 0;
+		for (const k of p) {
+			const r = -im * w + k;
+			im = re * w;
+			re = r;
+		}
+		return re * re + im * im;
+	};
+	return ev(tf.num) / ev(tf.den);
+}
+
 /**
  * Monte-Carlo magnitude responses (dB) with every component scattered
  * uniformly within ±tol. Seeded, so the result is stable while dragging.
@@ -557,18 +572,23 @@ export function mulberry32(seed: number): () => number {
 export function monteCarlo(stages: StageDesign[], tol: number, fHz: number[], runs = 40, seed = 20240229): number[][] {
 	const rnd = mulberry32(seed);
 	const out: number[][] = [];
+	const w = fHz.map((f) => 2 * Math.PI * f);
 	for (let r = 0; r < runs; r++) {
 		const tfs = stages.map((st) => {
 			const v: Values = {};
 			for (const p of st.parts) v[p.role] = Number.isFinite(p.value) ? p.value * (1 + tol * (2 * rnd() - 1)) : p.value;
 			return stageTf(st.topology, st.spec.band, v);
 		});
-		out.push(fHz.map((f) => 20 * Math.log10(Math.max(1e-300, tfs.reduce((m, tf) => m * Math.hypot(...complexParts(tfAt(tf, 2 * Math.PI * f))), 1)))));
+		out.push(
+			w.map((wi) => {
+				let m2 = 1;
+				for (const tf of tfs) m2 *= tfMag2(tf, wi);
+				return 10 * Math.log10(Math.max(1e-300, m2));
+			})
+		);
 	}
 	return out;
 }
-
-const complexParts = (z: Complex): [number, number] => [z.re, z.im];
 
 /**
  * Split an all-pole analog LP/HP/BP filter into stage specifications, ordered

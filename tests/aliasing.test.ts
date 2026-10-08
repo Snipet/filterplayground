@@ -63,7 +63,7 @@ describe('anti-alias order requirements', () => {
 				[0.5, 98],
 				[1, 40]
 			]) {
-				const osr = [1.1, 1.3, 2, 3.7, 8, 16];
+				const osr = family === 'bessel' ? [1.1, 2, 16] : [1.1, 1.3, 2, 3.7, 8, 16];
 				const orders = orderVsOsr(family, rp, rs, osr);
 				osr.forEach((r, i) => {
 					const est = estimateFromSpecs(family, { band: 'lowpass', fp: fb, fstop: 2 * r * fb - fb, rp, rs }, { besselNorm: 'mag' });

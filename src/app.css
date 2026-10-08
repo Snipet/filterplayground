@@ -246,6 +246,8 @@ td.num,
 th.num {
 	text-align: right;
 	font-variant-numeric: tabular-nums;
+}
+td.num {
 	white-space: nowrap;
 }
 

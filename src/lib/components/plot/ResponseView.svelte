@@ -224,8 +224,10 @@
 						.filter((f) => f.filter.kind === 'analog')
 						.map((f) => suggestAnalogDuration((f.filter as Extract<Filter, { kind: 'analog' }>).zpk))
 				);
-			const imp = filters.map((f) => (f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'impulse', dur, 500) : null));
-			const stp = filters.map((f) => (f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'step', dur, 500) : null));
+			const wantImp = views.includes('impulse');
+			const wantStep = views.includes('step');
+			const imp = filters.map((f) => (wantImp && f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'impulse', dur, 500) : null));
+			const stp = filters.map((f) => (wantStep && f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'step', dur, 500) : null));
 			// only analog entries can share an analog time axis
 			const keep = (_: unknown, i: number) => filters[i].filter.kind === 'analog';
 			return {
@@ -246,7 +248,7 @@
 		return {
 			impulse: filters.map((f, i) => ({
 				x: idx,
-				y: f.filter.kind === 'digital' ? Array.from(digitalImpulseResponse(f.filter, n)) : [],
+				y: f.filter.kind === 'digital' && views.includes('impulse') ? Array.from(digitalImpulseResponse(f.filter, n)) : [],
 				label: f.label,
 				color: colorOf(i),
 				dash: f.dash,
@@ -254,7 +256,7 @@
 			})).filter(digitalOnly),
 			step: filters.map((f, i) => ({
 				x: idx,
-				y: f.filter.kind === 'digital' ? Array.from(digitalStepResponse(f.filter, n)) : [],
+				y: f.filter.kind === 'digital' && views.includes('step') ? Array.from(digitalStepResponse(f.filter, n)) : [],
 				label: f.label,
 				color: colorOf(i),
 				dash: f.dash,

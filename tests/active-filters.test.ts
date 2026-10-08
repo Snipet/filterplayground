@@ -13,6 +13,7 @@ import {
 	stageSpecs,
 	stageTf,
 	tfAt,
+	tfMag2,
 	tfParams,
 	type StageBand,
 	type StageTopology,
@@ -318,5 +319,14 @@ describe('standard-value optimiser', () => {
 		expect(seriesNeighbours(5e3, 'E24')).toEqual([4700, 5100]);
 		expect(stepUpSeries(4.5e-9, 'E6', 0)).toBeCloseTo(4.7e-9, 20);
 		expect(stepUpSeries(4.5e-9, 'E6', 2)).toBeCloseTo(1e-8, 20);
+	});
+});
+
+describe('tfMag2', () => {
+	it('matches |tfAt|²', () => {
+		const tf = stageTf('mfb-bp', 'bandpass', { R1: 1e4, R2: 5e4, R3: 2e3, C1: 1e-8, C2: 2.2e-8 });
+		for (const w of [10, 3e3, 1e4, 1e6]) expect(tfMag2(tf, w) / abs(tfAt(tf, w)) ** 2).toBeCloseTo(1, 12);
+		const t1 = stageTf('rc1', 'highpass', { R1: 1e4, C1: 1e-8 });
+		expect(tfMag2(t1, 1e4) / abs(tfAt(t1, 1e4)) ** 2).toBeCloseTo(1, 12);
 	});
 });
