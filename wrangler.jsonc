@@ -1,0 +1,18 @@
+// Cloudflare Workers configuration: the site is fully prerendered, so the Worker
+// only serves the static files in build/ (no server code).
+// With Workers Builds (repo connected to the Worker), use
+//   build command:  npm run build
+//   deploy command: npx wrangler deploy
+// The "name" below must match the Worker's name in the Cloudflare dashboard.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "filterplayground",
+	"compatibility_date": "2026-10-01",
+	"assets": {
+		"directory": "./build",
+		// /pole-zero → /pole-zero/ → pole-zero/index.html
+		"html_handling": "auto-trailing-slash",
+		// unknown URLs get build/404.html (SvelteKit's error page) with a 404 status
+		"not_found_handling": "404-page"
+	}
+}
