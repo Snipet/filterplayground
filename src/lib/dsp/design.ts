@@ -170,9 +170,7 @@ export function estimateFromSpecs(
 			error: 'Stopband attenuation must exceed the passband ripple.'
 		};
 	}
-	const { N, wn, capped } = estimateOrder(family, nat, spec.rp, spec.rs, opts);
-	const maxN = familyInfo(family).maxOrder;
-	const order = Math.min(N, maxN);
+	const { N: order, wn, capped } = estimateOrder(family, nat, spec.rp, spec.rs, opts, familyInfo(family).maxOrder);
 	// map the prototype natural frequency back to real frequencies
 	let f1: number;
 	let f2: number | undefined;
@@ -200,7 +198,7 @@ export function estimateFromSpecs(
 			break;
 		}
 	}
-	return { order, f1, f2, selectivity: nat, capped: !!capped || N > maxN };
+	return { order, f1, f2, selectivity: nat, capped: !!capped };
 }
 
 /** Golden-section search for the maximum of a unimodal function on [a, b]. */

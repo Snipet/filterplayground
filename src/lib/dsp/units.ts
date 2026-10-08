@@ -77,7 +77,7 @@ export function parseSI(input: string): number {
 	let s = input.trim().replace(/,/g, '').replace(/\s+/g, '');
 	if (!s) return NaN;
 	// strip trailing units
-	s = s.replace(/(Hz|hz|Ω|ohm|ohms|F|H|s|dB|V|A)$/u, '');
+	s = s.replace(/(rad\/s|m\/s|dBFS|dBm|dBu|dBV|dB|Hz|hz|Ω|ohms|ohm|oct|°|%|F|H|W|V|A|s)$/u, '');
 	// "4k7" style
 	const mid = s.match(/^(-?\d+)(meg|[TGMkKmuµμnpf])(\d+)$/u);
 	if (mid) return parseFloat(`${mid[1]}.${mid[3]}`) * PARSE_PREFIX[mid[2]];

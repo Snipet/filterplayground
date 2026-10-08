@@ -349,9 +349,23 @@ export interface PrototypeOptions {
 	besselNorm?: BesselNorm;
 }
 
+const protoCache = new Map<string, ZPK>();
+
+/** Normalised prototype (memoised; callers receive a fresh copy they may mutate). */
 export function prototype(family: AnalogFamily, N: number, opts: PrototypeOptions = {}): ZPK {
 	const rp = opts.rp ?? 1;
 	const rs = opts.rs ?? 40;
+	const key = `${family}|${N}|${family === 'cheby1' || family === 'ellip' ? rp : ''}|${family === 'cheby2' || family === 'ellip' ? rs : ''}|${family === 'bessel' ? (opts.besselNorm ?? 'phase') : ''}`;
+	let zpk = protoCache.get(key);
+	if (!zpk) {
+		zpk = buildPrototype(family, N, rp, rs, opts);
+		if (protoCache.size > 400) protoCache.delete(protoCache.keys().next().value!);
+		protoCache.set(key, zpk);
+	}
+	return { z: zpk.z.map((r) => ({ ...r })), p: zpk.p.map((r) => ({ ...r })), k: zpk.k };
+}
+
+function buildPrototype(family: AnalogFamily, N: number, rp: number, rs: number, opts: PrototypeOptions): ZPK {
 	switch (family) {
 		case 'butter':
 			return buttap(N);
@@ -396,37 +410,44 @@ export function estimateOrder(
 	ws: number,
 	rp: number,
 	rs: number,
-	opts: PrototypeOptions = {}
+	opts: PrototypeOptions = {},
+	/** Cap for the returned order (default: uncapped for closed-form families). */
+	maxOrder = Infinity
 ): OrderResult {
 	const gp = Math.pow(10, 0.1 * rp) - 1;
 	const gs = Math.pow(10, 0.1 * rs) - 1;
+	// When the required order exceeds the cap, design at the cap but keep the
+	// passband spec exact (the natural frequency is computed for the capped order).
+	const cap = (n: number) => ({ N: Math.min(n, maxOrder), capped: n > maxOrder ? true : undefined });
 	switch (family) {
 		case 'butter': {
-			const N = Math.max(1, Math.ceil(Math.log10(gs / gp) / (2 * Math.log10(ws))));
+			const { N, capped } = cap(Math.max(1, Math.ceil(Math.log10(gs / gp) / (2 * Math.log10(ws)))));
 			// natural frequency giving exactly rp at the passband edge
-			return { N, wn: Math.pow(gp, -1 / (2 * N)) };
+			return { N, wn: Math.pow(gp, -1 / (2 * N)), capped };
 		}
 		case 'cheby1': {
-			const N = Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws)));
-			return { N, wn: 1 };
+			const { N, capped } = cap(Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws))));
+			return { N, wn: 1, capped };
 		}
 		case 'cheby2': {
-			const N = Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws)));
+			const { N, capped } = cap(Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws))));
 			// stopband-edge frequency such that attenuation is exactly rp at ω = 1
 			const wn = Math.cosh(Math.acosh(Math.sqrt(gs / gp)) / N);
-			return { N, wn };
+			return { N, wn, capped };
 		}
 		case 'ellip': {
 			const k = 1 / ws;
 			const k1 = Math.sqrt(gp / gs);
-			const N = Math.max(1, Math.ceil((ellipk(k) * ellipkp(k1)) / (ellipkp(k) * ellipk(k1)) - 1e-9));
-			return { N, wn: 1 };
+			const { N, capped } = cap(
+				Math.max(1, Math.ceil((ellipk(k) * ellipkp(k1)) / (ellipkp(k) * ellipk(k1)) - 1e-9))
+			);
+			return { N, wn: 1, capped };
 		}
 		default: {
 			// Monotonic families: search numerically.
 			const info = familyInfo(family);
 			let wn = 1;
-			for (let N = 1; N <= info.maxOrder; N++) {
+			for (let N = 1; N <= Math.min(info.maxOrder, maxOrder); N++) {
 				const proto = prototype(family, N, opts);
 				// scale so attenuation at ω = 1 equals rp exactly
 				const wp = findLevel(proto, -rp);
@@ -435,7 +456,7 @@ export function estimateOrder(
 				const att = -20 * Math.log10(abs(freqsZpk(proto, [ws * wp])[0]) / gainAt0(proto));
 				if (att >= rs) return { N, wn };
 			}
-			return { N: info.maxOrder, wn, capped: true };
+			return { N: Math.min(info.maxOrder, maxOrder), wn, capped: true };
 		}
 	}
 }

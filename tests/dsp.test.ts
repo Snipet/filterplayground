@@ -438,3 +438,16 @@ describe('units', () => {
 		expect(toESeries(9.5e-9, 'E6')).toBeCloseTo(1e-8, 15);
 	});
 });
+
+describe('capped order estimation', () => {
+	it('keeps the passband spec exact at the maximum order', () => {
+		// needs N > 30 for both families: design at 30 but with exactly 1 dB loss at the passband edge
+		for (const family of ['butter', 'cheby2'] as AnalogFamily[]) {
+			const est = estimateFromSpecs(family, { band: 'lowpass', fp: 1000, fstop: 1050, rp: 1, rs: 98 });
+			expect(est.capped).toBe(true);
+			const zpk = designAnalog({ family, band: 'lowpass', order: est.order, f1: est.f1, rp: 1, rs: 98 });
+			const r = evaluate({ kind: 'analog', zpk }, [1000]);
+			expect(r.magDb[0]).toBeCloseTo(-1, 3);
+		}
+	});
+});
