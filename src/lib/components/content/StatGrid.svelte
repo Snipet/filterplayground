@@ -41,9 +41,7 @@
 	dt {
 		font-size: 0.75rem;
 		color: var(--muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		line-height: 1.3;
 	}
 	dd {
 		margin: 0;

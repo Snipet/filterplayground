@@ -128,7 +128,11 @@
 	const sens = $derived(model ? sensitivity(model) : []);
 
 	const fmtHz = (f: number) => (f === Infinity ? '∞' : formatSI(f, 'Hz', 4));
-	const fmtGain = (m: number) => (m === Infinity ? '∞' : m === 0 ? '0 (−∞ dB)' : `${trimNumber(m, 4)} (${trimNumber(20 * Math.log10(m), 4)} dB)`);
+	const fmtDb = (m: number) => {
+		const db = 20 * Math.log10(m);
+		return Math.abs(db) < 5e-6 ? '0' : trimNumber(db, 4);
+	};
+	const fmtGain = (m: number) => (m === Infinity ? '∞' : m === 0 ? '0 (−∞ dB)' : `${trimNumber(m, 4)} (${fmtDb(m)} dB)`);
 
 	const stats = $derived.by((): Stat[] => {
 		if (!model || !props) return [];
@@ -146,7 +150,7 @@
 		if (p.worstPole !== null)
 			out.push({
 				label: digital ? 'Largest |pole|' : 'Largest Re(pole)',
-				value: digital ? trimNumber(p.worstPole, 6) : formatSI(p.worstPole, 's⁻¹', 4),
+				value: digital ? trimNumber(p.worstPole, 6) : `${trimNumber(p.worstPole, 4)} rad/s`,
 				hint: digital ? 'Distance of the outermost pole from the origin. Close to 1 = long ringing.' : 'Real part of the right-most pole (rad/s). Must be negative.'
 			});
 		out.push({
@@ -169,7 +173,7 @@
 		if (p.nyquistGain !== null) out.push({ label: 'Nyquist gain', value: fmtGain(p.nyquistGain), hint: '|H(z = −1)| at fs/2' });
 		out.push({
 			label: 'Peak gain',
-			value: p.peak.mag === Infinity ? '∞' : `${trimNumber(20 * Math.log10(p.peak.mag), 4)} dB @ ${p.peak.atInfinity ? 'f → ∞' : fmtHz(p.peak.f)}`,
+			value: p.peak.mag === Infinity ? '∞' : `${fmtDb(p.peak.mag)} dB @ ${p.peak.atInfinity ? 'f → ∞' : fmtHz(p.peak.f)}`,
 			hint: 'Maximum of |H| over frequency'
 		});
 		out.push({

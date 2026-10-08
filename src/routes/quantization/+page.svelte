@@ -232,7 +232,7 @@
 	const lcBound = $derived(0.5 / (1 - Math.abs(lcA2)));
 	const lcStats = $derived<Stat[]>([
 		{ label: 'Coefficients', value: `a₁ = ${trimNumber(lcA1, 4)}, a₂ = ${trimNumber(lcA2, 4)}` },
-		{ label: 'Ideal after 240 samples', value: `${trimNumber(Math.abs(lc.ideal[LC_N - 1]) * lcScale, 2)} LSB`, hint: 'The exact response decays geometrically to zero' },
+		{ label: 'Ideal at n = 239', value: `${trimNumber(Math.abs(lc.ideal[LC_N - 1]) * lcScale, 2)} LSB`, hint: 'The exact response decays geometrically to zero' },
 		{
 			label: 'Sustained oscillation',
 			value: lcAmp > 0 ? `±${trimNumber(lcAmp, 3)} LSB` : 'none (decays to 0)',

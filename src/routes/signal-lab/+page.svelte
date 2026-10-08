@@ -514,7 +514,7 @@
 		<Callout kind="danger" title="Unstable filter">This filter has poles on or outside the unit circle; its output grows without bound. Output playback is muted.</Callout>
 	{/if}
 
-	<Card title="Listen" subtitle={filter ? `${filterResult.label} · ${sigInfo.name} · ${DURATION} s loop` : 'No filter'}>
+	<Card title="Listen" subtitle={filter ? `${filterResult.label} · ${sigInfo.name} · ${trimNumber(nSamples / fs, 3)} s loop` : "No filter"}>
 		{#if !audioOk}
 			<Callout kind="warning">This browser does not support the Web Audio API, so playback is unavailable. The plots still work.</Callout>
 		{/if}

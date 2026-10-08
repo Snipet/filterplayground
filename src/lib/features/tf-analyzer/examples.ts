@@ -139,7 +139,7 @@ export const EXAMPLES: Example[] = [
 	},
 	{
 		id: 'butter-analog',
-		label: '4th-order Butterworth (analog poles, rad/s)',
+		label: '4th-order Butterworth (analog poles)',
 		domain: 'analog',
 		form: 'zpk',
 		texts: {

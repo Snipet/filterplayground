@@ -2,6 +2,7 @@
 	import CodeBlock from './CodeBlock.svelte';
 	import * as ex from '$lib/export';
 	import type { SOS, TF, ZPK } from '$lib/dsp/types';
+	import { zpk2sosAnalog } from '$lib/dsp/convert';
 
 	export interface Recipe {
 		label: string;
@@ -44,6 +45,16 @@
 			t.push({ id: 'sos-js', label: 'JavaScript', code: ex.sosImplementationJs(sos), language: 'javascript' });
 			t.push({ id: 'sos-m', label: 'SOS (MATLAB)', code: ex.sosToMatlab(sos), language: 'matlab' });
 			t.push({ id: 'sos-json', label: 'JSON', code: ex.sosToJson(sos), language: 'json' });
+		}
+		if (kind === 'analog' && zpk && zpk.z.length <= zpk.p.length) {
+			const asos = zpk2sosAnalog(zpk);
+			const rows = asos.map((r) => `    [${r.map((v) => ex.num(v)).join(', ')}],`).join('\n');
+			t.push({
+				id: 'asos',
+				label: 'Analog sections',
+				code: `# Analog second-order sections, one row per stage: [b0, b1, b2, a0, a1, a2]\n# H_i(s) = (b0 s^2 + b1 s + b2) / (a0 s^2 + a1 s + a2), s in rad/s; first-order rows have a0 = 0\nsections = [\n${rows}\n]`,
+				language: 'python'
+			});
 		}
 		if (tf && !fir) {
 			t.push({ id: 'tf-py', label: 'b / a (Python)', code: ex.tfToPython(tf), language: 'python' });

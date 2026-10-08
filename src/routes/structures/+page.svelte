@@ -203,7 +203,7 @@
 
 	<Card title="All structures, same filter" subtitle="Every structure computes the same transfer function; they differ in cost, memory and numerical behaviour.">
 		<div class="table-wrap">
-			<table>
+			<table class="cmp">
 				<thead>
 					<tr>
 						<th>Structure</th>
@@ -376,6 +376,9 @@
 	}
 	tr.sel td {
 		background: var(--accent-wash);
+	}
+	.cmp td:first-child {
+		min-width: 14rem;
 	}
 	.plots {
 		display: grid;
