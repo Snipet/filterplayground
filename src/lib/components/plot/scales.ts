@@ -11,7 +11,11 @@ export interface Scale {
 	invert(px: number): number;
 }
 
-export function makeScale(type: ScaleType, domain: [number, number], range: [number, number]): Scale {
+export function makeScale(
+	type: ScaleType,
+	domain: [number, number],
+	range: [number, number]
+): Scale {
 	const [d0, d1] = domain;
 	const [r0, r1] = range;
 	let fn: (v: number) => number;
@@ -48,7 +52,8 @@ export function linearTicks(d0: number, d1: number, count: number): number[] {
 	const step = niceStep(d1 - d0, count);
 	const start = Math.ceil(d0 / step - 1e-9) * step;
 	const ticks: number[] = [];
-	for (let v = start; v <= d1 + step * 1e-9; v += step) ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+	for (let v = start; v <= d1 + step * 1e-9; v += step)
+		ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
 	return ticks;
 }
 

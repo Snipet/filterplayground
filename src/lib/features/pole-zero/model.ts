@@ -91,7 +91,11 @@ function dist(x: Complex, q: Complex): number {
 }
 
 /** Π(x − zᵢ) / Π(x − pᵢ) at a plane point x (no gain). */
-export function evalRoots(zeros: readonly Complex[], poles: readonly Complex[], x: Complex): Complex {
+export function evalRoots(
+	zeros: readonly Complex[],
+	poles: readonly Complex[],
+	x: Complex
+): Complex {
 	// accumulate magnitude in log form to avoid overflow; angle as a sum
 	let logMag = 0;
 	let ang = 0;
@@ -116,7 +120,12 @@ export function evalRoots(zeros: readonly Complex[], poles: readonly Complex[], 
 }
 
 /** 20·log10|H| at a plane point, including the plane gain K (for heatmaps). */
-export function dbAt(zeros: readonly Complex[], poles: readonly Complex[], K: number, x: Complex): number {
+export function dbAt(
+	zeros: readonly Complex[],
+	poles: readonly Complex[],
+	K: number,
+	x: Complex
+): number {
 	let s = Math.log10(Math.max(Math.abs(K), 1e-300));
 	for (const q of zeros) s += Math.log10(Math.max(Math.hypot(x.re - q.re, x.im - q.im), 1e-300));
 	for (const q of poles) s -= Math.log10(Math.max(Math.hypot(x.re - q.re, x.im - q.im), 1e-300));
@@ -135,7 +144,8 @@ export function planeGain(k: number, domain: Domain, nz: number, np: number): nu
 
 /** Roots and plane gain → ZPK (z: as is; s: rad/s). */
 export function toZpk(roots: PlaneRoots, K: number, domain: Domain): ZPK {
-	if (domain === 'z') return { z: roots.zeros.map((v) => ({ ...v })), p: roots.poles.map((v) => ({ ...v })), k: K };
+	if (domain === 'z')
+		return { z: roots.zeros.map((v) => ({ ...v })), p: roots.poles.map((v) => ({ ...v })), k: K };
 	const sc = (v: Complex) => ({ re: v.re * TWO_PI, im: v.im * TWO_PI });
 	return {
 		z: roots.zeros.map(sc),
@@ -150,7 +160,9 @@ export function toZpk(roots: PlaneRoots, K: number, domain: Domain): ZPK {
 
 /** Geometric mean of the non-zero root magnitudes (plane units); fallback when none. */
 export function characteristicMagnitude(roots: PlaneRoots, fallback: number): number {
-	const mags = [...roots.zeros, ...roots.poles].map((r) => Math.hypot(r.re, r.im)).filter((m) => m > 0 && Number.isFinite(m));
+	const mags = [...roots.zeros, ...roots.poles]
+		.map((r) => Math.hypot(r.re, r.im))
+		.filter((m) => m > 0 && Number.isFinite(m));
 	if (!mags.length) return fallback;
 	return Math.exp(mags.reduce((s, m) => s + Math.log(m), 0) / mags.length);
 }
@@ -197,7 +209,11 @@ function magAt(roots: PlaneRoots, domain: Domain, fs: number, f: number): number
  * Largest |Π(x−z)/Π(x−p)| along the frequency axis: a grid scan refined by a
  * golden-section search around the best grid point.
  */
-export function findPeak(roots: PlaneRoots, domain: Domain, fs: number): { f: number; mag: number } {
+export function findPeak(
+	roots: PlaneRoots,
+	domain: Domain,
+	fs: number
+): { f: number; mag: number } {
 	const fr = scanFrequencies(roots, domain, fs);
 	let best = 0;
 	let bi = 0;
@@ -252,12 +268,16 @@ export function normalizeGain(
 			// real for conjugate-symmetric roots; choose the sign so that H(DC) = +1
 			return { K: h.re >= 0 ? 1 / m : -1 / m };
 		}
-		const why = m <= 1e-12 ? 'a zero sits at DC, so |H(DC)| = 0' : 'a pole sits at DC, so |H(DC)| is infinite';
+		const why =
+			m <= 1e-12
+				? 'a zero sits at DC, so |H(DC)| = 0'
+				: 'a pole sits at DC, so |H(DC)| is infinite';
 		const peak = normalizeGain(roots, domain, 'peak', fs);
 		return { K: peak.K, note: `Can't normalise at DC — ${why}. Using 0 dB peak instead.` };
 	}
 	const pk = findPeak(roots, domain, fs).mag;
-	if (!Number.isFinite(pk)) return { K: 1, note: 'The peak is infinite (a pole lies on the frequency axis); using K = 1.' };
+	if (!Number.isFinite(pk))
+		return { K: 1, note: 'The peak is infinite (a pole lies on the frequency axis); using K = 1.' };
 	if (!(pk > 0)) return { K: 1 };
 	return { K: 1 / pk };
 }
@@ -394,7 +414,8 @@ export const Z_PRESETS: Preset[] = [
 	{
 		id: 'peak-notch',
 		label: 'Resonance + notch',
-		description: 'A pole pair near the unit circle makes a peak; a zero pair on the circle makes a null.',
+		description:
+			'A pole pair near the unit circle makes a peak; a zero pair on the circle makes a null.',
 		build: () => [makeItem('pole', ...polar(0.9, 45)), makeItem('zero', ...polar(1, 120))],
 		select: 'pole'
 	},
@@ -408,14 +429,16 @@ export const Z_PRESETS: Preset[] = [
 	{
 		id: 'notch',
 		label: 'Notch',
-		description: 'Zeros on the unit circle null one frequency; poles just inside at the same angle restore the gain everywhere else.',
+		description:
+			'Zeros on the unit circle null one frequency; poles just inside at the same angle restore the gain everywhere else.',
 		build: () => [makeItem('zero', ...polar(1, 45)), makeItem('pole', ...polar(0.95, 45))],
 		select: 'pole'
 	},
 	{
 		id: 'butter4',
 		label: '4th-order Butterworth LP',
-		description: 'Bilinear-transformed Butterworth, cutoff fs/8: four zeros at z = −1, poles on a circle-like arc.',
+		description:
+			'Bilinear-transformed Butterworth, cutoff fs/8: four zeros at z = −1, poles on a circle-like arc.',
 		build: (fs) => {
 			const d = designDigital({ family: 'butter', band: 'lowpass', order: 4, f1: fs / 8, fs });
 			return [...itemsFromRoots('pole', d.zpk.p), ...itemsFromRoots('zero', d.zpk.z)];
@@ -424,7 +447,8 @@ export const Z_PRESETS: Preset[] = [
 	{
 		id: 'moving-average',
 		label: 'Moving average (comb)',
-		description: '8-tap moving average: zeros evenly spaced on the unit circle (except z = 1), all poles at the origin.',
+		description:
+			'8-tap moving average: zeros evenly spaced on the unit circle (except z = 1), all poles at the origin.',
 		build: () => {
 			const N = 8;
 			const out: PzItem[] = [];
@@ -438,7 +462,8 @@ export const Z_PRESETS: Preset[] = [
 	{
 		id: 'allpass',
 		label: 'All-pass pair',
-		description: 'Pole at r∠θ, zero at (1/r)∠θ: every frequency is passed with the same gain, only the phase changes.',
+		description:
+			'Pole at r∠θ, zero at (1/r)∠θ: every frequency is passed with the same gain, only the phase changes.',
 		build: () => [makeItem('pole', ...polar(0.8, 60)), makeItem('zero', ...polar(1 / 0.8, 60))],
 		select: 'pole'
 	},
@@ -463,16 +488,21 @@ export const S_PRESETS: Preset[] = [
 	{
 		id: 'butter3',
 		label: 'Butterworth, 3rd order',
-		description: 'Poles evenly spaced on a half circle of radius fc = 1 kHz in the left half-plane.',
+		description:
+			'Poles evenly spaced on a half circle of radius fc = 1 kHz in the left half-plane.',
 		build: () => {
 			const z = designAnalog({ family: 'butter', band: 'lowpass', order: 3, f1: 1000 });
-			return [...itemsFromRoots('pole', z.p, 1 / TWO_PI), ...itemsFromRoots('zero', z.z, 1 / TWO_PI)];
+			return [
+				...itemsFromRoots('pole', z.p, 1 / TWO_PI),
+				...itemsFromRoots('zero', z.z, 1 / TWO_PI)
+			];
 		}
 	},
 	{
 		id: 'notch',
 		label: 'Notch',
-		description: 'Zeros on the jω axis at ±1 kHz null that frequency; poles (Q = 2) nearby restore the gain.',
+		description:
+			'Zeros on the jω axis at ±1 kHz null that frequency; poles (Q = 2) nearby restore the gain.',
 		build: () => [makeItem('zero', 0, 1000), makeItem('pole', ...dampedPair(1000, 0.25))],
 		select: 'pole'
 	},

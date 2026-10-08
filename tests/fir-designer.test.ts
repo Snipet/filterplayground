@@ -180,7 +180,9 @@ describe('fir-designer: automatic length', () => {
 	it('high-pass auto lengths are odd (type I)', () => {
 		const hp: Spec = { band: 'highpass', edges: [6000, 8000], rp: 0.5, rs: 60 };
 		for (const method of ['pm', 'window', 'kaiser', 'fsamp', 'ls'] as const) {
-			const d = designFir(cfg({ method, spec: hp, shape: 'highpass', window: { type: 'blackman' } }));
+			const d = designFir(
+				cfg({ method, spec: hp, shape: 'highpass', window: { type: 'blackman' } })
+			);
 			expect(d.numtaps % 2, method).toBe(1);
 		}
 	});
@@ -204,9 +206,16 @@ describe('fir-designer: recipes', () => {
 		const d = designFir(c);
 		expect(scipyRecipe(c, d)).toContain('signal.remez(numtaps, [0, 6000, 8000, 24000]');
 		expect(matlabRecipe(c, d)).toContain('firpm(N-1, f, a, w)');
-		const w = cfg({ method: 'window', auto: false, numtaps: 61, window: { type: 'kaiser', param: 6 } });
+		const w = cfg({
+			method: 'window',
+			auto: false,
+			numtaps: 61,
+			window: { type: 'kaiser', param: 6 }
+		});
 		expect(scipyRecipe(w, designFir(w))).toContain("window=('kaiser', 6), pass_zero='lowpass'");
-		expect(matlabRecipe(w, designFir(w))).toContain("fir1(N-1, 7000 / (fs/2), 'low', kaiser(61, 6))");
+		expect(matlabRecipe(w, designFir(w))).toContain(
+			"fir1(N-1, 7000 / (fs/2), 'low', kaiser(61, 6))"
+		);
 	});
 });
 
@@ -239,7 +248,11 @@ describe('fir-designer: fast windows', () => {
 			[33, [6000], false],
 			[41, [4000, 11000], true]
 		];
-		for (const w of [{ type: 'hamming' as const }, { type: 'chebyshev' as const, param: 70 }, { type: 'kaiser' as const, param: 5 }])
+		for (const w of [
+			{ type: 'hamming' as const },
+			{ type: 'chebyshev' as const, param: 70 },
+			{ type: 'kaiser' as const, param: 5 }
+		])
 			for (const [N, c, pz] of cases) {
 				const a = firwinFast(N, c, w, pz, 48000);
 				const b = firwin(N, c, w, pz, 48000);

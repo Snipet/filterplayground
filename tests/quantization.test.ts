@@ -38,7 +38,15 @@ describe('fixed-point formats', () => {
 });
 
 describe('structures under quantisation', () => {
-	const d = designDigital({ family: 'ellip', band: 'lowpass', order: 6, f1: 1000, rp: 0.5, rs: 60, fs: 48000 });
+	const d = designDigital({
+		family: 'ellip',
+		band: 'lowpass',
+		order: 6,
+		f1: 1000,
+		rp: 0.5,
+		rs: 60,
+		fs: 48000
+	});
 	const tf = sos2tf(d.sos);
 	it('direct form breaks at 16 bits, cascade and coupled do not', () => {
 		const df = quantizeDirect(tf, 16, null);
@@ -54,7 +62,8 @@ describe('structures under quantisation', () => {
 		const so = quantizeSos(d.sos, 32, null);
 		const exact = sosPoles(d.sos);
 		const q = so.zpk.p;
-		for (const p of exact) expect(Math.min(...q.map((r) => Math.hypot(r.re - p.re, r.im - p.im)))).toBeLessThan(1e-6);
+		for (const p of exact)
+			expect(Math.min(...q.map((r) => Math.hypot(r.re - p.re, r.im - p.im)))).toBeLessThan(1e-6);
 	});
 	it('keeps the gain exact and integer codes consistent', () => {
 		const so = quantizeSos(d.sos, 16, null);
@@ -64,7 +73,8 @@ describe('structures under quantisation', () => {
 			expect(row[5]).toBe(so.ints[i][4] / 2 ** fa.frac);
 		});
 		// DC gain close to the original (elliptic even order: −rp at DC)
-		const dc = (sos: number[][]) => sos.reduce((g, r) => g * ((r[0] + r[1] + r[2]) / (r[3] + r[4] + r[5])), 1);
+		const dc = (sos: number[][]) =>
+			sos.reduce((g, r) => g * ((r[0] + r[1] + r[2]) / (r[3] + r[4] + r[5])), 1);
 		expect(20 * Math.log10(dc(so.sos))).toBeCloseTo(20 * Math.log10(dc(d.sos)), 1);
 	});
 	it('manual formats saturate', () => {
@@ -77,8 +87,10 @@ describe('realisable pole grids', () => {
 	it('direct-form grid is sparse near z = 1, coupled grid is uniform', () => {
 		const df = directFormGrid(6);
 		const cp = coupledGrid(6);
-		const near = (pts: { re: number; im: number }[]) => pts.filter((p) => Math.hypot(p.re - 1, p.im) < 0.2).length;
-		const mid = (pts: { re: number; im: number }[]) => pts.filter((p) => Math.hypot(p.re, p.im - 0.8) < 0.2).length;
+		const near = (pts: { re: number; im: number }[]) =>
+			pts.filter((p) => Math.hypot(p.re - 1, p.im) < 0.2).length;
+		const mid = (pts: { re: number; im: number }[]) =>
+			pts.filter((p) => Math.hypot(p.re, p.im - 0.8) < 0.2).length;
 		// relative to the uniform coupled grid, the direct-form grid is much thinner near z = 1
 		expect(near(df) / near(cp)).toBeLessThan(0.3 * (mid(df) / mid(cp)));
 		for (const p of [...df, ...cp]) expect(Math.hypot(p.re, p.im)).toBeLessThan(1);

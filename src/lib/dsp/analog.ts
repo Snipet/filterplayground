@@ -18,14 +18,7 @@ import { freqsZpk } from './response';
 import type { ZPK } from './types';
 
 export type AnalogFamily =
-	| 'butter'
-	| 'cheby1'
-	| 'cheby2'
-	| 'ellip'
-	| 'bessel'
-	| 'legendre'
-	| 'critical'
-	| 'gaussian';
+	'butter' | 'cheby1' | 'cheby2' | 'ellip' | 'bessel' | 'legendre' | 'critical' | 'gaussian';
 
 export type BesselNorm = 'phase' | 'delay' | 'mag';
 
@@ -281,14 +274,21 @@ export function legendreap(N: number): ZPK {
 	if (N % 2 === 1) {
 		const k = (N - 1) / 2;
 		let sum: number[] = [0];
-		for (let i = 0; i <= k; i++) sum = polyadd(sum, legendre(i).map((v) => v * (2 * i + 1)));
+		for (let i = 0; i <= k; i++)
+			sum = polyadd(
+				sum,
+				legendre(i).map((v) => v * (2 * i + 1))
+			);
 		integrand = polymul(sum, sum);
 	} else {
 		const k = (N - 2) / 2;
 		let sum: number[] = [0];
 		for (let i = 0; i <= k; i++) {
 			if ((k % 2 === 0 && i % 2 === 0) || (k % 2 === 1 && i % 2 === 1))
-				sum = polyadd(sum, legendre(i).map((v) => v * (2 * i + 1)));
+				sum = polyadd(
+					sum,
+					legendre(i).map((v) => v * (2 * i + 1))
+				);
 		}
 		integrand = polymul([1, 1], polymul(sum, sum));
 	}
@@ -365,7 +365,13 @@ export function prototype(family: AnalogFamily, N: number, opts: PrototypeOption
 	return { z: zpk.z.map((r) => ({ ...r })), p: zpk.p.map((r) => ({ ...r })), k: zpk.k };
 }
 
-function buildPrototype(family: AnalogFamily, N: number, rp: number, rs: number, opts: PrototypeOptions): ZPK {
+function buildPrototype(
+	family: AnalogFamily,
+	N: number,
+	rp: number,
+	rs: number,
+	opts: PrototypeOptions
+): ZPK {
 	switch (family) {
 		case 'butter':
 			return buttap(N);
@@ -418,7 +424,10 @@ export function estimateOrder(
 	const gs = Math.pow(10, 0.1 * rs) - 1;
 	// When the required order exceeds the cap, design at the cap but keep the
 	// passband spec exact (the natural frequency is computed for the capped order).
-	const cap = (n: number) => ({ N: Math.min(n, maxOrder), capped: n > maxOrder ? true : undefined });
+	const cap = (n: number) => ({
+		N: Math.min(n, maxOrder),
+		capped: n > maxOrder ? true : undefined
+	});
 	switch (family) {
 		case 'butter': {
 			const { N, capped } = cap(Math.max(1, Math.ceil(Math.log10(gs / gp) / (2 * Math.log10(ws)))));
@@ -426,11 +435,15 @@ export function estimateOrder(
 			return { N, wn: Math.pow(gp, -1 / (2 * N)), capped };
 		}
 		case 'cheby1': {
-			const { N, capped } = cap(Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws))));
+			const { N, capped } = cap(
+				Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws)))
+			);
 			return { N, wn: 1, capped };
 		}
 		case 'cheby2': {
-			const { N, capped } = cap(Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws))));
+			const { N, capped } = cap(
+				Math.max(1, Math.ceil(Math.acosh(Math.sqrt(gs / gp)) / Math.acosh(ws)))
+			);
 			// stopband-edge frequency such that attenuation is exactly rp at ω = 1
 			const wn = Math.cosh(Math.acosh(Math.sqrt(gs / gp)) / N);
 			return { N, wn, capped };

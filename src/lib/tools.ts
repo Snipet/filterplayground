@@ -107,7 +107,17 @@ export const TOOLS: Tool[] = [
 		category: 'analog',
 		description:
 			'Butterworth, Chebyshev I/II, elliptic, Bessel, Legendre and more — low-pass, high-pass, band-pass or band-stop, from an order or from specifications.',
-		tags: ['butterworth', 'chebyshev', 'elliptic', 'cauer', 'bessel', 'legendre', 'prototype', 'order', 'analog']
+		tags: [
+			'butterworth',
+			'chebyshev',
+			'elliptic',
+			'cauer',
+			'bessel',
+			'legendre',
+			'prototype',
+			'order',
+			'analog'
+		]
 	},
 	{
 		slug: 'family-compare',
@@ -125,7 +135,16 @@ export const TOOLS: Tool[] = [
 		category: 'analog',
 		description:
 			'Turn a filter into cascaded Sallen–Key or multiple-feedback op-amp stages with real E-series component values and see the error they introduce.',
-		tags: ['sallen-key', 'mfb', 'multiple feedback', 'op-amp', 'active', 'component values', 'e-series', 'cascade']
+		tags: [
+			'sallen-key',
+			'mfb',
+			'multiple feedback',
+			'op-amp',
+			'active',
+			'component values',
+			'e-series',
+			'cascade'
+		]
 	},
 	{
 		slug: 'lc-ladder',
@@ -134,7 +153,17 @@ export const TOOLS: Tool[] = [
 		category: 'analog',
 		description:
 			'Doubly-terminated LC ladder networks from normalised g-values, scaled to your impedance and frequency, verified by circuit simulation.',
-		tags: ['lc', 'ladder', 'passive', 'g-values', 'cauer', 'inductor', 'capacitor', 'impedance', 'rf']
+		tags: [
+			'lc',
+			'ladder',
+			'passive',
+			'g-values',
+			'cauer',
+			'inductor',
+			'capacitor',
+			'impedance',
+			'rf'
+		]
 	},
 	{
 		slug: 'crossover',
@@ -181,7 +210,16 @@ export const TOOLS: Tool[] = [
 		category: 'iir',
 		description:
 			'The small filters that do most of the work: one-pole smoothers, DC blockers, moving averages, comb filters, resonators and all-passes.',
-		tags: ['one-pole', 'ema', 'exponential moving average', 'dc blocker', 'comb', 'resonator', 'leaky integrator', 'moving average']
+		tags: [
+			'one-pole',
+			'ema',
+			'exponential moving average',
+			'dc blocker',
+			'comb',
+			'resonator',
+			'leaky integrator',
+			'moving average'
+		]
 	},
 	{
 		slug: 'discretization',
@@ -190,7 +228,17 @@ export const TOOLS: Tool[] = [
 		category: 'iir',
 		description:
 			'Compare bilinear, matched-Z, impulse invariance and Euler discretisation: how each maps the s-plane and what it does to the response.',
-		tags: ['bilinear', 'prewarp', 'impulse invariance', 'matched z', 'euler', 'warping', 'aliasing', 's-plane', 'z-plane']
+		tags: [
+			'bilinear',
+			'prewarp',
+			'impulse invariance',
+			'matched z',
+			'euler',
+			'warping',
+			'aliasing',
+			's-plane',
+			'z-plane'
+		]
 	},
 
 	// ---------------- Digital FIR ----------------
@@ -201,7 +249,16 @@ export const TOOLS: Tool[] = [
 		category: 'fir',
 		description:
 			'Window method, least squares, frequency sampling and Parks–McClellan (Remez) equiripple design with order estimation and tap export.',
-		tags: ['fir', 'window method', 'kaiser', 'remez', 'parks-mcclellan', 'equiripple', 'least squares', 'taps']
+		tags: [
+			'fir',
+			'window method',
+			'kaiser',
+			'remez',
+			'parks-mcclellan',
+			'equiripple',
+			'least squares',
+			'taps'
+		]
 	},
 	{
 		slug: 'windows',
@@ -210,7 +267,18 @@ export const TOOLS: Tool[] = [
 		category: 'fir',
 		description:
 			'Compare 20 window functions in time and frequency, with main-lobe width, sidelobe level, ENBW and scalloping loss.',
-		tags: ['window', 'hann', 'hamming', 'blackman', 'kaiser', 'dpss', 'chebyshev', 'sidelobe', 'leakage', 'enbw']
+		tags: [
+			'window',
+			'hann',
+			'hamming',
+			'blackman',
+			'kaiser',
+			'dpss',
+			'chebyshev',
+			'sidelobe',
+			'leakage',
+			'enbw'
+		]
 	},
 	{
 		slug: 'special-fir',
@@ -219,7 +287,17 @@ export const TOOLS: Tool[] = [
 		category: 'fir',
 		description:
 			'Hilbert transformers, differentiators, raised-cosine and Gaussian pulse shapers, Savitzky–Golay smoothers, half-band and CIC filters.',
-		tags: ['hilbert', 'differentiator', 'raised cosine', 'rrc', 'gaussian', 'savitzky-golay', 'cic', 'half-band', 'pulse shaping']
+		tags: [
+			'hilbert',
+			'differentiator',
+			'raised cosine',
+			'rrc',
+			'gaussian',
+			'savitzky-golay',
+			'cic',
+			'half-band',
+			'pulse shaping'
+		]
 	},
 	{
 		slug: 'linear-phase',
@@ -228,7 +306,16 @@ export const TOOLS: Tool[] = [
 		category: 'fir',
 		description:
 			'The four linear-phase FIR types, their zero symmetries and constraints — and what converting to minimum phase does to delay and ringing.',
-		tags: ['linear phase', 'minimum phase', 'type i', 'type ii', 'type iii', 'type iv', 'pre-ringing', 'group delay']
+		tags: [
+			'linear phase',
+			'minimum phase',
+			'type i',
+			'type ii',
+			'type iii',
+			'type iv',
+			'pre-ringing',
+			'group delay'
+		]
 	},
 
 	// ---------------- Analysis ----------------
@@ -239,7 +326,16 @@ export const TOOLS: Tool[] = [
 		category: 'analysis',
 		description:
 			'Paste coefficients (b/a, SOS or poles/zeros, analog or digital) and get the full analysis plus conversions between forms.',
-		tags: ['transfer function', 'coefficients', 'analyze', 'convert', 'sos', 'zpk', 'tf', 'stability']
+		tags: [
+			'transfer function',
+			'coefficients',
+			'analyze',
+			'convert',
+			'sos',
+			'zpk',
+			'tf',
+			'stability'
+		]
 	},
 	{
 		slug: 'signal-lab',
@@ -248,7 +344,16 @@ export const TOOLS: Tool[] = [
 		category: 'analysis',
 		description:
 			'Run test signals and noise through a filter, compare input and output in time and frequency — and listen to the difference.',
-		tags: ['audio', 'listen', 'noise', 'chirp', 'square wave', 'spectrum', 'time domain', 'web audio']
+		tags: [
+			'audio',
+			'listen',
+			'noise',
+			'chirp',
+			'square wave',
+			'spectrum',
+			'time domain',
+			'web audio'
+		]
 	},
 	{
 		slug: 'quantization',
@@ -266,7 +371,16 @@ export const TOOLS: Tool[] = [
 		category: 'analysis',
 		description:
 			'Direct form I and II, transposed, cascade, parallel and lattice block diagrams with your coefficients, plus ready-to-use code.',
-		tags: ['direct form', 'transposed', 'cascade', 'parallel', 'lattice', 'block diagram', 'implementation', 'code']
+		tags: [
+			'direct form',
+			'transposed',
+			'cascade',
+			'parallel',
+			'lattice',
+			'block diagram',
+			'implementation',
+			'code'
+		]
 	},
 
 	// ---------------- Reference ----------------
@@ -286,7 +400,19 @@ export const TOOLS: Tool[] = [
 		category: 'reference',
 		description:
 			'dB conversions, Q ↔ bandwidth ↔ damping, RC/RL/LC corner frequencies, ripple ↔ ε, E-series rounding and more.',
-		tags: ['db', 'decibel', 'q', 'bandwidth', 'octave', 'damping', 'rc', 'lc', 'resonance', 'e-series', 'convert']
+		tags: [
+			'db',
+			'decibel',
+			'q',
+			'bandwidth',
+			'octave',
+			'damping',
+			'rc',
+			'lc',
+			'resonance',
+			'e-series',
+			'convert'
+		]
 	},
 	{
 		slug: 'formulas',
@@ -302,7 +428,8 @@ export const TOOLS: Tool[] = [
 		title: 'Glossary',
 		nav: 'Glossary',
 		category: 'reference',
-		description: 'Plain-language definitions of filter terminology, from all-pass to zero-order hold.',
+		description:
+			'Plain-language definitions of filter terminology, from all-pass to zero-order hold.',
 		tags: ['glossary', 'definitions', 'terms', 'vocabulary']
 	}
 ];

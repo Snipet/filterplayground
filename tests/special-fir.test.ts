@@ -12,7 +12,17 @@ import {
 	foldedMultiplies,
 	smoothingDemo
 } from '../src/lib/features/special-fir/special';
-import { cicFir, differentiatorFir, firwin, gaussianPulse, hilbertFir, movingAverage, raisedCosine, rootRaisedCosine, savitzkyGolay } from '../src/lib/dsp/fir';
+import {
+	cicFir,
+	differentiatorFir,
+	firwin,
+	gaussianPulse,
+	hilbertFir,
+	movingAverage,
+	raisedCosine,
+	rootRaisedCosine,
+	savitzkyGolay
+} from '../src/lib/dsp/fir';
 import { remez } from '../src/lib/dsp/remez';
 
 /** Max difference between the FFT magnitude of CIC taps and the closed form. */
@@ -25,7 +35,9 @@ function cicFirCheck(h: number[], R: number, M: number, N: number): number {
 
 describe('special-fir: Hilbert', () => {
 	const hw = hilbertFir(31, { type: 'hamming' });
-	const he = remez(31, [{ f1: 0.025, f2: 0.475, d1: 1, d2: 1, weight: 1 }], 1, { symmetry: 'odd' }).h;
+	const he = remez(31, [{ f1: 0.025, f2: 0.475, d1: 1, d2: 1, weight: 1 }], 1, {
+		symmetry: 'odd'
+	}).h;
 	it('window and equiripple designs share the −j·sgn convention', () => {
 		expect(amplitude(hw, 0.25, true)).toBeCloseTo(1, 1);
 		expect(amplitude(he, 0.25, true)).toBeCloseTo(1, 1);
@@ -84,7 +96,10 @@ describe('special-fir: pulse shaping', () => {
 describe('special-fir: smoothing', () => {
 	it('Savitzky–Golay derivative of a ramp is its slope', () => {
 		const h = savitzkyGolay(7, 3, 1);
-		const y = centredFilter(h, Array.from({ length: 20 }, (_, n) => 2 * n + 1));
+		const y = centredFilter(
+			h,
+			Array.from({ length: 20 }, (_, n) => 2 * n + 1)
+		);
 		expect(y[10]).toBeCloseTo(2, 10);
 		expect(Number.isNaN(y[0])).toBe(true);
 	});

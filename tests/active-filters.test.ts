@@ -47,12 +47,15 @@ function solveComplex(A: Complex[][], b: Complex[]): Complex[] {
 
 /** v(out)/v(in) of a netlist driven by an ideal 1 V source at node "in". */
 function mna(els: El[], amps: OpAmp[], w: number): Complex {
-	const nodes = [...new Set(els.flatMap((e) => [e.a, e.b]).concat(amps.flatMap((o) => [o.plus, o.minus, o.out])))].filter((n) => n !== '0');
+	const nodes = [
+		...new Set(els.flatMap((e) => [e.a, e.b]).concat(amps.flatMap((o) => [o.plus, o.minus, o.out])))
+	].filter((n) => n !== '0');
 	const idx = new Map(nodes.map((n, i) => [n, i]));
 	const N = nodes.length + 1 + amps.length; // + source current + op-amp output currents
 	const A: Complex[][] = Array.from({ length: N }, () => Array.from({ length: N }, () => c(0)));
 	const b: Complex[] = Array.from({ length: N }, () => c(0));
-	const addA = (r: number, col: number, v: Complex) => (A[r][col] = { re: A[r][col].re + v.re, im: A[r][col].im + v.im });
+	const addA = (r: number, col: number, v: Complex) =>
+		(A[r][col] = { re: A[r][col].re + v.re, im: A[r][col].im + v.im });
 	for (const e of els) {
 		if (!Number.isFinite(e.v)) continue; // open circuit
 		const y = e.kind === 'R' ? c(1 / e.v) : c(0, w * e.v);
@@ -83,13 +86,20 @@ function mna(els: El[], amps: OpAmp[], w: number): Complex {
 	return x[idx.get('out')!];
 }
 
-function netlist(topology: StageTopology, band: StageBand, v: Values): { els: El[]; amps: OpAmp[] } {
+function netlist(
+	topology: StageTopology,
+	band: StageBand,
+	v: Values
+): { els: El[]; amps: OpAmp[] } {
 	const R = (name: string, a: string, b: string): El => ({ kind: 'R', a, b, v: v[name] });
 	const C = (name: string, a: string, b: string): El => ({ kind: 'C', a, b, v: v[name] });
 	switch (topology) {
 		case 'rc1':
 			return {
-				els: band === 'lowpass' ? [R('R1', 'in', 'P'), C('C1', 'P', '0')] : [C('C1', 'in', 'P'), R('R1', 'P', '0')],
+				els:
+					band === 'lowpass'
+						? [R('R1', 'in', 'P'), C('C1', 'P', '0')]
+						: [C('C1', 'in', 'P'), R('R1', 'P', '0')],
 				amps: [{ plus: 'P', minus: 'out', out: 'out' }]
 			};
 		case 'sk-unity':
@@ -108,13 +118,31 @@ function netlist(topology: StageTopology, band: StageBand, v: Values): { els: El
 			return {
 				els:
 					band === 'lowpass'
-						? [R('R1', 'in', 'A'), R('R2', 'A', 'out'), R('R3', 'A', 'B'), C('C1', 'A', '0'), C('C2', 'B', 'out')]
-						: [C('C1', 'in', 'A'), C('C2', 'A', 'out'), C('C3', 'A', 'B'), R('R1', 'A', '0'), R('R2', 'B', 'out')],
+						? [
+								R('R1', 'in', 'A'),
+								R('R2', 'A', 'out'),
+								R('R3', 'A', 'B'),
+								C('C1', 'A', '0'),
+								C('C2', 'B', 'out')
+							]
+						: [
+								C('C1', 'in', 'A'),
+								C('C2', 'A', 'out'),
+								C('C3', 'A', 'B'),
+								R('R1', 'A', '0'),
+								R('R2', 'B', 'out')
+							],
 				amps: [{ plus: '0', minus: 'B', out: 'out' }]
 			};
 		case 'mfb-bp':
 			return {
-				els: [R('R1', 'in', 'A'), C('C2', 'A', 'out'), C('C1', 'A', 'B'), R('R3', 'A', '0'), R('R2', 'B', 'out')],
+				els: [
+					R('R1', 'in', 'A'),
+					C('C2', 'A', 'out'),
+					C('C1', 'A', 'B'),
+					R('R3', 'A', '0'),
+					R('R2', 'B', 'out')
+				],
 				amps: [{ plus: '0', minus: 'B', out: 'out' }]
 			};
 	}
@@ -172,7 +200,10 @@ describe('design equations reproduce the target w0 and Q exactly', () => {
 					const q = topology === 'sk-equal' ? logRand(0.5, 20) : logRand(0.2, 25);
 					const gain = logRand(0.2, 10);
 					for (const cSeries of ['exact', 'E12'] as const) {
-						const st = designStage({ band, order: 2, w0, q }, { topology, gain, baseC: logRand(1e-10, 1e-6), rSeries: 'exact', cSeries });
+						const st = designStage(
+							{ band, order: 2, w0, q },
+							{ topology, gain, baseC: logRand(1e-10, 1e-6), rSeries: 'exact', cSeries }
+						);
 						const p = tfParams(st.exactTf, band);
 						expect(p.w0 / w0).toBeCloseTo(1, 9);
 						expect(p.q / q).toBeCloseTo(1, 8);
@@ -184,8 +215,10 @@ describe('design equations reproduce the target w0 and Q exactly', () => {
 							const cv = (r: string) => st.parts.find((pt) => pt.role === r)!.value;
 							expect(p.gain / (-cv('C1') / cv('C2'))).toBeCloseTo(1, 9);
 						} else expect(p.gain / st.gain).toBeCloseTo(1, 9);
-						if (band === 'bandpass') expect(Math.abs(st.gain)).toBeLessThanOrEqual(Math.min(gain, 2 * q * q) * (1 + 1e-9));
-						else if (topology === 'mfb' && cSeries === 'exact') expect(st.gain).toBeCloseTo(-gain, 9);
+						if (band === 'bandpass')
+							expect(Math.abs(st.gain)).toBeLessThanOrEqual(Math.min(gain, 2 * q * q) * (1 + 1e-9));
+						else if (topology === 'mfb' && cSeries === 'exact')
+							expect(st.gain).toBeCloseTo(-gain, 9);
 						else if (topology === 'sk-equal') expect(st.gain).toBeCloseTo(3 - 1 / q, 9);
 						// and the circuit, solved numerically, agrees
 						const vals = Object.fromEntries(st.parts.map((pt) => [pt.role, pt.exact]));
@@ -210,7 +243,10 @@ describe('design equations reproduce the target w0 and Q exactly', () => {
 
 	it('first-order buffered RC stages', () => {
 		for (const band of ['lowpass', 'highpass'] as StageBand[]) {
-			const st = designStage({ band, order: 1, w0: 6283.185, q: 0.5 }, { topology: 'mfb', gain: 3, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' });
+			const st = designStage(
+				{ band, order: 1, w0: 6283.185, q: 0.5 },
+				{ topology: 'mfb', gain: 3, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' }
+			);
 			expect(st.topology).toBe('rc1');
 			expect(tfParams(st.exactTf, band).w0).toBeCloseTo(6283.185, 6);
 			expect(st.gain).toBe(1);
@@ -218,14 +254,20 @@ describe('design equations reproduce the target w0 and Q exactly', () => {
 	});
 
 	it('MFB band-pass gain is capped at 2Q² with R3 open', () => {
-		const st = designStage({ band: 'bandpass', order: 2, w0: 1e4, q: 0.6 }, { topology: 'mfb', gain: 5, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' });
+		const st = designStage(
+			{ band: 'bandpass', order: 2, w0: 1e4, q: 0.6 },
+			{ topology: 'mfb', gain: 5, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' }
+		);
 		expect(st.gain).toBeCloseTo(-2 * 0.36, 12);
 		expect(st.parts.find((p) => p.role === 'R3')!.exact).toBe(Infinity);
 		expect(tfParams(st.exactTf, 'bandpass').q).toBeCloseTo(0.6, 12);
 	});
 
 	it('equal-component Sallen–Key falls back to unity gain for Q < 0.5', () => {
-		const st = designStage({ band: 'lowpass', order: 2, w0: 1e4, q: 0.4 }, { topology: 'sk-equal', gain: 1, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' });
+		const st = designStage(
+			{ band: 'lowpass', order: 2, w0: 1e4, q: 0.4 },
+			{ topology: 'sk-equal', gain: 1, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' }
+		);
 		expect(st.topology).toBe('sk-unity');
 		expect(tfParams(st.exactTf, 'lowpass').q).toBeCloseTo(0.4, 10);
 	});
@@ -238,10 +280,19 @@ describe('full filters', () => {
 				const zpk = designAnalog({ family: 'butter', band, order: N, f1: 1000, f2: 3000 });
 				const specs = stageSpecs(zpk, band);
 				expect(specs.reduce((s, x) => s + x.order, 0)).toBe(zpk.p.length);
-				const stages = specs.map((s) => designStage(s, { topology: 'sk-unity', gain: 1, baseC: 10e-9, rSeries: 'exact', cSeries: 'exact' }));
+				const stages = specs.map((s) =>
+					designStage(s, {
+						topology: 'sk-unity',
+						gain: 1,
+						baseC: 10e-9,
+						rSeries: 'exact',
+						cSeries: 'exact'
+					})
+				);
 				const casc = cascadeZpk(stages.map((s) => s.exactTf));
 				// compare normalised magnitudes
-				const fRef = band === 'lowpass' ? 1 : band === 'highpass' ? 1e7 : Math.sqrt(1000 * 3000) * 2 * Math.PI;
+				const fRef =
+					band === 'lowpass' ? 1 : band === 'highpass' ? 1e7 : Math.sqrt(1000 * 3000) * 2 * Math.PI;
 				const g1 = abs(freqsZpk(zpk, [fRef])[0]);
 				const g2 = abs(freqsZpk(casc, [fRef])[0]);
 				for (const f of [100, 700, 1000, 1700, 3000, 9000]) {
@@ -253,8 +304,13 @@ describe('full filters', () => {
 	}
 
 	it('cascadeZpk matches the product of stage responses', () => {
-		const specs = stageSpecs(designAnalog({ family: 'cheby1', band: 'lowpass', order: 5, f1: 2000, rp: 1 }), 'lowpass');
-		const stages = specs.map((s) => designStage(s, { topology: 'mfb', gain: 2, baseC: 4.7e-9, rSeries: 'E24', cSeries: 'E12' }));
+		const specs = stageSpecs(
+			designAnalog({ family: 'cheby1', band: 'lowpass', order: 5, f1: 2000, rp: 1 }),
+			'lowpass'
+		);
+		const stages = specs.map((s) =>
+			designStage(s, { topology: 'mfb', gain: 2, baseC: 4.7e-9, rSeries: 'E24', cSeries: 'E12' })
+		);
 		const casc = cascadeZpk(stages.map((s) => s.realized));
 		for (const w of [100, 5000, 12566, 40000]) {
 			let prod: Complex = c(1);
@@ -273,13 +329,25 @@ describe('helpers', () => {
 	});
 
 	it('Monte-Carlo is deterministic and spreads with tolerance', () => {
-		const specs = stageSpecs(designAnalog({ family: 'butter', band: 'lowpass', order: 4, f1: 1000 }), 'lowpass');
-		const stages = specs.map((s) => designStage(s, { topology: 'sk-unity', gain: 1, baseC: 10e-9, rSeries: 'E24', cSeries: 'E12' }));
+		const specs = stageSpecs(
+			designAnalog({ family: 'butter', band: 'lowpass', order: 4, f1: 1000 }),
+			'lowpass'
+		);
+		const stages = specs.map((s) =>
+			designStage(s, {
+				topology: 'sk-unity',
+				gain: 1,
+				baseC: 10e-9,
+				rSeries: 'E24',
+				cSeries: 'E12'
+			})
+		);
 		const f = [100, 1000, 3000];
 		const a = monteCarlo(stages, 0.05, f, 20);
 		const b = monteCarlo(stages, 0.05, f, 20);
 		expect(a).toEqual(b);
-		const spread = (runs: number[][]) => Math.max(...runs.map((r) => r[1])) - Math.min(...runs.map((r) => r[1]));
+		const spread = (runs: number[][]) =>
+			Math.max(...runs.map((r) => r[1])) - Math.min(...runs.map((r) => r[1]));
 		expect(spread(monteCarlo(stages, 0.01, f, 20))).toBeLessThan(spread(a));
 	});
 });
@@ -298,8 +366,19 @@ describe('standard-value optimiser', () => {
 		for (const topology of ['sk-unity', 'sk-equal', 'mfb'] as Topology[]) {
 			for (const band of ['lowpass', 'highpass', 'bandpass'] as StageBand[]) {
 				for (let t = 0; t < 30; t++) {
-					const spec = { band, order: 2 as const, w0: 2 * Math.PI * logRand(20, 5e4), q: logRand(0.55, 8) };
-					const o = { topology, gain: logRand(0.5, 4), baseC: logRand(1e-9, 1e-7), rSeries: 'E24' as const, cSeries: 'E12' as const };
+					const spec = {
+						band,
+						order: 2 as const,
+						w0: 2 * Math.PI * logRand(20, 5e4),
+						q: logRand(0.55, 8)
+					};
+					const o = {
+						topology,
+						gain: logRand(0.5, 4),
+						baseC: logRand(1e-9, 1e-7),
+						rSeries: 'E24' as const,
+						cSeries: 'E12' as const
+					};
 					const plain = designStage(spec, o);
 					const opt = designStage(spec, { ...o, optimize: true });
 					expect(err(opt)).toBeLessThanOrEqual(err(plain) + 1e-12);
@@ -325,7 +404,8 @@ describe('standard-value optimiser', () => {
 describe('tfMag2', () => {
 	it('matches |tfAt|²', () => {
 		const tf = stageTf('mfb-bp', 'bandpass', { R1: 1e4, R2: 5e4, R3: 2e3, C1: 1e-8, C2: 2.2e-8 });
-		for (const w of [10, 3e3, 1e4, 1e6]) expect(tfMag2(tf, w) / abs(tfAt(tf, w)) ** 2).toBeCloseTo(1, 12);
+		for (const w of [10, 3e3, 1e4, 1e6])
+			expect(tfMag2(tf, w) / abs(tfAt(tf, w)) ** 2).toBeCloseTo(1, 12);
 		const t1 = stageTf('rc1', 'highpass', { R1: 1e4, C1: 1e-8 });
 		expect(tfMag2(t1, 1e4) / abs(tfAt(t1, 1e4)) ** 2).toBeCloseTo(1, 12);
 	});

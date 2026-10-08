@@ -60,7 +60,13 @@
 		const out: { i: number; slot: Slot; label: string; color: string; w: number[] }[] = [];
 		slots.forEach((s, i) => {
 			if (!s.on) return;
-			out.push({ i, slot: s, label: labelOf(s), color: colorOf(i), w: makeWindow({ type: s.type, param: s.param }, N, periodic) });
+			out.push({
+				i,
+				slot: s,
+				label: labelOf(s),
+				color: colorOf(i),
+				w: makeWindow({ type: s.type, param: s.param }, N, periodic)
+			});
 		});
 		return out;
 	});
@@ -106,7 +112,13 @@
 	const lobeSeries = $derived<Series[]>(
 		analysed.map((a) => {
 			const s = sliceDecimate(a.spec.bins, a.spec.db, 0, lobeMax, 600);
-			return { x: s.x, y: s.y.map((d) => Math.pow(10, d / 20)), label: a.label, color: a.color, format: (v: number) => trimNumber(v, 4) };
+			return {
+				x: s.x,
+				y: s.y.map((d) => Math.pow(10, d / 20)),
+				label: a.label,
+				color: a.color,
+				format: (v: number) => trimNumber(v, 4)
+			};
 		})
 	);
 	const lobeLines = [
@@ -125,7 +137,11 @@
 			? analysed.map((a) => {
 					const spec = windowedSpectrum(xTones, a.w, pad);
 					const strong = windowedSpectrum(xStrong, a.w, pad);
-					return { ...a, lspec: spec, res: resolveWeak(spec, strong, setup, a.metrics.mainLobeWidth / 2) };
+					return {
+						...a,
+						lspec: spec,
+						res: resolveWeak(spec, strong, setup, a.metrics.mainLobeWidth / 2)
+					};
 				})
 			: []
 	);
@@ -154,13 +170,25 @@
 	const stats = $derived.by((): Stat[] => {
 		const out: Stat[] = [
 			{ label: 'Length N', value: `${N} (${periodic ? 'periodic' : 'symmetric'})` },
-			{ label: 'Bin width', value: `1/N = ${trimNumber(1 / N, 3)} cycles/sample`, hint: 'One DFT bin: fs/N in Hz' }
+			{
+				label: 'Bin width',
+				value: `1/N = ${trimNumber(1 / N, 3)} cycles/sample`,
+				hint: 'One DFT bin: fs/N in Hz'
+			}
 		];
 		if (analysed.length) {
-			const best = [...analysed].sort((a, b) => a.metrics.peakSidelobeDb - b.metrics.peakSidelobeDb)[0];
+			const best = [...analysed].sort(
+				(a, b) => a.metrics.peakSidelobeDb - b.metrics.peakSidelobeDb
+			)[0];
 			const narrow = [...analysed].sort((a, b) => a.metrics.width3dB - b.metrics.width3dB)[0];
-			out.push({ label: 'Lowest sidelobes', value: `${best.label}: ${trimNumber(best.metrics.peakSidelobeDb, 3)} dB` });
-			out.push({ label: 'Narrowest main lobe', value: `${narrow.label}: ${trimNumber(narrow.metrics.width3dB, 3)} bins (−3 dB)` });
+			out.push({
+				label: 'Lowest sidelobes',
+				value: `${best.label}: ${trimNumber(best.metrics.peakSidelobeDb, 3)} dB`
+			});
+			out.push({
+				label: 'Narrowest main lobe',
+				value: `${narrow.label}: ${trimNumber(narrow.metrics.width3dB, 3)} bins (−3 dB)`
+			});
 		}
 		if (leak.length) {
 			const k = leak.filter((l) => l.res.resolved).length;
@@ -186,13 +214,43 @@
 		}
 	}
 	const cols: { key: MetricKey; label: string; digits: number; hint: string }[] = [
-		{ key: 'width3dB', label: '−3 dB width', digits: 3, hint: 'Full main-lobe width at −3 dB (bins)' },
-		{ key: 'width6dB', label: '−6 dB width', digits: 3, hint: 'Full main-lobe width at −6 dB (bins)' },
-		{ key: 'mainLobeWidth', label: 'Null–null', digits: 3, hint: 'Main-lobe width between the first nulls (bins)' },
-		{ key: 'peakSidelobeDb', label: 'Peak sidelobe', digits: 3, hint: 'Highest sidelobe relative to the main lobe (dB)' },
+		{
+			key: 'width3dB',
+			label: '−3 dB width',
+			digits: 3,
+			hint: 'Full main-lobe width at −3 dB (bins)'
+		},
+		{
+			key: 'width6dB',
+			label: '−6 dB width',
+			digits: 3,
+			hint: 'Full main-lobe width at −6 dB (bins)'
+		},
+		{
+			key: 'mainLobeWidth',
+			label: 'Null–null',
+			digits: 3,
+			hint: 'Main-lobe width between the first nulls (bins)'
+		},
+		{
+			key: 'peakSidelobeDb',
+			label: 'Peak sidelobe',
+			digits: 3,
+			hint: 'Highest sidelobe relative to the main lobe (dB)'
+		},
 		{ key: 'enbw', label: 'ENBW', digits: 3, hint: 'Equivalent noise bandwidth (bins)' },
-		{ key: 'coherentGain', label: 'Coh. gain', digits: 3, hint: 'Coherent gain: mean of w[n], the factor a tone at a bin centre is scaled by' },
-		{ key: 'scallopLossDb', label: 'Scalloping', digits: 3, hint: 'Scalloping loss: worst-case amplitude loss for a tone half-way between bins (dB)' }
+		{
+			key: 'coherentGain',
+			label: 'Coh. gain',
+			digits: 3,
+			hint: 'Coherent gain: mean of w[n], the factor a tone at a bin centre is scaled by'
+		},
+		{
+			key: 'scallopLossDb',
+			label: 'Scalloping',
+			digits: 3,
+			hint: 'Scalloping loss: worst-case amplitude loss for a tone half-way between bins (dB)'
+		}
 	];
 	const fmt = (v: number, d: number) => (Number.isFinite(v) ? trimNumber(v, d) : '—');
 	const selectedTypes = $derived(new Set(active.map((a) => a.slot.type)));
@@ -224,7 +282,9 @@
 					{ value: 'periodic', label: 'Periodic' }
 				]}
 			/>
-			<p class="small muted">Symmetric windows suit FIR design; periodic (DFT-even) windows suit spectral analysis.</p>
+			<p class="small muted">
+				Symmetric windows suit FIR design; periodic (DFT-even) windows suit spectral analysis.
+			</p>
 		</ControlGroup>
 
 		<ControlGroup title="Spectrum view">
@@ -240,8 +300,22 @@
 		</ControlGroup>
 
 		<ControlGroup title="Leakage demo">
-			<Slider label="Strong tone at" bind:value={f1} min={0.5} max={Math.max(1, N / 2 - 1)} step={0.05} unit="bins" />
-			<Slider label="Separation" bind:value={sep} min={0.5} max={Math.max(1, N / 4)} step={0.05} unit="bins" />
+			<Slider
+				label="Strong tone at"
+				bind:value={f1}
+				min={0.5}
+				max={Math.max(1, N / 2 - 1)}
+				step={0.05}
+				unit="bins"
+			/>
+			<Slider
+				label="Separation"
+				bind:value={sep}
+				min={0.5}
+				max={Math.max(1, N / 4)}
+				step={0.05}
+				unit="bins"
+			/>
 			<Slider label="Weak tone level" bind:value={weakDb} min={-140} max={0} step={1} unit="dB" />
 			<Segmented
 				label="Zero padding"
@@ -260,11 +334,23 @@
 	{#if analysed.length === 0}
 		<Callout kind="note">Switch on at least one window on the left.</Callout>
 	{:else}
-		<Card title="Time domain" subtitle="The window values w[n] that multiply the signal (or the ideal impulse response).">
-			<Plot series={timeSeries} xLabel="Sample n" yLabel="w[n]" height={230} exportName="windows-time" />
+		<Card
+			title="Time domain"
+			subtitle="The window values w[n] that multiply the signal (or the ideal impulse response)."
+		>
+			<Plot
+				series={timeSeries}
+				xLabel="Sample n"
+				yLabel="w[n]"
+				height={230}
+				exportName="windows-time"
+			/>
 		</Card>
 
-		<Card title="Spectrum" subtitle="|W(f)| normalised to 0 dB at DC, against frequency in DFT bins (1 bin = fs/N). The main lobe sets resolution; the sidelobes set leakage.">
+		<Card
+			title="Spectrum"
+			subtitle="|W(f)| normalised to 0 dB at DC, against frequency in DFT bins (1 bin = fs/N). The main lobe sets resolution; the sidelobes set leakage."
+		>
 			<Plot
 				series={specSeries}
 				xDomain={[0, xMax]}
@@ -278,7 +364,10 @@
 		</Card>
 
 		{#if showLobe}
-			<Card title="Main lobe (linear)" subtitle="Where each main lobe crosses −3 dB and −6 dB sets the half-power and half-amplitude bandwidths.">
+			<Card
+				title="Main lobe (linear)"
+				subtitle="Where each main lobe crosses −3 dB and −6 dB sets the half-power and half-amplitude bandwidths."
+			>
 				<Plot
 					series={lobeSeries}
 					xDomain={[0, lobeMax]}
@@ -293,7 +382,10 @@
 			</Card>
 		{/if}
 
-		<Card title="Metrics" subtitle="For the windows above at N = {N}. Widths and ENBW in bins, sidelobe and scalloping in dB. Hover a heading for its definition.">
+		<Card
+			title="Metrics"
+			subtitle="For the windows above at N = {N}. Widths and ENBW in bins, sidelobe and scalloping in dB. Hover a heading for its definition."
+		>
 			<div class="table-wrap">
 				<table class="metrics">
 					<thead>
@@ -305,8 +397,12 @@
 					<tbody>
 						{#each analysed as a (a.i)}
 							<tr>
-								<td><span class="swatch" style:background={a.color} aria-hidden="true"></span>{a.label}</td>
-								{#each cols as c (c.key)}<td class="num">{fmt(a.metrics[c.key], c.digits)}</td>{/each}
+								<td
+									><span class="swatch" style:background={a.color} aria-hidden="true"
+									></span>{a.label}</td
+								>
+								{#each cols as c (c.key)}<td class="num">{fmt(a.metrics[c.key], c.digits)}</td
+									>{/each}
 							</tr>
 						{/each}
 					</tbody>
@@ -329,7 +425,10 @@
 				/>
 			{/snippet}
 			{#if !toneOk}
-				<Callout kind="warning">Both tones must lie between 0 and N/2 = {N / 2} bins: lower the strong tone frequency or the separation.</Callout>
+				<Callout kind="warning"
+					>Both tones must lie between 0 and N/2 = {N / 2} bins: lower the strong tone frequency or the
+					separation.</Callout
+				>
 			{:else}
 				<Plot
 					series={leakSeries}
@@ -345,17 +444,28 @@
 				/>
 				<div class="table-wrap">
 					<table class="verdict">
-						<thead><tr><th>Window</th><th>Weak tone</th><th class="num">Leakage at weak tone</th><th class="num">Peak found</th><th>Why</th></tr></thead>
+						<thead
+							><tr
+								><th>Window</th><th>Weak tone</th><th class="num">Leakage at weak tone</th><th
+									class="num">Peak found</th
+								><th>Why</th></tr
+							></thead
+						>
 						<tbody>
 							{#each leak as l (l.i)}
 								<tr>
-									<td><span class="swatch" style:background={l.color} aria-hidden="true"></span>{l.label}</td>
+									<td
+										><span class="swatch" style:background={l.color} aria-hidden="true"
+										></span>{l.label}</td
+									>
 									<td class="st" class:good={l.res.resolved} class:bad={!l.res.resolved}>
 										<span aria-hidden="true">{l.res.resolved ? '✓' : '✕'}</span>
 										{l.res.resolved ? 'Resolved' : 'Hidden'}
 									</td>
 									<td class="num">{fmtDb(l.res.leakageDb)}</td>
-									<td class="num">{l.res.peakDb === null ? '—' : `${trimNumber(l.res.peakDb, 3)} dB`}</td>
+									<td class="num"
+										>{l.res.peakDb === null ? '—' : `${trimNumber(l.res.peakDb, 3)} dB`}</td
+									>
 									<td class="small">{reasonText[l.res.reason]}</td>
 								</tr>
 							{/each}
@@ -363,24 +473,44 @@
 					</table>
 				</div>
 				<p class="small muted note">
-					Resolved means: the strong tone's leakage near the weak tone is at least 3 dB below it, and the spectrum has a local peak there at the weak tone's level.
-					Levels are scaled by the coherent gain, so a tone at a bin centre reads its true amplitude.
+					Resolved means: the strong tone's leakage near the weak tone is at least 3 dB below it,
+					and the spectrum has a local peak there at the weak tone's level. Levels are scaled by the
+					coherent gain, so a tone at a bin centre reads its true amplitude.
 				</p>
 			{/if}
 		</Card>
 	{/if}
 
-	<Card title="Reference: every window at N = {REF_N}" subtitle="Default parameters, {periodic ? 'periodic' : 'symmetric'} form; same units as above. Click a column to sort; the windows you selected are highlighted.">
+	<Card
+		title="Reference: every window at N = {REF_N}"
+		subtitle="Default parameters, {periodic
+			? 'periodic'
+			: 'symmetric'} form; same units as above. Click a column to sort; the windows you selected are highlighted."
+	>
 		<div class="table-wrap">
 			<table class="ref">
 				<thead>
 					<tr>
-						<th aria-sort={sortKey === 'name' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}>
-							<button type="button" onclick={() => sortBy('name')}>Window {sortKey === 'name' ? (sortDir === 1 ? '▲' : '▼') : ''}</button>
+						<th
+							aria-sort={sortKey === 'name' ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}
+						>
+							<button type="button" onclick={() => sortBy('name')}
+								>Window {sortKey === 'name' ? (sortDir === 1 ? '▲' : '▼') : ''}</button
+							>
 						</th>
 						{#each cols as c (c.key)}
-							<th class="num" title={c.hint} aria-sort={sortKey === c.key ? (sortDir === 1 ? 'ascending' : 'descending') : 'none'}>
-								<button type="button" onclick={() => sortBy(c.key)}>{c.label} {sortKey === c.key ? (sortDir === 1 ? '▲' : '▼') : ''}</button>
+							<th
+								class="num"
+								title={c.hint}
+								aria-sort={sortKey === c.key
+									? sortDir === 1
+										? 'ascending'
+										: 'descending'
+									: 'none'}
+							>
+								<button type="button" onclick={() => sortBy(c.key)}
+									>{c.label} {sortKey === c.key ? (sortDir === 1 ? '▲' : '▼') : ''}</button
+								>
 							</th>
 						{/each}
 					</tr>
@@ -388,7 +518,11 @@
 				<tbody>
 					{#each refRows as r (r.type)}
 						<tr class:sel={selectedTypes.has(r.type)}>
-							<td>{r.name}{r.param !== undefined ? ` (${windowInfo(r.type).param?.label} = ${r.param})` : ''}</td>
+							<td
+								>{r.name}{r.param !== undefined
+									? ` (${windowInfo(r.type).param?.label} = ${r.param})`
+									: ''}</td
+							>
 							{#each cols as c (c.key)}<td class="num">{fmt(r[c.key], c.digits)}</td>{/each}
 						</tr>
 					{/each}
@@ -400,60 +534,115 @@
 	{#snippet theory()}
 		<h2>Why windows matter</h2>
 		<p>
-			Any finite record is an infinitely long signal multiplied by a window — even “no window” is a rectangle. Multiplication
-			in time is convolution in frequency, so every spectral line you analyse (or every ideal filter response you truncate)
-			is smeared by the window's transform <Tex math={'W(e^{j\\omega})'} />:
+			Any finite record is an infinitely long signal multiplied by a window — even “no window” is a
+			rectangle. Multiplication in time is convolution in frequency, so every spectral line you
+			analyse (or every ideal filter response you truncate) is smeared by the window's transform <Tex
+				math={'W(e^{j\\omega})'}
+			/>:
 		</p>
-		<Tex display math={'x_w[n]=x[n]\\,w[n]\\quad\\Longleftrightarrow\\quad X_w(e^{j\\omega})=\\frac{1}{2\\pi}\\int_{-\\pi}^{\\pi}X(e^{j\\theta})\\,W(e^{j(\\omega-\\theta)})\\,d\\theta'} />
+		<Tex
+			display
+			math={'x_w[n]=x[n]\\,w[n]\\quad\\Longleftrightarrow\\quad X_w(e^{j\\omega})=\\frac{1}{2\\pi}\\int_{-\\pi}^{\\pi}X(e^{j\\theta})\\,W(e^{j(\\omega-\\theta)})\\,d\\theta'}
+		/>
 		<p>
-			A single sinusoid therefore appears as a copy of W centred on its frequency. The <strong>main lobe</strong> limits how
-			close two tones can be and still be told apart; the <strong>sidelobes</strong> leak energy from strong components
-			into distant bins, where they can hide weak ones. No window can make both small: tapering the ends lowers the
-			sidelobes but widens the main lobe. Choosing a window means choosing a point on that trade-off.
+			A single sinusoid therefore appears as a copy of W centred on its frequency. The <strong
+				>main lobe</strong
+			>
+			limits how close two tones can be and still be told apart; the <strong>sidelobes</strong> leak energy
+			from strong components into distant bins, where they can hide weak ones. No window can make both
+			small: tapering the ends lowers the sidelobes but widens the main lobe. Choosing a window means
+			choosing a point on that trade-off.
 		</p>
 
 		<h3>The metrics</h3>
-		<p>With the window normalised to N samples and frequencies measured in bins (1 bin = f<sub>s</sub>/N):</p>
+		<p>
+			With the window normalised to N samples and frequencies measured in bins (1 bin = f<sub>s</sub
+			>/N):
+		</p>
 		<ul>
-			<li><strong>Coherent gain</strong> <Tex math={'\\mathrm{CG}=\\frac{1}{N}\\sum_n w[n]'} /> — the factor by which a windowed tone's peak shrinks; divide by it to read amplitudes.</li>
-			<li><strong>Equivalent noise bandwidth</strong> <Tex math={'\\mathrm{ENBW}=N\\,\\dfrac{\\sum_n w[n]^2}{\\left(\\sum_n w[n]\\right)^2}\\ \\text{bins}'} /> — the width of the rectangular filter that passes the same white-noise power. It is 1 for the rectangle, 1.5 for Hann.</li>
-			<li><strong>Scalloping loss</strong> <Tex math={'\\mathrm{SL}=-20\\log_{10}\\dfrac{|W(\\tfrac12\\ \\mathrm{bin})|}{W(0)}'} /> — the worst-case drop for a tone half-way between two DFT bins (3.92 dB rectangular, 1.42 dB Hann, ≈ 0 for flat top).</li>
-			<li><strong>−3 dB / −6 dB width</strong> — main-lobe widths at half power and half amplitude. Two equal tones are resolvable when they are roughly a −6 dB width apart.</li>
-			<li><strong>Peak sidelobe level</strong> — the highest sidelobe relative to the main lobe; together with the sidelobe <em>decay rate</em> (6 dB/octave for a rectangle, 18 dB/octave for Hann) it sets how far leakage reaches.</li>
+			<li>
+				<strong>Coherent gain</strong>
+				<Tex math={'\\mathrm{CG}=\\frac{1}{N}\\sum_n w[n]'} /> — the factor by which a windowed tone's
+				peak shrinks; divide by it to read amplitudes.
+			</li>
+			<li>
+				<strong>Equivalent noise bandwidth</strong>
+				<Tex
+					math={'\\mathrm{ENBW}=N\\,\\dfrac{\\sum_n w[n]^2}{\\left(\\sum_n w[n]\\right)^2}\\ \\text{bins}'}
+				/> — the width of the rectangular filter that passes the same white-noise power. It is 1 for the
+				rectangle, 1.5 for Hann.
+			</li>
+			<li>
+				<strong>Scalloping loss</strong>
+				<Tex math={'\\mathrm{SL}=-20\\log_{10}\\dfrac{|W(\\tfrac12\\ \\mathrm{bin})|}{W(0)}'} /> — the
+				worst-case drop for a tone half-way between two DFT bins (3.92 dB rectangular, 1.42 dB Hann, ≈
+				0 for flat top).
+			</li>
+			<li>
+				<strong>−3 dB / −6 dB width</strong> — main-lobe widths at half power and half amplitude. Two
+				equal tones are resolvable when they are roughly a −6 dB width apart.
+			</li>
+			<li>
+				<strong>Peak sidelobe level</strong> — the highest sidelobe relative to the main lobe;
+				together with the sidelobe <em>decay rate</em> (6 dB/octave for a rectangle, 18 dB/octave for
+				Hann) it sets how far leakage reaches.
+			</li>
 		</ul>
 
 		<h3>Families</h3>
 		<p>
-			Cosine-sum windows <Tex math={'w[n]=\\sum_k (-1)^k a_k\\cos\\!\\big(\\tfrac{2\\pi k n}{N-1}\\big)'} /> (Hann, Hamming, Blackman,
-			Blackman–Harris, Nuttall, flat top) place their coefficients either to cancel the nearest sidelobes (low peak level) or
-			to make the window smooth at its ends (fast decay). Hamming is the classic example of the first kind: −43 dB, but the
-			sidelobes barely decay, so far from the main lobe it leaks more than Hann.
+			Cosine-sum windows <Tex
+				math={'w[n]=\\sum_k (-1)^k a_k\\cos\\!\\big(\\tfrac{2\\pi k n}{N-1}\\big)'}
+			/> (Hann, Hamming, Blackman, Blackman–Harris, Nuttall, flat top) place their coefficients either
+			to cancel the nearest sidelobes (low peak level) or to make the window smooth at its ends (fast
+			decay). Hamming is the classic example of the first kind: −43 dB, but the sidelobes barely decay,
+			so far from the main lobe it leaks more than Hann.
 		</p>
 		<p>
-			The <strong>Kaiser</strong> window <Tex math={'w[n]=I_0\\!\\left(\\beta\\sqrt{1-\\big(\\tfrac{2n}{N-1}-1\\big)^2}\\right)\\big/ I_0(\\beta)'} /> is a
-			near-optimal approximation to the <strong>DPSS</strong> (Slepian) window, which maximises the fraction of energy inside a
-			band |f| ≤ W = NW/N cycles/sample (± NW bins) — the formal answer to “most concentrated main lobe”. The <strong>Dolph–Chebyshev</strong> window
-			solves a different optimum: for a given sidelobe level it has the narrowest main lobe, and all its sidelobes sit
-			exactly at that level (equiripple), because its transform is a Chebyshev polynomial
+			The <strong>Kaiser</strong> window <Tex
+				math={'w[n]=I_0\\!\\left(\\beta\\sqrt{1-\\big(\\tfrac{2n}{N-1}-1\\big)^2}\\right)\\big/ I_0(\\beta)'}
+			/> is a near-optimal approximation to the <strong>DPSS</strong> (Slepian) window, which
+			maximises the fraction of energy inside a band |f| ≤ W = NW/N cycles/sample (± NW bins) — the
+			formal answer to “most concentrated main lobe”. The <strong>Dolph–Chebyshev</strong> window
+			solves a different optimum: for a given sidelobe level it has the narrowest main lobe, and all
+			its sidelobes sit exactly at that level (equiripple), because its transform is a Chebyshev
+			polynomial
 			<Tex math={'W(\\omega)\\propto T_{N-1}\\big(x_0\\cos(\\omega/2)\\big)'} />.
 		</p>
 
 		<h3>Symmetric or periodic?</h3>
 		<p>
-			A <em>symmetric</em> window has w[n] = w[N−1−n] and both ends equal — what FIR design needs, since it keeps the filter's
-			linear phase. A <em>periodic</em> (DFT-even) window is the first N points of a symmetric window of length N + 1: it
-			tiles seamlessly when repeated, and its DFT samples land exactly on the window's nulls, which gives the textbook
-			values for ENBW and scalloping. Use periodic windows for FFT analysis and overlap-add (a periodic Hann at 50 % overlap
-			sums to a constant).
+			A <em>symmetric</em> window has w[n] = w[N−1−n] and both ends equal — what FIR design needs,
+			since it keeps the filter's linear phase. A <em>periodic</em> (DFT-even) window is the first N points
+			of a symmetric window of length N + 1: it tiles seamlessly when repeated, and its DFT samples land
+			exactly on the window's nulls, which gives the textbook values for ENBW and scalloping. Use periodic
+			windows for FFT analysis and overlap-add (a periodic Hann at 50 % overlap sums to a constant).
 		</p>
 
 		<Callout kind="try">
 			<ul>
-				<li>In the leakage demo the rectangle hides the −55 dB tone while Hann and Blackman–Harris show it. Put Hamming in slot D: despite its lower first sidelobe it hides the tone too — far from the main lobe, sidelobe <em>decay</em> matters more.</li>
-				<li>Reduce the separation to about 2.6 bins and raise the weak tone to −30 dB: now the wide Blackman–Harris main lobe swallows it and Hamming wins.</li>
-				<li>Set the strong tone to exactly 10 bins and the separation to 6, with zero padding off and periodic windows: every window resolves the tone — the DFT samples land on the leakage nulls (coherent sampling).</li>
-				<li>Put a Kaiser window in slot D and sweep β from 0 to 15: watch the sidelobes drop and the main lobe widen continuously.</li>
-				<li>Switch to Dolph–Chebyshev and lower its sidelobe setting: all sidelobes stay exactly at that level.</li>
+				<li>
+					In the leakage demo the rectangle hides the −55 dB tone while Hann and Blackman–Harris
+					show it. Put Hamming in slot D: despite its lower first sidelobe it hides the tone too —
+					far from the main lobe, sidelobe <em>decay</em> matters more.
+				</li>
+				<li>
+					Reduce the separation to about 2.6 bins and raise the weak tone to −30 dB: now the wide
+					Blackman–Harris main lobe swallows it and Hamming wins.
+				</li>
+				<li>
+					Set the strong tone to exactly 10 bins and the separation to 6, with zero padding off and
+					periodic windows: every window resolves the tone — the DFT samples land on the leakage
+					nulls (coherent sampling).
+				</li>
+				<li>
+					Put a Kaiser window in slot D and sweep β from 0 to 15: watch the sidelobes drop and the
+					main lobe widen continuously.
+				</li>
+				<li>
+					Switch to Dolph–Chebyshev and lower its sidelobe setting: all sidelobes stay exactly at
+					that level.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

@@ -121,8 +121,20 @@ export function quantizeDirect(tf: TF, bits: number, manualInt: number | null): 
 		maxRadius,
 		stable: maxRadius < 1,
 		sets: [
-			{ name: 'Numerator b (monic)', format: fb, maxAbs: Math.max(...m.map(Math.abs)), saturated: qb.saturated, count: m.length },
-			{ name: 'Denominator a₁…a_N', format: fa, maxAbs: Math.max(0, ...a.slice(1).map(Math.abs)), saturated: qa.saturated, count: a.length - 1 }
+			{
+				name: 'Numerator b (monic)',
+				format: fb,
+				maxAbs: Math.max(...m.map(Math.abs)),
+				saturated: qb.saturated,
+				count: m.length
+			},
+			{
+				name: 'Denominator a₁…a_N',
+				format: fa,
+				maxAbs: Math.max(0, ...a.slice(1).map(Math.abs)),
+				saturated: qa.saturated,
+				count: a.length - 1
+			}
 		]
 	};
 }
@@ -153,7 +165,10 @@ export function quantizeSos(sos: SOS, bits: number, manualInt: number | null): S
 		satB += qb.saturated;
 		satA += qa.saturated;
 		out.push([...qb.q, 1, ...qa.q]);
-		ints.push([...nums[i].map((v) => toInt(quantize(v, fb).value, fb)), ...dens[i].map((v) => toInt(quantize(v, fa).value, fa))]);
+		ints.push([
+			...nums[i].map((v) => toInt(quantize(v, fb).value, fb)),
+			...dens[i].map((v) => toInt(quantize(v, fa).value, fa))
+		]);
 	});
 	out[0] = out[0].map((v, j) => (j < 3 ? v * gain : v));
 	const z: Complex[] = [];
@@ -173,8 +188,20 @@ export function quantizeSos(sos: SOS, bits: number, manualInt: number | null): S
 		maxRadius,
 		stable: maxRadius < 1,
 		sets: [
-			{ name: 'Section numerators (monic)', format: fb, maxAbs: Math.max(...nums.flat().map(Math.abs)), saturated: satB, count: nums.flat().length },
-			{ name: 'Section denominators a₁, a₂', format: fa, maxAbs: Math.max(...dens.flat().map(Math.abs)), saturated: satA, count: dens.flat().length }
+			{
+				name: 'Section numerators (monic)',
+				format: fb,
+				maxAbs: Math.max(...nums.flat().map(Math.abs)),
+				saturated: satB,
+				count: nums.flat().length
+			},
+			{
+				name: 'Section denominators a₁, a₂',
+				format: fa,
+				maxAbs: Math.max(...dens.flat().map(Math.abs)),
+				saturated: satA,
+				count: dens.flat().length
+			}
 		]
 	};
 }
@@ -185,7 +212,13 @@ export function quantizeSos(sos: SOS, bits: number, manualInt: number | null): S
  * pole positions. Real poles are quantised directly (first-order sections).
  * Zeros are taken from the quantised SOS numerators.
  */
-export function quantizeCoupled(poles: readonly Complex[], zerosFromSos: readonly Complex[], gain: number, bits: number, manualInt: number | null): StructureResult {
+export function quantizeCoupled(
+	poles: readonly Complex[],
+	zerosFromSos: readonly Complex[],
+	gain: number,
+	bits: number,
+	manualInt: number | null
+): StructureResult {
 	const reps = poles.filter((p) => p.im >= 0);
 	const vals = reps.flatMap((p) => (p.im > 0 ? [p.re, p.im] : [p.re]));
 	const f = manualInt === null ? autoFormat(vals, bits) : makeFormat(bits, manualInt);
@@ -208,7 +241,15 @@ export function quantizeCoupled(poles: readonly Complex[], zerosFromSos: readonl
 		zpk: { z: [...zerosFromSos], p, k: gain },
 		maxRadius,
 		stable: maxRadius < 1,
-		sets: [{ name: 'Pole coordinates σ, ω', format: f, maxAbs: Math.max(0, ...vals.map(Math.abs)), saturated: sat, count: vals.length }]
+		sets: [
+			{
+				name: 'Pole coordinates σ, ω',
+				format: f,
+				maxAbs: Math.max(0, ...vals.map(Math.abs)),
+				saturated: sat,
+				count: vals.length
+			}
+		]
 	};
 }
 
@@ -276,7 +317,14 @@ export function roundTo(v: number, frac: number, mode: RoundMode): number {
  * Zero-input response of y[n] = −a₁y[n−1] − a₂y[n−2] from y[−1] = y0, y[−2] = 0,
  * ideal (double) and with every product rounded to `frac` fractional bits.
  */
-export function zeroInputResponse(a1: number, a2: number, y0: number, frac: number, mode: RoundMode, n: number): { ideal: number[]; quantized: number[] } {
+export function zeroInputResponse(
+	a1: number,
+	a2: number,
+	y0: number,
+	frac: number,
+	mode: RoundMode,
+	n: number
+): { ideal: number[]; quantized: number[] } {
 	const ideal: number[] = [];
 	const quantized: number[] = [];
 	let i1 = y0;

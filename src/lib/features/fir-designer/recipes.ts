@@ -4,7 +4,13 @@
 import type { WindowSpec } from '$lib/dsp/fir';
 import { kaiserOrder, windowInfo } from '$lib/dsp/windows';
 import type { BandType } from '$lib/dsp/types';
-import { type Band, type FirConfig, type FirDesign, kaiserAttenuation, transitionWidth } from './design';
+import {
+	type Band,
+	type FirConfig,
+	type FirDesign,
+	kaiserAttenuation,
+	transitionWidth
+} from './design';
 
 const n = (v: number, d = 10) => {
 	if (!Number.isFinite(v)) return String(v);
@@ -97,8 +103,18 @@ export function matlabWindow(w: WindowSpec, N: number): string | null {
 	}
 }
 
-const passZeroStr: Record<BandType, string> = { lowpass: "'lowpass'", highpass: "'highpass'", bandpass: "'bandpass'", bandstop: "'bandstop'" };
-const fir1Type: Record<BandType, string> = { lowpass: "'low'", highpass: "'high'", bandpass: "'bandpass'", bandstop: "'stop'" };
+const passZeroStr: Record<BandType, string> = {
+	lowpass: "'lowpass'",
+	highpass: "'highpass'",
+	bandpass: "'bandpass'",
+	bandstop: "'bandstop'"
+};
+const fir1Type: Record<BandType, string> = {
+	lowpass: "'low'",
+	highpass: "'high'",
+	bandpass: "'bandpass'",
+	bandstop: "'stop'"
+};
 
 function bandEdges(bands: Band[]): number[] {
 	return bands.flatMap((b) => [b.f1, b.f2]);
@@ -106,7 +122,9 @@ function bandEdges(bands: Band[]): number[] {
 
 /** True if every band is a straight line through the origin (D = slope·f). */
 function rampsThroughOrigin(bands: Band[]): boolean {
-	return bands.every((b) => Math.abs(b.d1 * b.f2 - b.d2 * b.f1) <= 1e-9 * Math.max(1, Math.abs(b.d2 * b.f1)));
+	return bands.every(
+		(b) => Math.abs(b.d1 * b.f2 - b.d2 * b.f1) <= 1e-9 * Math.max(1, Math.abs(b.d2 * b.f1))
+	);
 }
 const constantBands = (bands: Band[]) => bands.every((b) => b.d1 === b.d2);
 
@@ -130,7 +148,12 @@ export function scipyRecipe(cfg: FirConfig, d: FirDesign): string {
 			const tw = transitionWidth(cfg.spec);
 			const est = kaiserOrder(A, tw / fs).numtaps;
 			const cut = d.cutoffs!.length === 1 ? n(d.cutoffs![0]) : list(d.cutoffs!);
-			const why = N === est ? '' : cfg.auto ? `  # kaiserord says ${est}; bumped to odd: a ${cfg.spec.band} needs gain at fs/2` : `  # kaiserord would give ${est}`;
+			const why =
+				N === est
+					? ''
+					: cfg.auto
+						? `  # kaiserord says ${est}; bumped to odd: a ${cfg.spec.band} needs gain at fs/2`
+						: `  # kaiserord would give ${est}`;
 			return `import numpy as np\nfrom scipy import signal\n\nfs = ${n(fs)}\n# Kaiser's formulas: A = ${n(A, 5)} dB, narrowest transition = ${n(tw)} Hz\n# numtaps, beta = signal.kaiserord(${n(A, 6)}, ${n(tw)} / (fs / 2))   # → ${est}, ${n(d.beta!, 6)}\nnumtaps, beta = ${N}, ${n(d.beta!, 8)}${why}\nh = signal.firwin(numtaps, ${cut}, window=('kaiser', beta), pass_zero=${passZeroStr[cfg.spec.band]}, fs=fs)${tail}`;
 		}
 		case 'ls': {
@@ -143,7 +166,9 @@ export function scipyRecipe(cfg: FirConfig, d: FirDesign): string {
 			const win = scipyWindow(cfg.window, N);
 			const p = d.points!;
 			const winArg = win ?? 'None';
-			const note = win ? '' : '\n# SciPy has no Welch window: designed without a window here; multiply by your own window to match.';
+			const note = win
+				? ''
+				: '\n# SciPy has no Welch window: designed without a window here; multiply by your own window to match.';
 			return `${head}h = signal.firwin2(numtaps, ${list(p.freq)},\n                  ${list(p.gain)},\n                  window=${winArg}, fs=fs)${note}${tail}`;
 		}
 		case 'pm': {
@@ -183,17 +208,25 @@ export function matlabRecipe(cfg: FirConfig, d: FirDesign): string {
 	switch (cfg.method) {
 		case 'window':
 		case 'kaiser': {
-			const w: WindowSpec = cfg.method === 'kaiser' ? { type: 'kaiser', param: d.beta } : cfg.window;
+			const w: WindowSpec =
+				cfg.method === 'kaiser' ? { type: 'kaiser', param: d.beta } : cfg.window;
 			const win = matlabWindow(w, N);
-			const Wn = d.cutoffs!.length === 1 ? `${n(d.cutoffs![0])} / (fs/2)` : `${mlist(d.cutoffs!)} / (fs/2)`;
+			const Wn =
+				d.cutoffs!.length === 1 ? `${n(d.cutoffs![0])} / (fs/2)` : `${mlist(d.cutoffs!)} / (fs/2)`;
 			const winExpr = win ?? `(1 - (((0:N-1)' - (N-1)/2) / ((N-1)/2 + 1)).^2)   % Welch window`;
-			const kai = cfg.method === 'kaiser' ? `% beta = ${n(d.beta!, 6)} from Kaiser's formula (kaiserord gives the same within ±1 tap)\n` : '';
+			const kai =
+				cfg.method === 'kaiser'
+					? `% beta = ${n(d.beta!, 6)} from Kaiser's formula (kaiserord gives the same within ±1 tap)\n`
+					: '';
 			return `${head}${kai}h = fir1(N-1, ${Wn}, ${fir1Type[cfg.spec.band]}, ${winExpr});${tail}`;
 		}
 		case 'ls': {
 			const f = bandEdges(d.bands);
 			const a = d.bands.flatMap((b) => [b.d1, b.d2]);
-			return `${head}f = ${mlist(f)} / (fs/2);\na = ${mlist(a)};\nw = ${mlist(d.bands.map((b) => b.weight), 6)};\nh = firls(N-1, f, a, w);${tail}`;
+			return `${head}f = ${mlist(f)} / (fs/2);\na = ${mlist(a)};\nw = ${mlist(
+				d.bands.map((b) => b.weight),
+				6
+			)};\nh = firls(N-1, f, a, w);${tail}`;
 		}
 		case 'fsamp': {
 			const p = d.points!;
@@ -204,8 +237,12 @@ export function matlabRecipe(cfg: FirConfig, d: FirDesign): string {
 		case 'pm': {
 			const f = bandEdges(d.bands);
 			const a = d.bands.flatMap((b) => [b.d1, b.d2]);
-			const w = mlist(d.bands.map((b) => b.weight), 6);
-			const flag = d.symmetry === 'odd' ? (cfg.relWeight ? ", 'differentiator'" : ", 'hilbert'") : '';
+			const w = mlist(
+				d.bands.map((b) => b.weight),
+				6
+			);
+			const flag =
+				d.symmetry === 'odd' ? (cfg.relWeight ? ", 'differentiator'" : ", 'hilbert'") : '';
 			return `${head}f = ${mlist(f)} / (fs/2);\na = ${mlist(a)};\nw = ${w};\nh = firpm(N-1, f, a, w${flag});${tail}`;
 		}
 	}

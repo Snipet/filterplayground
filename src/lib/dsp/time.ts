@@ -13,7 +13,11 @@ import type { DigitalFilter, SOS, ZPK } from './types';
 // ---------------------------------------------------------------------------
 
 /** Direct-form I filtering with arbitrary-length b, a (a[0] normalised). */
-export function lfilter(b: readonly number[], a: readonly number[], x: ArrayLike<number>): Float64Array {
+export function lfilter(
+	b: readonly number[],
+	a: readonly number[],
+	x: ArrayLike<number>
+): Float64Array {
 	const a0 = a[0];
 	const bn = b.map((v) => v / a0);
 	const an = a.map((v) => v / a0);
@@ -65,7 +69,11 @@ export function firfilt(h: readonly number[], x: ArrayLike<number>): Float64Arra
 /** Filter a signal with any digital filter description. */
 export function applyDigital(f: DigitalFilter, x: ArrayLike<number>): Float64Array {
 	if (f.fir) return firfilt(f.fir, x);
-	if (f.tf && f.tf.a.length === 1) return firfilt(f.tf.b.map((v) => v / f.tf!.a[0]), x);
+	if (f.tf && f.tf.a.length === 1)
+		return firfilt(
+			f.tf.b.map((v) => v / f.tf!.a[0]),
+			x
+		);
 	if (f.tf && !f.sos && !f.zpk) return lfilter(f.tf.b, f.tf.a, x);
 	return sosfilt(digitalSos(f), x);
 }
@@ -91,14 +99,21 @@ export function digitalStepResponse(f: DigitalFilter, n: number): Float64Array {
 /** Suggest a response length (samples) that captures the decay of a digital filter. */
 export function suggestDigitalLength(f: DigitalFilter, max = 4096): number {
 	if (f.fir) return Math.min(max, Math.max(32, Math.ceil(f.fir.length * 1.5)));
-	if (f.tf && f.tf.a.length === 1) return Math.min(max, Math.max(32, Math.ceil(f.tf.b.length * 1.5)));
+	if (f.tf && f.tf.a.length === 1)
+		return Math.min(max, Math.max(32, Math.ceil(f.tf.b.length * 1.5)));
 	const sos = digitalSos(f);
 	let rmax = 0;
 	for (const s of sos) {
 		const a = s.slice(3, 6).map((v) => v / (s[3] || 1));
 		// roots of z² + a1 z + a2
 		const disc = a[1] * a[1] - 4 * a[2];
-		const r = disc < 0 ? Math.sqrt(Math.max(0, a[2])) : Math.max(Math.abs((-a[1] + Math.sqrt(disc)) / 2), Math.abs((-a[1] - Math.sqrt(disc)) / 2));
+		const r =
+			disc < 0
+				? Math.sqrt(Math.max(0, a[2]))
+				: Math.max(
+						Math.abs((-a[1] + Math.sqrt(disc)) / 2),
+						Math.abs((-a[1] - Math.sqrt(disc)) / 2)
+					);
 		rmax = Math.max(rmax, r);
 	}
 	if (rmax >= 1) return Math.min(max, 256);

@@ -138,7 +138,8 @@ export function familyMetrics(zpk: ZPK): FamilyMetrics {
 	const peak = Math.max(g0, passbandPeak(zpk, wp[wp.length - 1]));
 	const dbp = mp.map((m) => 20 * Math.log10(m / peak));
 	let lastPeak = 0;
-	for (let i = 1; i < dbp.length - 1; i++) if (dbp[i] > dbp[i - 1] + 1e-9 && dbp[i] >= dbp[i + 1]) lastPeak = i;
+	for (let i = 1; i < dbp.length - 1; i++)
+		if (dbp[i] > dbp[i - 1] + 1e-9 && dbp[i] >= dbp[i + 1]) lastPeak = i;
 	let mx = -Infinity;
 	let mn = Infinity;
 	for (let i = 0; i <= lastPeak; i++) {
@@ -161,7 +162,8 @@ export function familyMetrics(zpk: ZPK): FamilyMetrics {
 	const over = Math.max(0, (Math.max(...y) / yf - 1) * 100);
 	const cross = (level: number) => {
 		for (let i = 1; i < y.length; i++) {
-			if (y[i - 1] < level && y[i] >= level) return t[i - 1] + ((level - y[i - 1]) / (y[i] - y[i - 1])) * (t[i] - t[i - 1]);
+			if (y[i - 1] < level && y[i] >= level)
+				return t[i - 1] + ((level - y[i - 1]) / (y[i] - y[i - 1])) * (t[i] - t[i - 1]);
 		}
 		return NaN;
 	};

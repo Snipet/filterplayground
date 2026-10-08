@@ -31,7 +31,10 @@
 	const ALL_IDS = FAMILIES.map((f) => f.id);
 	const CLASSIC: AnalogFamily[] = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel'];
 	let enabled = $state<Record<AnalogFamily, boolean>>(
-		Object.fromEntries(ALL_IDS.map((id) => [id, CLASSIC.includes(id)])) as Record<AnalogFamily, boolean>
+		Object.fromEntries(ALL_IDS.map((id) => [id, CLASSIC.includes(id)])) as Record<
+			AnalogFamily,
+			boolean
+		>
 	);
 	let order = $state(5);
 	let fc = $state(1000);
@@ -40,7 +43,15 @@
 	let mode = $state<CutoffMode>('3db');
 	let besselNative = $state<BesselNorm>('phase');
 
-	const shared = $derived({ fams: ALL_IDS.filter((id) => enabled[id]), order, fc, rp, rs, mode, besselNative });
+	const shared = $derived({
+		fams: ALL_IDS.filter((id) => enabled[id]),
+		order,
+		fc,
+		rp,
+		rs,
+		mode,
+		besselNative
+	});
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
@@ -50,7 +61,8 @@
 		if (typeof st.rp === 'number' && st.rp > 0) rp = Math.min(6, st.rp);
 		if (typeof st.rs === 'number' && st.rs > 0) rs = Math.min(140, st.rs);
 		if (st.mode === 'native' || st.mode === '3db') mode = st.mode;
-		if (st.besselNative === 'phase' || st.besselNative === 'delay' || st.besselNative === 'mag') besselNative = st.besselNative;
+		if (st.besselNative === 'phase' || st.besselNative === 'delay' || st.besselNative === 'mag')
+			besselNative = st.besselNative;
 	});
 
 	const shown = $derived(FAMILIES.filter((f) => enabled[f.id]));
@@ -113,8 +125,18 @@
 		let out: Entry | string;
 		try {
 			const zpk = designNormalised(f.id, s);
-			if (!zpk.p.every((p) => Number.isFinite(p.re) && Number.isFinite(p.im) && p.re < 0)) throw new Error('unstable or invalid poles');
-			out = { id: f.id, key, name: f.name, short: f.short, color: FAMILY_COLOR[f.id], zpk, m: familyMetrics(zpk), c: computeCurves(zpk) };
+			if (!zpk.p.every((p) => Number.isFinite(p.re) && Number.isFinite(p.im) && p.re < 0))
+				throw new Error('unstable or invalid poles');
+			out = {
+				id: f.id,
+				key,
+				name: f.name,
+				short: f.short,
+				color: FAMILY_COLOR[f.id],
+				zpk,
+				m: familyMetrics(zpk),
+				c: computeCurves(zpk)
+			};
 		} catch (e) {
 			out = `${f.name}: ${e instanceof Error ? e.message : String(e)}`;
 		}
@@ -148,11 +170,23 @@
 	const sFmt = (v: number) => formatSI(v, 's', 4);
 	const hzTip = (v: number) => formatSI(v, 'Hz', 4);
 
-	const magSeries = $derived<Series[]>(curves.map((c) => ({ x: fLog, y: c.magDb, label: c.e.short, color: c.e.color, format: dbFmt })));
-	const passSeries = $derived<Series[]>(curves.map((c) => ({ x: fLin, y: c.passDb, label: c.e.short, color: c.e.color, format: dbFmt })));
-	const phaseSeries = $derived<Series[]>(curves.map((c) => ({ x: fLog, y: c.phase, label: c.e.short, color: c.e.color, format: degFmt })));
+	const magSeries = $derived<Series[]>(
+		curves.map((c) => ({ x: fLog, y: c.magDb, label: c.e.short, color: c.e.color, format: dbFmt }))
+	);
+	const passSeries = $derived<Series[]>(
+		curves.map((c) => ({ x: fLin, y: c.passDb, label: c.e.short, color: c.e.color, format: dbFmt }))
+	);
+	const phaseSeries = $derived<Series[]>(
+		curves.map((c) => ({ x: fLog, y: c.phase, label: c.e.short, color: c.e.color, format: degFmt }))
+	);
 	const gdSeries = $derived<Series[]>(
-		curves.map((c) => ({ x: fGd, y: c.gd.map((v) => v * tScale), label: c.e.short, color: c.e.color, format: sFmt }))
+		curves.map((c) => ({
+			x: fGd,
+			y: c.gd.map((v) => v * tScale),
+			label: c.e.short,
+			color: c.e.color,
+			format: sFmt
+		}))
 	);
 	const gdLimits = $derived.by((): [number, number] | undefined => {
 		const vals: number[] = [];
@@ -177,7 +211,10 @@
 			const key = `${e.key}|${tSpan}`;
 			let r = timeCache.get(key);
 			if (!r) {
-				r = { step: analogTimeResponse(e.zpk, 'step', tSpan, 500), imp: analogTimeResponse(e.zpk, 'impulse', tSpan, 500) };
+				r = {
+					step: analogTimeResponse(e.zpk, 'step', tSpan, 500),
+					imp: analogTimeResponse(e.zpk, 'impulse', tSpan, 500)
+				};
 				if (timeCache.size > 400) timeCache.clear();
 				timeCache.set(key, r);
 			}
@@ -185,11 +222,21 @@
 		})
 	);
 	const stepSeries = $derived<Series[]>(
-		timeData.map((d) => ({ x: d.step.t.map((t) => t * tScale), y: d.step.y, label: d.e.short, color: d.e.color }))
+		timeData.map((d) => ({
+			x: d.step.t.map((t) => t * tScale),
+			y: d.step.y,
+			label: d.e.short,
+			color: d.e.color
+		}))
 	);
 	// impulse response in 1/s: h(t) = ωc·h_n(ωc t)
 	const impSeries = $derived<Series[]>(
-		timeData.map((d) => ({ x: d.imp.t.map((t) => t * tScale), y: d.imp.y.map((v) => v / tScale), label: d.e.short, color: d.e.color }))
+		timeData.map((d) => ({
+			x: d.imp.t.map((t) => t * tScale),
+			y: d.imp.y.map((v) => v / tScale),
+			label: d.e.short,
+			color: d.e.color
+		}))
 	);
 	const timeFmt = (v: number) => formatSI(v, 's', 3);
 
@@ -214,7 +261,10 @@
 				minRe = Math.min(minRe, p.re * 1.12);
 				maxIm = Math.max(maxIm, Math.abs(p.im) * 1.12);
 			}
-		return { x: [minRe, Math.max(0.35, -minRe * 0.25)] as [number, number], y: [-maxIm, maxIm] as [number, number] };
+		return {
+			x: [minRe, Math.max(0.35, -minRe * 0.25)] as [number, number],
+			y: [-maxIm, maxIm] as [number, number]
+		};
 	});
 
 	// ---------------- comparison table ----------------
@@ -240,12 +290,14 @@
 	function isBest(key: keyof FamilyMetrics, v: number): boolean {
 		const b = best[key];
 		if (b === undefined || !Number.isFinite(v) || list.length < 2) return false;
-		const tol = key === 'ripple' || key === 'overshoot' ? 1e-3 : 1e-3 * Math.max(Math.abs(b), 1e-12);
+		const tol =
+			key === 'ripple' || key === 'overshoot' ? 1e-3 : 1e-3 * Math.max(Math.abs(b), 1e-12);
 		return Math.abs(v - b) <= tol;
 	}
 
 	const fmtDb = (v: number) => (Number.isFinite(v) ? `${trimNumber(v, 3)} dB` : '—');
-	const fmtPct = (v: number) => (Number.isFinite(v) ? `${v < 0.005 ? '0' : trimNumber(v, 3)} %` : '—');
+	const fmtPct = (v: number) =>
+		Number.isFinite(v) ? `${v < 0.005 ? '0' : trimNumber(v, 3)} %` : '—';
 	const fmtT = (v: number) => (Number.isFinite(v) ? formatSI(v * tScale, 's', 3) : '—');
 	const fmtRipple = (v: number) => (v < 5e-4 ? '0 dB' : `${trimNumber(v, 3)} dB`);
 
@@ -260,20 +312,39 @@
 	};
 
 	const stats = $derived.by((): Stat[] => {
-		const out: Stat[] = [{ label: 'Families shown', value: `${list.length} of ${FAMILIES.length}` }];
+		const out: Stat[] = [
+			{ label: 'Families shown', value: `${list.length} of ${FAMILIES.length}` }
+		];
 		if (!list.length) return out;
 		const sharp = leader('att2', 'max');
 		const calm = leader('overshoot', 'min');
 		const flat = leader('gdVar', 'min');
 		const fast = leader('settle', 'min');
-		if (sharp) out.push({ label: 'Sharpest (at 2·fc)', value: `${sharp.short} · ${trimNumber(sharp.m.att2, 3)} dB`, hint: 'Largest attenuation one octave above the cutoff' });
-		if (calm) out.push({ label: 'Least overshoot', value: `${calm.short} · ${fmtPct(calm.m.overshoot)}` });
-		if (flat) out.push({ label: 'Flattest delay', value: `${flat.short} · Δτ ${formatSI(flat.m.gdVar * tScale, 's', 3)}`, hint: 'Smallest group-delay spread across the passband (DC to −3 dB)' });
-		if (fast) out.push({ label: 'Fastest settling (2 %)', value: `${fast.short} · ${fmtT(fast.m.settle)}` });
+		if (sharp)
+			out.push({
+				label: 'Sharpest (at 2·fc)',
+				value: `${sharp.short} · ${trimNumber(sharp.m.att2, 3)} dB`,
+				hint: 'Largest attenuation one octave above the cutoff'
+			});
+		if (calm)
+			out.push({ label: 'Least overshoot', value: `${calm.short} · ${fmtPct(calm.m.overshoot)}` });
+		if (flat)
+			out.push({
+				label: 'Flattest delay',
+				value: `${flat.short} · Δτ ${formatSI(flat.m.gdVar * tScale, 's', 3)}`,
+				hint: 'Smallest group-delay spread across the passband (DC to −3 dB)'
+			});
+		if (fast)
+			out.push({
+				label: 'Fastest settling (2 %)',
+				value: `${fast.short} · ${fmtT(fast.m.settle)}`
+			});
 		return out;
 	});
 
-	const familyOrderNote = $derived(mode === 'native' ? 'Native cutoff definitions' : 'All −3 dB at fc');
+	const familyOrderNote = $derived(
+		mode === 'native' ? 'Native cutoff definitions' : 'All −3 dB at fc'
+	);
 </script>
 
 {#snippet cell(key: keyof FamilyMetrics, v: number, text: string, sub?: string)}
@@ -284,7 +355,11 @@
 	</td>
 {/snippet}
 
-<ToolLayout slug="family-compare" share={shared} related={['analog-designer', 'order-calculator', 'lc-ladder', 'active-filters', 'crossover']}>
+<ToolLayout
+	slug="family-compare"
+	share={shared}
+	related={['analog-designer', 'order-calculator', 'lc-ladder', 'active-filters', 'crossover']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Families">
 			<div class="fams">
@@ -297,12 +372,27 @@
 				{/each}
 			</div>
 			<div class="quick">
-				<button class="btn small" type="button" onclick={() => ALL_IDS.forEach((id) => (enabled[id] = true))}>All</button>
-				<button class="btn small" type="button" onclick={() => ALL_IDS.forEach((id) => (enabled[id] = CLASSIC.includes(id)))}>Classic five</button>
 				<button
 					class="btn small"
 					type="button"
-					onclick={() => ALL_IDS.forEach((id) => (enabled[id] = ['butter', 'bessel', 'legendre', 'gaussian', 'critical'].includes(id)))}>Monotonic</button
+					onclick={() => ALL_IDS.forEach((id) => (enabled[id] = true))}>All</button
+				>
+				<button
+					class="btn small"
+					type="button"
+					onclick={() => ALL_IDS.forEach((id) => (enabled[id] = CLASSIC.includes(id)))}
+					>Classic five</button
+				>
+				<button
+					class="btn small"
+					type="button"
+					onclick={() =>
+						ALL_IDS.forEach(
+							(id) =>
+								(enabled[id] = ['butter', 'bessel', 'legendre', 'gaussian', 'critical'].includes(
+									id
+								))
+						)}>Monotonic</button
 				>
 			</div>
 		</ControlGroup>
@@ -311,10 +401,26 @@
 			<Slider label="Order N" bind:value={order} min={1} max={12} integer />
 			<Slider label="Cutoff fc" bind:value={fc} min={10} max={100000} log unit="Hz" />
 			{#if usesRp}
-				<Slider label="Passband ripple Rp" bind:value={rp} min={0.01} max={6} log unit="dB" help="Chebyshev I and elliptic" />
+				<Slider
+					label="Passband ripple Rp"
+					bind:value={rp}
+					min={0.01}
+					max={6}
+					log
+					unit="dB"
+					help="Chebyshev I and elliptic"
+				/>
 			{/if}
 			{#if usesRs}
-				<Slider label="Stopband attenuation Rs" bind:value={rs} min={10} max={120} step={1} unit="dB" help="Chebyshev II and elliptic" />
+				<Slider
+					label="Stopband attenuation Rs"
+					bind:value={rs}
+					min={10}
+					max={120}
+					step={1}
+					unit="dB"
+					help="Chebyshev II and elliptic"
+				/>
 			{/if}
 		</ControlGroup>
 
@@ -328,13 +434,14 @@
 			/>
 			{#if mode === '3db'}
 				<p class="small muted">
-					Every prototype is rescaled so its −3 dB point (relative to its passband peak) sits exactly at fc — the fair way
-					to compare shapes.
+					Every prototype is rescaled so its −3 dB point (relative to its passband peak) sits
+					exactly at fc — the fair way to compare shapes.
 				</p>
 			{:else}
 				<p class="small muted">
-					Each family uses its own textbook meaning of the cutoff: Chebyshev I and elliptic put the end of the ripple band
-					at fc, Chebyshev II puts the start of the stopband (Rs) there, the rest are −3 dB.
+					Each family uses its own textbook meaning of the cutoff: Chebyshev I and elliptic put the
+					end of the ripple band at fc, Chebyshev II puts the start of the stopband (Rs) there, the
+					rest are −3 dB.
 				</p>
 				{#if enabled.bessel}
 					<Select
@@ -478,7 +585,14 @@
 		</Plot>
 	</Card>
 
-	<Card title="Comparison" subtitle="{familyOrderNote} · order {order} · fc = {formatSI(fc, 'Hz', 4)}. Bold = best in its column.">
+	<Card
+		title="Comparison"
+		subtitle="{familyOrderNote} · order {order} · fc = {formatSI(
+			fc,
+			'Hz',
+			4
+		)}. Bold = best in its column."
+	>
 		<div class="table-wrap">
 			<table class="cmp">
 				<thead>
@@ -501,14 +615,21 @@
 							<th scope="row" class="famcell" title={e.name}>
 								<span class="swatch" style:background={e.color} aria-hidden="true"></span>{e.short}
 							</th>
-							{#if mode === 'native'}<td class="num">{Number.isFinite(e.m.f3) ? formatSI(e.m.f3 * fc, 'Hz', 4) : '—'}</td>{/if}
+							{#if mode === 'native'}<td class="num"
+									>{Number.isFinite(e.m.f3) ? formatSI(e.m.f3 * fc, 'Hz', 4) : '—'}</td
+								>{/if}
 							{@render cell('att2', e.m.att2, fmtDb(e.m.att2))}
 							{@render cell('att10', e.m.att10, fmtDb(e.m.att10))}
 							{@render cell('ripple', e.m.ripple, fmtRipple(e.m.ripple))}
 							{@render cell('overshoot', e.m.overshoot, fmtPct(e.m.overshoot))}
 							{@render cell('rise', e.m.rise, fmtT(e.m.rise))}
 							{@render cell('settle', e.m.settle, fmtT(e.m.settle))}
-							{@render cell('gdVar', e.m.gdVar, formatSI(e.m.gdVar * tScale, 's', 3), `${trimNumber((100 * e.m.gdVar) / e.m.gd0, 2)} % of τ(0)`)}
+							{@render cell(
+								'gdVar',
+								e.m.gdVar,
+								formatSI(e.m.gdVar * tScale, 's', 3),
+								`${trimNumber((100 * e.m.gdVar) / e.m.gd0, 2)} % of τ(0)`
+							)}
 							{@render cell('maxQ', e.m.maxQ, trimNumber(e.m.maxQ, 3))}
 						</tr>
 					{/each}
@@ -516,108 +637,148 @@
 			</table>
 		</div>
 		<p class="small muted note">
-			Attenuation is relative to the passband peak. Ripple is measured up to the last passband maximum. Δτ is the spread
-			of group delay from DC to the −3 dB point, also given relative to the DC delay τ(0). Highest Q is the worst pole pair
-			— a measure of how hard the filter is to build accurately.
+			Attenuation is relative to the passband peak. Ripple is measured up to the last passband
+			maximum. Δτ is the spread of group delay from DC to the −3 dB point, also given relative to
+			the DC delay τ(0). Highest Q is the worst pole pair — a measure of how hard the filter is to
+			build accurately.
 		</p>
 	</Card>
 
 	{#snippet theory()}
 		<h2>One budget, three things to spend it on</h2>
 		<p>
-			For a given order N, an all-pole low-pass has N poles to place. Where you put them decides three properties that
-			pull against each other:
+			For a given order N, an all-pole low-pass has N poles to place. Where you put them decides
+			three properties that pull against each other:
 		</p>
 		<ul>
-			<li><strong>Selectivity</strong> — how fast the magnitude falls after the cutoff (and how flat it stays before it).</li>
-			<li><strong>Phase linearity</strong> — how constant the group delay <Tex math={'\\tau(\\omega) = -\\mathrm{d}\\varphi/\\mathrm{d}\\omega'} /> is across the passband, i.e. whether all frequencies are delayed equally.</li>
-			<li><strong>Time response</strong> — overshoot, ringing and settling of the step response.</li>
+			<li>
+				<strong>Selectivity</strong> — how fast the magnitude falls after the cutoff (and how flat it
+				stays before it).
+			</li>
+			<li>
+				<strong>Phase linearity</strong> — how constant the group delay <Tex
+					math={'\\tau(\\omega) = -\\mathrm{d}\\varphi/\\mathrm{d}\\omega'}
+				/> is across the passband, i.e. whether all frequencies are delayed equally.
+			</li>
+			<li>
+				<strong>Time response</strong> — overshoot, ringing and settling of the step response.
+			</li>
 		</ul>
 		<p>
-			Poles close to the jω axis (high Q) make a sharp knee but ring for a long time and bend the phase near the cutoff;
-			poles spread towards the real axis give a clean step but a soft knee. A pole pair at
-			<Tex math={'p = -\\sigma \\pm j\\omega_d'} /> adds a ringing term <Tex math={'e^{-\\sigma t}\\cos(\\omega_d t)'} /> to the
-			step response and a group-delay bump near <Tex math={'\\omega \\approx \\omega_d'} />:
+			Poles close to the jω axis (high Q) make a sharp knee but ring for a long time and bend the
+			phase near the cutoff; poles spread towards the real axis give a clean step but a soft knee. A
+			pole pair at
+			<Tex math={'p = -\\sigma \\pm j\\omega_d'} /> adds a ringing term <Tex
+				math={'e^{-\\sigma t}\\cos(\\omega_d t)'}
+			/> to the step response and a group-delay bump near <Tex
+				math={'\\omega \\approx \\omega_d'}
+			/>:
 		</p>
-		<Tex display math={'Q = \\frac{|p|}{2\\sigma},\\qquad \\tau_{\\text{peak}} \\approx \\frac{1}{\\sigma} = \\frac{2Q}{|p|}.'} />
+		<Tex
+			display
+			math={'Q = \\frac{|p|}{2\\sigma},\\qquad \\tau_{\\text{peak}} \\approx \\frac{1}{\\sigma} = \\frac{2Q}{|p|}.'}
+		/>
 		<p>
-			The magnitude at high frequency only depends on the order (every all-pole filter ends at −20N dB/decade), so the
-			families differ in what happens in the first octave or two around fc. Rational functions with zeros on the jω
-			axis (Chebyshev II, elliptic) can do better there: the zeros create notches that make the transition steeper,
-			at the price of a stopband that bounces back up to −Rs.
+			The magnitude at high frequency only depends on the order (every all-pole filter ends at −20N
+			dB/decade), so the families differ in what happens in the first octave or two around fc.
+			Rational functions with zeros on the jω axis (Chebyshev II, elliptic) can do better there: the
+			zeros create notches that make the transition steeper, at the price of a stopband that bounces
+			back up to −Rs.
 		</p>
 		<p>
-			Normalisation matters for a fair comparison. Chebyshev and elliptic designs are traditionally specified at the
-			end of the ripple band, inverse Chebyshev at the start of the stopband and Bessel at a phase or delay
-			reference. Comparing them “at the same fc” with these native definitions mixes up genuinely different
-			cutoffs — the default here rescales every prototype <Tex math={'H(s) \\to H(s\\,\\omega_{3\\text{dB}})'} /> so that all
-			of them pass −3 dB at fc.
+			Normalisation matters for a fair comparison. Chebyshev and elliptic designs are traditionally
+			specified at the end of the ripple band, inverse Chebyshev at the start of the stopband and
+			Bessel at a phase or delay reference. Comparing them “at the same fc” with these native
+			definitions mixes up genuinely different cutoffs — the default here rescales every prototype <Tex
+				math={'H(s) \\to H(s\\,\\omega_{3\\text{dB}})'}
+			/> so that all of them pass −3 dB at fc.
 		</p>
 
 		<h3>The families</h3>
 		<dl class="portraits">
 			<dt>Butterworth</dt>
 			<dd>
-				<Tex math={'|H|^2 = 1/(1+\\omega^{2N})'} />: maximally flat at DC, poles on a circle. Moderate overshoot (4 % at
-				N = 2, 11 % at N = 4). The default for anti-aliasing and general-purpose filtering when you have no strong
-				reason to pick something else.
+				<Tex math={'|H|^2 = 1/(1+\\omega^{2N})'} />: maximally flat at DC, poles on a circle.
+				Moderate overshoot (4 % at N = 2, 11 % at N = 4). The default for anti-aliasing and
+				general-purpose filtering when you have no strong reason to pick something else.
 			</dd>
 			<dt>Chebyshev I</dt>
 			<dd>
-				Trades an equiripple passband (Rp) for a steeper knee; poles on an ellipse close to the jω axis. Long ringing
-				and a big group-delay peak at the edge — the peak overshoot is not always worse than Butterworth's (at N = 5
-				with 1 dB ripple it is lower), but the settling time is several times longer. Good when the magnitude spec is
-				everything: IF and channel filters, RF pre-selection, anti-aliasing with a tight transition.
+				Trades an equiripple passband (Rp) for a steeper knee; poles on an ellipse close to the jω
+				axis. Long ringing and a big group-delay peak at the edge — the peak overshoot is not always
+				worse than Butterworth's (at N = 5 with 1 dB ripple it is lower), but the settling time is
+				several times longer. Good when the magnitude spec is everything: IF and channel filters, RF
+				pre-selection, anti-aliasing with a tight transition.
 			</dd>
 			<dt>Chebyshev II (inverse)</dt>
 			<dd>
-				Flat passband, equiripple stopband floor at −Rs thanks to jω-axis zeros. Less overshoot than Chebyshev I for a similar
-				transition; useful when you need a guaranteed floor (e.g. rejecting a known interferer) and a clean passband.
+				Flat passband, equiripple stopband floor at −Rs thanks to jω-axis zeros. Less overshoot than
+				Chebyshev I for a similar transition; useful when you need a guaranteed floor (e.g.
+				rejecting a known interferer) and a clean passband.
 			</dd>
 			<dt>Elliptic (Cauer)</dt>
 			<dd>
-				Ripple in both bands; the steepest transition possible for a given order. Worst phase linearity and highest Q.
-				The choice for demanding magnitude-only specs: anti-aliasing in front of an ADC with little oversampling,
-				telecom channel filters, RF filter banks.
+				Ripple in both bands; the steepest transition possible for a given order. Worst phase
+				linearity and highest Q. The choice for demanding magnitude-only specs: anti-aliasing in
+				front of an ADC with little oversampling, telecom channel filters, RF filter banks.
 			</dd>
 			<dt>Bessel (Thomson)</dt>
 			<dd>
-				Maximally flat group delay: <Tex math={'H(s) = \\theta_N(0)/\\theta_N(s)'} /> with a reverse Bessel polynomial. Almost
-				no overshoot (&lt; 1 %), waveshape preserved, but the gentlest knee. Use it for pulses and measurements: oscilloscope
-				front ends, data acquisition of transients, audio where phase matters more than steepness.
+				Maximally flat group delay: <Tex math={'H(s) = \\theta_N(0)/\\theta_N(s)'} /> with a reverse Bessel
+				polynomial. Almost no overshoot (&lt; 1 %), waveshape preserved, but the gentlest knee. Use it
+				for pulses and measurements: oscilloscope front ends, data acquisition of transients, audio where
+				phase matters more than steepness.
 			</dd>
 			<dt>Legendre (Optimum-L)</dt>
 			<dd>
-				The steepest possible cutoff while the magnitude stays monotonic — between Butterworth and Chebyshev I. A good
-				compromise when ripple is unacceptable but you still want a sharp knee (e.g. audio band-limiting).
+				The steepest possible cutoff while the magnitude stays monotonic — between Butterworth and
+				Chebyshev I. A good compromise when ripple is unacceptable but you still want a sharp knee
+				(e.g. audio band-limiting).
 			</dd>
 			<dt>Gaussian</dt>
 			<dd>
-				Approximates <Tex math={'|H| = e^{-a\\omega^2}'} />, whose impulse response is also Gaussian: no overshoot and the
-				shortest combined time × bandwidth. Used for pulse shaping (GMSK), spectrum-analyser resolution filters and
-				measurement filters.
+				Approximates <Tex math={'|H| = e^{-a\\omega^2}'} />, whose impulse response is also
+				Gaussian: no overshoot and the shortest combined time × bandwidth. Used for pulse shaping
+				(GMSK), spectrum-analyser resolution filters and measurement filters.
 			</dd>
 			<dt>Critically damped</dt>
 			<dd>
-				N identical real poles — a cascade of buffered RC stages. No overshoot by construction and very soft knee. Simple
-				smoothing, envelope detectors, control loops.
+				N identical real poles — a cascade of buffered RC stages. No overshoot by construction and
+				very soft knee. Simple smoothing, envelope detectors, control loops.
 			</dd>
 		</dl>
 
 		<h3>Reading the table</h3>
 		<p>
-			A rule of thumb for the 10–90 % rise time of a low-pass is <Tex math={'t_r \\approx 0.35 / f_{3\\text{dB}}'} /> —
-			at equal −3 dB bandwidth the families rise in roughly the same time, so the real differences are overshoot and
-			settling. Settling to 2 % is dominated by the highest-Q pole pair, whose envelope decays as <Tex math={'e^{-|p| t / 2Q}'} />.
+			A rule of thumb for the 10–90 % rise time of a low-pass is <Tex
+				math={'t_r \\approx 0.35 / f_{3\\text{dB}}'}
+			/> — at equal −3 dB bandwidth the families rise in roughly the same time, so the real differences
+			are overshoot and settling. Settling to 2 % is dominated by the highest-Q pole pair, whose envelope
+			decays as <Tex math={'e^{-|p| t / 2Q}'} />.
 		</p>
 
 		<Callout kind="try">
 			<ul>
-				<li>Set N = 6 and look at the step responses: elliptic and Chebyshev I ring for many cycles, Bessel and Gaussian barely overshoot. Compare their highest-Q values in the table.</li>
-				<li>Switch to “Native” and watch the Chebyshev II curve jump: its native fc is the start of the stopband, not the −3 dB point.</li>
-				<li>Raise Rp from 0.1 dB to 3 dB: the Chebyshev I knee sharpens (more attenuation at 2·fc) while its group-delay peak and overshoot grow.</li>
-				<li>Switch to “Monotonic” and compare Legendre with Butterworth: same smooth passband, but Legendre buys several dB more at 2·fc.</li>
-				<li>Lower Rs on the elliptic filter to 20 dB: the transition becomes even steeper, but the stopband only stays 20 dB down.</li>
+				<li>
+					Set N = 6 and look at the step responses: elliptic and Chebyshev I ring for many cycles,
+					Bessel and Gaussian barely overshoot. Compare their highest-Q values in the table.
+				</li>
+				<li>
+					Switch to “Native” and watch the Chebyshev II curve jump: its native fc is the start of
+					the stopband, not the −3 dB point.
+				</li>
+				<li>
+					Raise Rp from 0.1 dB to 3 dB: the Chebyshev I knee sharpens (more attenuation at 2·fc)
+					while its group-delay peak and overshoot grow.
+				</li>
+				<li>
+					Switch to “Monotonic” and compare Legendre with Butterworth: same smooth passband, but
+					Legendre buys several dB more at 2·fc.
+				</li>
+				<li>
+					Lower Rs on the elliptic filter to 20 dB: the transition becomes even steeper, but the
+					stopband only stays 20 dB down.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

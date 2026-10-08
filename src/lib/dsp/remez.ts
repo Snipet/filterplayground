@@ -36,7 +36,12 @@ export interface RemezResult {
 	extremals: number[];
 }
 
-export function remez(numtaps: number, bandsHz: RemezBand[], fs: number, opts: RemezOptions = {}): RemezResult {
+export function remez(
+	numtaps: number,
+	bandsHz: RemezBand[],
+	fs: number,
+	opts: RemezOptions = {}
+): RemezResult {
 	const symmetry = opts.symmetry ?? 'even';
 	const density = opts.gridDensity ?? 16;
 	const maxIter = opts.maxIterations ?? 60;
@@ -68,7 +73,8 @@ export function remez(numtaps: number, bandsHz: RemezBand[], fs: number, opts: R
 			const t = b.f2 === b.f1 ? 0 : (f - b.f1) / (b.f2 - b.f1);
 			const d = b.d1 + t * (b.d2 - b.d1);
 			let w = b.weight;
-			if (opts.relativeWeighting && Math.abs(b.d2 - b.d1) > 0 && Math.abs(d) > 1e-4) w = b.weight / Math.abs(d);
+			if (opts.relativeWeighting && Math.abs(b.d2 - b.d1) > 0 && Math.abs(d) > 1e-4)
+				w = b.weight / Math.abs(d);
 			grid.push(f);
 			D.push(d);
 			W.push(w);
@@ -105,7 +111,8 @@ export function remez(numtaps: number, bandsHz: RemezBand[], fs: number, opts: R
 		for (let i = 0; i <= r; i++) {
 			let denom = 1;
 			const xi = x[i];
-			for (let j = 0; j < ld; j++) for (let k = j; k <= r; k += ld) if (k !== i) denom *= 2 * (xi - x[k]);
+			for (let j = 0; j < ld; j++)
+				for (let k = j; k <= r; k += ld) if (k !== i) denom *= 2 * (xi - x[k]);
 			if (Math.abs(denom) < 1e-300) denom = 1e-300;
 			ad[i] = 1 / denom;
 		}
@@ -173,7 +180,13 @@ export function remez(numtaps: number, bandsHz: RemezBand[], fs: number, opts: R
 		throw new Error(
 			'The Remez exchange collapsed (the optimal ripple is beyond double precision, or the bands are infeasible). Use fewer taps or relax the specification.'
 		);
-	return { h, delta: Math.abs(delta), iterations, converged, extremals: ext.map((e) => grid[e] * fs) };
+	return {
+		h,
+		delta: Math.abs(delta),
+		iterations,
+		converged,
+		extremals: ext.map((e) => grid[e] * fs)
+	};
 }
 
 /** Locate alternating extrema of the error; keep exactly r+1 of them. */
@@ -182,7 +195,10 @@ function searchExtremals(E: Float64Array, r: number): number[] {
 	let found: number[] = [];
 	if ((E[0] > 0 && E[0] > E[1]) || (E[0] < 0 && E[0] < E[1])) found.push(0);
 	for (let i = 1; i < G - 1; i++) {
-		if ((E[i] >= E[i - 1] && E[i] > E[i + 1] && E[i] > 0) || (E[i] <= E[i - 1] && E[i] < E[i + 1] && E[i] < 0))
+		if (
+			(E[i] >= E[i - 1] && E[i] > E[i + 1] && E[i] > 0) ||
+			(E[i] <= E[i - 1] && E[i] < E[i + 1] && E[i] < 0)
+		)
 			found.push(i);
 	}
 	const j = G - 1;

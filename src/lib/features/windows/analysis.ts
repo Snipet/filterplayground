@@ -3,7 +3,14 @@
  * and the two-tone spectral-leakage experiment.
  */
 import { fftReal, nextPow2 } from '$lib/dsp/fft';
-import { WINDOWS, windowInfo, windowMetrics, windowValues, type WindowMetrics, type WindowType } from '$lib/dsp/windows';
+import {
+	WINDOWS,
+	windowInfo,
+	windowMetrics,
+	windowValues,
+	type WindowMetrics,
+	type WindowType
+} from '$lib/dsp/windows';
 import { chebwinFast } from '$lib/features/fir-designer/windowing';
 
 export interface WindowChoice {
@@ -14,12 +21,19 @@ export interface WindowChoice {
 /** Window values; Dolph–Chebyshev via the table-driven fast path (same values as the shared chebwin). */
 export function makeWindow(c: WindowChoice, N: number, periodic: boolean): number[] {
 	const p = windowInfo(c.type).param ? (c.param ?? windowInfo(c.type).param!.default) : undefined;
-	if (c.type === 'chebyshev' && N > 1) return periodic ? chebwinFast(N + 1, p!).slice(0, N) : chebwinFast(N, p!);
+	if (c.type === 'chebyshev' && N > 1)
+		return periodic ? chebwinFast(N + 1, p!).slice(0, N) : chebwinFast(N, p!);
 	return windowValues(c.type, N, p, periodic);
 }
 
 /** Keep the points with x in [x0, x1] (plus one neighbour each side), then min/max-decimate. */
-export function sliceDecimate(x: readonly number[], y: readonly number[], x0: number, x1: number, buckets = 700): { x: number[]; y: number[] } {
+export function sliceDecimate(
+	x: readonly number[],
+	y: readonly number[],
+	x0: number,
+	x1: number,
+	buckets = 700
+): { x: number[]; y: number[] } {
 	let i0 = 0;
 	while (i0 < x.length && x[i0] < x0) i0++;
 	let i1 = x.length - 1;
@@ -71,7 +85,14 @@ export function allWindowMetrics(N: number, periodic: boolean): MetricsRow[] {
 	});
 }
 
-export type MetricKey = 'width3dB' | 'width6dB' | 'mainLobeWidth' | 'peakSidelobeDb' | 'enbw' | 'coherentGain' | 'scallopLossDb';
+export type MetricKey =
+	| 'width3dB'
+	| 'width6dB'
+	| 'mainLobeWidth'
+	| 'peakSidelobeDb'
+	| 'enbw'
+	| 'coherentGain'
+	| 'scallopLossDb';
 
 export function sortRows(rows: MetricsRow[], key: MetricKey | 'name', dir: 1 | -1): MetricsRow[] {
 	return [...rows].sort((a, b) => {
@@ -106,7 +127,9 @@ export function twoTones(s: ToneSetup, weak = true): number[] {
 	// fixed, unrelated phases so the result does not hinge on a lucky alignment
 	return Array.from(
 		{ length: s.N },
-		(_, n) => Math.cos((2 * Math.PI * s.f1 * n) / s.N + 0.3) + a2 * Math.cos((2 * Math.PI * s.f2 * n) / s.N + 1.1)
+		(_, n) =>
+			Math.cos((2 * Math.PI * s.f1 * n) / s.N + 0.3) +
+			a2 * Math.cos((2 * Math.PI * s.f2 * n) / s.N + 1.1)
 	);
 }
 
@@ -114,7 +137,11 @@ export function twoTones(s: ToneSetup, weak = true): number[] {
  * Windowed, zero-padded magnitude spectrum in dB, scaled so a unit-amplitude
  * sinusoid reads 0 dB at its peak (divide by the coherent gain Σw/2).
  */
-export function windowedSpectrum(x: readonly number[], w: readonly number[], pad: number): { bins: number[]; db: number[] } {
+export function windowedSpectrum(
+	x: readonly number[],
+	w: readonly number[],
+	pad: number
+): { bins: number[]; db: number[] } {
 	const N = x.length;
 	const n = nextPow2(Math.max(N, Math.round(N * pad)));
 	const xw = x.map((v, i) => v * w[i]);
@@ -172,7 +199,8 @@ export function resolveWeak(
 	const reach = Math.max(0.5, step / 2 + 1e-9);
 	let leakageDb = -Infinity;
 	for (let i = 0; i < strongOnly.bins.length; i++)
-		if (Math.abs(strongOnly.bins[i] - s.f2) <= reach) leakageDb = Math.max(leakageDb, strongOnly.db[i]);
+		if (Math.abs(strongOnly.bins[i] - s.f2) <= reach)
+			leakageDb = Math.max(leakageDb, strongOnly.db[i]);
 	let best = -1;
 	for (let i = 1; i < bins.length - 1; i++) {
 		if (Math.abs(bins[i] - s.f2) > Math.max(0.6, step)) continue;

@@ -56,35 +56,40 @@ export const METHODS: MethodInfo[] = [
 	{
 		id: 'window',
 		name: 'Window method',
-		summary: 'Truncate the ideal (sinc) impulse response and taper it with a window. Simple and robust; the window sets the stopband floor.',
+		summary:
+			'Truncate the ideal (sinc) impulse response and taper it with a window. Simple and robust; the window sets the stopband floor.',
 		maxTaps: 1023,
 		custom: false
 	},
 	{
 		id: 'kaiser',
 		name: 'Kaiser (from specs)',
-		summary: "Window method with a Kaiser window whose β and length come straight from Kaiser's empirical formulas.",
+		summary:
+			"Window method with a Kaiser window whose β and length come straight from Kaiser's empirical formulas.",
 		maxTaps: 1023,
 		custom: false
 	},
 	{
 		id: 'ls',
 		name: 'Least squares',
-		summary: 'Minimises the weighted integrated squared error over the bands (firls). Odd lengths only (type I).',
+		summary:
+			'Minimises the weighted integrated squared error over the bands (firls). Odd lengths only (type I).',
 		maxTaps: 401,
 		custom: true
 	},
 	{
 		id: 'fsamp',
 		name: 'Frequency sampling',
-		summary: 'Samples a piecewise-linear desired response on a dense grid, inverse-FFTs it and applies a window (firwin2).',
+		summary:
+			'Samples a piecewise-linear desired response on a dense grid, inverse-FFTs it and applies a window (firwin2).',
 		maxTaps: 1023,
 		custom: true
 	},
 	{
 		id: 'pm',
 		name: 'Parks–McClellan',
-		summary: 'Optimal equiripple (minimax) design by the Remez exchange algorithm: the fewest taps for a given ripple spec.',
+		summary:
+			'Optimal equiripple (minimax) design by the Remez exchange algorithm: the fewest taps for a given ripple spec.',
 		maxTaps: 511,
 		custom: true
 	}
@@ -96,7 +101,10 @@ export const methodInfo = (m: Method): MethodInfo => METHODS.find((x) => x.id ==
 // Specifications
 // ---------------------------------------------------------------------------
 
-export const deltas = (rp: number, rs: number) => ({ dp: passbandRippleToDelta(rp), ds: stopbandAttenToDelta(rs) });
+export const deltas = (rp: number, rs: number) => ({
+	dp: passbandRippleToDelta(rp),
+	ds: stopbandAttenToDelta(rs)
+});
 
 /** Edge labels in the same order as Spec.edges. */
 export function edgeLabels(band: BandType): string[] {
@@ -106,9 +114,19 @@ export function edgeLabels(band: BandType): string[] {
 		case 'highpass':
 			return ['Stopband edge', 'Passband edge'];
 		case 'bandpass':
-			return ['Lower stopband edge', 'Lower passband edge', 'Upper passband edge', 'Upper stopband edge'];
+			return [
+				'Lower stopband edge',
+				'Lower passband edge',
+				'Upper passband edge',
+				'Upper stopband edge'
+			];
 		case 'bandstop':
-			return ['Lower passband edge', 'Lower stopband edge', 'Upper stopband edge', 'Upper passband edge'];
+			return [
+				'Lower passband edge',
+				'Lower stopband edge',
+				'Upper stopband edge',
+				'Upper passband edge'
+			];
 	}
 }
 
@@ -192,13 +210,19 @@ export function validateBands(bands: Band[], fs: number, method: Method): string
 	if (bands.length === 0) errs.push('Add at least one band.');
 	bands.forEach((b, i) => {
 		const n = i + 1;
-		if (![b.f1, b.f2, b.d1, b.d2, b.weight].every(Number.isFinite)) errs.push(`Band ${n}: all fields must be numbers.`);
+		if (![b.f1, b.f2, b.d1, b.d2, b.weight].every(Number.isFinite))
+			errs.push(`Band ${n}: all fields must be numbers.`);
 		else {
-			if (b.f1 < 0 || b.f2 > nyq) errs.push(`Band ${n}: edges must lie between 0 and fs/2 = ${nyq} Hz.`);
+			if (b.f1 < 0 || b.f2 > nyq)
+				errs.push(`Band ${n}: edges must lie between 0 and fs/2 = ${nyq} Hz.`);
 			if (b.f2 <= b.f1) errs.push(`Band ${n}: the upper edge must be above the lower edge.`);
-			if (method !== 'fsamp' && !(b.weight > 0)) errs.push(`Band ${n}: the weight must be positive.`);
+			if (method !== 'fsamp' && !(b.weight > 0))
+				errs.push(`Band ${n}: the weight must be positive.`);
 		}
-		if (i > 0 && b.f1 < bands[i - 1].f2) errs.push(`Band ${n} starts before band ${i} ends: bands must be in increasing order without overlap.`);
+		if (i > 0 && b.f1 < bands[i - 1].f2)
+			errs.push(
+				`Band ${n} starts before band ${i} ends: bands must be in increasing order without overlap.`
+			);
 	});
 	return errs;
 }
@@ -229,7 +253,11 @@ export function bandsToPoints(bands: Band[], fs: number): { freq: number[]; gain
  * desired response, so the linear transition is narrowed to `frac` of the spec's
  * transition band (centred on it) to leave room for that smoothing.
  */
-export function fsampPoints(spec: Spec, fs: number, frac: number): { freq: number[]; gain: number[] } {
+export function fsampPoints(
+	spec: Spec,
+	fs: number,
+	frac: number
+): { freq: number[]; gain: number[] } {
 	const e = spec.edges.slice();
 	for (let i = 0; i + 1 < e.length; i += 2) {
 		const mid = (e[i] + e[i + 1]) / 2;
@@ -241,7 +269,8 @@ export function fsampPoints(spec: Spec, fs: number, frac: number): { freq: numbe
 }
 
 /** Desired response at f (Hz) inside a band. */
-export const desiredAt = (b: Band, f: number): number => (b.f2 === b.f1 ? b.d1 : b.d1 + ((f - b.f1) / (b.f2 - b.f1)) * (b.d2 - b.d1));
+export const desiredAt = (b: Band, f: number): number =>
+	b.f2 === b.f1 ? b.d1 : b.d1 + ((f - b.f1) / (b.f2 - b.f1)) * (b.d2 - b.d1);
 
 // ---------------------------------------------------------------------------
 // Linear-phase types
@@ -255,7 +284,12 @@ export function linearPhaseType(N: number, sym: Symmetry): LpType {
 	return odd ? 3 : 4;
 }
 
-export const TYPE_NAMES: Record<LpType, string> = { 1: 'Type I', 2: 'Type II', 3: 'Type III', 4: 'Type IV' };
+export const TYPE_NAMES: Record<LpType, string> = {
+	1: 'Type I',
+	2: 'Type II',
+	3: 'Type III',
+	4: 'Type IV'
+};
 
 /** Which band ends a type forces to zero gain. */
 export function forcedZeros(t: LpType): { dc: boolean; nyq: boolean } {
@@ -271,9 +305,13 @@ export function typeConflicts(t: LpType, bands: Band[], fs: number): string[] {
 	const first = bands[0];
 	const last = bands[bands.length - 1];
 	if (fz.dc && first && first.f1 <= tolF && Math.abs(first.d1) > 1e-9)
-		out.push(`${TYPE_NAMES[t]} has a forced zero at z = +1, so H(0) = 0 — but the design asks for gain ${trim(first.d1)} at DC.`);
+		out.push(
+			`${TYPE_NAMES[t]} has a forced zero at z = +1, so H(0) = 0 — but the design asks for gain ${trim(first.d1)} at DC.`
+		);
 	if (fz.nyq && last && last.f2 >= nyq - tolF && Math.abs(last.d2) > 1e-9)
-		out.push(`${TYPE_NAMES[t]} has a forced zero at z = −1, so H(fs/2) = 0 — but the design asks for gain ${trim(last.d2)} at fs/2.`);
+		out.push(
+			`${TYPE_NAMES[t]} has a forced zero at z = −1, so H(fs/2) = 0 — but the design asks for gain ${trim(last.d2)} at fs/2.`
+		);
 	return out;
 }
 
@@ -308,7 +346,12 @@ export interface DenseResponse {
 }
 
 /** Dense amplitude/magnitude via a zero-padded FFT. */
-export function denseResponse(h: readonly number[], fs: number, sym: Symmetry, minPoints = 8192): DenseResponse {
+export function denseResponse(
+	h: readonly number[],
+	fs: number,
+	sym: Symmetry,
+	minPoints = 8192
+): DenseResponse {
 	const n = nextPow2(Math.max(minPoints, 16 * h.length));
 	const { re, im } = fftReal(h, n);
 	const M = (h.length - 1) / 2;
@@ -330,7 +373,15 @@ export function denseResponse(h: readonly number[], fs: number, sym: Symmetry, m
 }
 
 /** Evaluate `fn` at every dense-grid point inside [f1, f2] plus the exact edges. */
-function forBand(h: readonly number[], fs: number, sym: Symmetry, dense: DenseResponse, f1: number, f2: number, fn: (f: number, A: number) => void) {
+function forBand(
+	h: readonly number[],
+	fs: number,
+	sym: Symmetry,
+	dense: DenseResponse,
+	f1: number,
+	f2: number,
+	fn: (f: number, A: number) => void
+) {
 	fn(f1, amplitudeAt(h, sym, f1 / fs));
 	fn(f2, amplitudeAt(h, sym, f2 / fs));
 	const df = dense.f[1] - dense.f[0];
@@ -357,7 +408,12 @@ export interface SpecMeasure {
 /** Relative tolerance on the deviations when deciding whether a spec is met. */
 export const SPEC_TOL = 0.005;
 
-export function measureSpec(h: readonly number[], spec: Spec, fs: number, dense?: DenseResponse): SpecMeasure {
+export function measureSpec(
+	h: readonly number[],
+	spec: Spec,
+	fs: number,
+	dense?: DenseResponse
+): SpecMeasure {
 	const sb = specBands(spec, fs);
 	const d = dense ?? denseResponse(h, fs, 'even');
 	const { dp, ds } = deltas(spec.rp, spec.rs);
@@ -396,7 +452,14 @@ export interface BandError {
 	attenDb: number | null;
 }
 
-export function bandErrors(h: readonly number[], bands: Band[], fs: number, sym: Symmetry, relWeight = false, dense?: DenseResponse): BandError[] {
+export function bandErrors(
+	h: readonly number[],
+	bands: Band[],
+	fs: number,
+	sym: Symmetry,
+	relWeight = false,
+	dense?: DenseResponse
+): BandError[] {
 	const d = dense ?? denseResponse(h, fs, sym);
 	return bands.map((b) => {
 		let maxErr = 0;
@@ -408,7 +471,11 @@ export function bandErrors(h: readonly number[], bands: Band[], fs: number, sym:
 			maxWeighted = Math.max(maxWeighted, e * weightAt(b, D, relWeight));
 		});
 		const stop = b.d1 === 0 && b.d2 === 0;
-		return { maxErr, maxWeighted, attenDb: stop ? -20 * Math.log10(Math.max(maxErr, 1e-300)) : null };
+		return {
+			maxErr,
+			maxWeighted,
+			attenDb: stop ? -20 * Math.log10(Math.max(maxErr, 1e-300)) : null
+		};
 	});
 }
 
@@ -470,7 +537,8 @@ export interface FirDesign {
 }
 
 /** Effective symmetry: only Parks–McClellan custom designs can be antisymmetric. */
-export const effectiveSymmetry = (cfg: FirConfig): Symmetry => (cfg.method === 'pm' && cfg.shape === 'custom' ? cfg.symmetry : 'even');
+export const effectiveSymmetry = (cfg: FirConfig): Symmetry =>
+	cfg.method === 'pm' && cfg.shape === 'custom' ? cfg.symmetry : 'even';
 
 function workingBands(cfg: FirConfig): { bands: Band[]; kinds: ('pass' | 'stop' | 'other')[] } {
 	if (cfg.shape === 'custom') {
@@ -490,30 +558,47 @@ export function designAt(cfg: FirConfig, N: number): FirDesign {
 	switch (cfg.method) {
 		case 'window': {
 			const cutoffs = firwinCutoffs(cfg.spec);
-			return { ...base, h: firwinFast(N, cutoffs, cfg.window, passZero(cfg.spec.band), cfg.fs), cutoffs };
+			return {
+				...base,
+				h: firwinFast(N, cutoffs, cfg.window, passZero(cfg.spec.band), cfg.fs),
+				cutoffs
+			};
 		}
 		case 'kaiser': {
 			const beta = kaiserBeta(kaiserAttenuation(cfg.spec));
 			const cutoffs = firwinCutoffs(cfg.spec);
-			return { ...base, h: firwinFast(N, cutoffs, { type: 'kaiser', param: beta }, passZero(cfg.spec.band), cfg.fs), cutoffs, beta };
+			return {
+				...base,
+				h: firwinFast(N, cutoffs, { type: 'kaiser', param: beta }, passZero(cfg.spec.band), cfg.fs),
+				cutoffs,
+				beta
+			};
 		}
 		case 'ls': {
 			const n = N % 2 === 0 ? N + 1 : N;
 			return { ...base, numtaps: n, h: firls(n, bands, cfg.fs) };
 		}
 		case 'fsamp': {
-			const points = cfg.shape === 'custom' ? bandsToPoints(bands, cfg.fs) : fsampPoints(cfg.spec, cfg.fs, cfg.fsampFrac ?? 0.5);
+			const points =
+				cfg.shape === 'custom'
+					? bandsToPoints(bands, cfg.fs)
+					: fsampPoints(cfg.spec, cfg.fs, cfg.fsampFrac ?? 0.5);
 			const w = cachedWindow(cfg.window.type, N, cfg.window.param);
 			const h0 = firwin2(N, points.freq, points.gain, cfg.fs, null);
 			return { ...base, h: h0.map((v, i) => v * w[i]), points };
 		}
 		case 'pm': {
-			const r = remez(N, bands, cfg.fs, { symmetry: sym, relativeWeighting: sym === 'odd' && cfg.relWeight });
+			const r = remez(N, bands, cfg.fs, {
+				symmetry: sym,
+				relativeWeighting: sym === 'odd' && cfg.relWeight
+			});
 			// remez uses H = −j·A·e^{−jωM} for antisymmetric designs; we use the +j convention
 			// (as SciPy/MATLAB do), so negate.
 			const h = sym === 'odd' ? r.h.map((v) => -v) : r.h;
 			if (!h.every(Number.isFinite) || !h.some((v) => v !== 0))
-				throw new Error('The Remez exchange produced invalid taps — try other band edges or a different length.');
+				throw new Error(
+					'The Remez exchange produced invalid taps — try other band edges or a different length.'
+				);
 			// below ~1e-8 the barycentric interpolation runs out of double precision and the exchange collapses
 			if (r.delta < 1e-8)
 				throw new Error(
@@ -616,7 +701,10 @@ export function designFir(cfg: FirConfig): FirDesign {
 		const N = Math.min(fixParity(est), oddOnly && maxN % 2 === 0 ? maxN - 1 : maxN);
 		const d = designAt(cfg, N);
 		const m = measureSpec(d.h, spec, cfg.fs);
-		return { ...d, auto: { estimate: est, formula: 'Kaiser', met: m.met, capped: est > maxN, trials: 1 } };
+		return {
+			...d,
+			auto: { estimate: est, formula: 'Kaiser', met: m.met, capped: est > maxN, trials: 1 }
+		};
 	}
 
 	let estimate: number;
@@ -660,10 +748,31 @@ export function maskRegions(spec: Spec, fs: number): MaskRegion[] {
 		const x1 = b.f2 >= fs / 2 ? fs : b.f2;
 		const x0 = b.f1 <= 0 ? -fs : b.f1;
 		if (kinds[i] === 'pass') {
-			out.push({ x0, x1, y0: hi, y1: BIG, kind: 'forbidden', label: `Passband: must stay below +${fmt(hi)} dB` });
-			out.push({ x0, x1, y0: -BIG, y1: lo, kind: 'forbidden', label: `Passband: must stay above ${fmt(lo)} dB` });
+			out.push({
+				x0,
+				x1,
+				y0: hi,
+				y1: BIG,
+				kind: 'forbidden',
+				label: `Passband: must stay below +${fmt(hi)} dB`
+			});
+			out.push({
+				x0,
+				x1,
+				y0: -BIG,
+				y1: lo,
+				kind: 'forbidden',
+				label: `Passband: must stay above ${fmt(lo)} dB`
+			});
 		} else {
-			out.push({ x0, x1, y0: -spec.rs, y1: BIG, kind: 'forbidden', label: `Stopband: must stay below −${spec.rs} dB` });
+			out.push({
+				x0,
+				x1,
+				y0: -spec.rs,
+				y1: BIG,
+				kind: 'forbidden',
+				label: `Stopband: must stay below −${spec.rs} dB`
+			});
 		}
 	});
 	return out;
@@ -674,17 +783,37 @@ export function gapRegions(bands: Band[], fs: number): MaskRegion[] {
 	const out: MaskRegion[] = [];
 	let prev = 0;
 	for (const b of bands) {
-		if (b.f1 > prev) out.push({ x0: prev, x1: b.f1, y0: -BIG, y1: BIG, kind: 'neutral', label: 'Transition (don’t care)' });
+		if (b.f1 > prev)
+			out.push({
+				x0: prev,
+				x1: b.f1,
+				y0: -BIG,
+				y1: BIG,
+				kind: 'neutral',
+				label: 'Transition (don’t care)'
+			});
 		prev = Math.max(prev, b.f2);
 	}
-	if (prev < fs / 2) out.push({ x0: prev, x1: fs, y0: -BIG, y1: BIG, kind: 'neutral', label: 'Transition (don’t care)' });
+	if (prev < fs / 2)
+		out.push({
+			x0: prev,
+			x1: fs,
+			y0: -BIG,
+			y1: BIG,
+			kind: 'neutral',
+			label: 'Transition (don’t care)'
+		});
 	return out;
 }
 
 const fmt = (v: number) => String(Number(v.toPrecision(3)));
 
 /** A series that is NaN outside the bands, so lines break in the transition gaps. */
-export function bandSeries(dense: DenseResponse, bands: Band[], value: (f: number, A: number, mag: number, b: Band) => number): { x: number[]; y: number[] } {
+export function bandSeries(
+	dense: DenseResponse,
+	bands: Band[],
+	value: (f: number, A: number, mag: number, b: Band) => number
+): { x: number[]; y: number[] } {
 	const x: number[] = [];
 	const y: number[] = [];
 	for (const b of bands) {
@@ -701,7 +830,11 @@ export function bandSeries(dense: DenseResponse, bands: Band[], value: (f: numbe
 }
 
 /** Decimate a dense series for plotting, keeping per-bucket min and max (envelope-preserving). */
-export function decimateMinMax(x: readonly number[], y: readonly number[], buckets = 700): { x: number[]; y: number[] } {
+export function decimateMinMax(
+	x: readonly number[],
+	y: readonly number[],
+	buckets = 700
+): { x: number[]; y: number[] } {
 	const n = x.length;
 	if (n <= buckets * 2) return { x: [...x], y: [...y] };
 	const ox: number[] = [];

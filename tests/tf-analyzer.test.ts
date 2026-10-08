@@ -6,8 +6,19 @@ import {
 	parseScalar,
 	parseSos
 } from '../src/lib/features/tf-analyzer/parse';
-import { impulseFromResidues, evalAnalogPfe, polydiv, residue, residuez } from '../src/lib/features/tf-analyzer/pfe';
-import { analyze, buildModel, linearPhaseOf, rootRows } from '../src/lib/features/tf-analyzer/analyze';
+import {
+	impulseFromResidues,
+	evalAnalogPfe,
+	polydiv,
+	residue,
+	residuez
+} from '../src/lib/features/tf-analyzer/pfe';
+import {
+	analyze,
+	buildModel,
+	linearPhaseOf,
+	rootRows
+} from '../src/lib/features/tf-analyzer/analyze';
 import { EXAMPLES } from '../src/lib/features/tf-analyzer/examples';
 import { lfilter } from '../src/lib/dsp/time';
 import { freqsTf } from '../src/lib/dsp/response';
@@ -70,7 +81,9 @@ describe('parseSos', () => {
 		expect(ok(parseSos('1 2 1 1 -0.5 0.25\n1 0 -1 1 0.1 0.2'))).toEqual(want);
 		expect(ok(parseSos('[1 2 1 1 -0.5 0.25; 1 0 -1 1 0.1 0.2]'))).toEqual(want);
 		expect(ok(parseSos('[[1, 2, 1, 1, -0.5, 0.25], [1, 0, -1, 1, 0.1, 0.2]]'))).toEqual(want);
-		expect(ok(parseSos('sos = np.array([\n  [1, 2, 1, 1, -0.5, 0.25],\n  [1, 0, -1, 1, 0.1, 0.2],\n])'))).toEqual(want);
+		expect(
+			ok(parseSos('sos = np.array([\n  [1, 2, 1, 1, -0.5, 0.25],\n  [1, 0, -1, 1, 0.1, 0.2],\n])'))
+		).toEqual(want);
 	});
 	it('splits one flat row whose length is a multiple of 6', () => {
 		const r = parseSos('1,2,1,1,-0.5,0.25,1,0,-1,1,0.1,0.2');
@@ -167,7 +180,15 @@ describe('partial fractions', () => {
 		expect(byPole.get(25)).toBeCloseTo(-1, 12);
 	});
 	it('residuez of an elliptic filter', () => {
-		const { sos } = designDigital({ family: 'ellip', band: 'lowpass', order: 5, f1: 3000, rp: 1, rs: 50, fs: 48000 });
+		const { sos } = designDigital({
+			family: 'ellip',
+			band: 'lowpass',
+			order: 5,
+			f1: 3000,
+			rp: 1,
+			rs: 50,
+			fs: 48000
+		});
 		const tf = sos2tf(sos);
 		const pf = residuez(tf.b, tf.a);
 		const N = 200;

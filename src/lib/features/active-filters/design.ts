@@ -198,14 +198,22 @@ export function tfParams(tf: StageTf, band: StageBand): { w0: number; q: number;
 	}
 	const w0 = Math.sqrt(tf.den[2]);
 	const q = w0 / tf.den[1];
-	const gain = band === 'lowpass' ? tf.num[2] / tf.den[2] : band === 'highpass' ? tf.num[0] : tf.num[1] / tf.den[1];
+	const gain =
+		band === 'lowpass'
+			? tf.num[2] / tf.den[2]
+			: band === 'highpass'
+				? tf.num[0]
+				: tf.num[1] / tf.den[1];
 	return { w0, q, gain };
 }
 
 /** Ideal stage transfer function with a given signed passband gain. */
 export function targetTf(spec: StageSpec, gain: number): StageTf {
 	const { w0, q } = spec;
-	if (spec.order === 1) return spec.band === 'lowpass' ? { num: [0, gain * w0], den: [1, w0] } : { num: [gain, 0], den: [1, w0] };
+	if (spec.order === 1)
+		return spec.band === 'lowpass'
+			? { num: [0, gain * w0], den: [1, w0] }
+			: { num: [gain, 0], den: [1, w0] };
 	const den = [1, w0 / q, w0 * w0];
 	if (spec.band === 'lowpass') return { num: [0, 0, gain * w0 * w0], den };
 	if (spec.band === 'highpass') return { num: [gain, 0, 0], den };
@@ -229,7 +237,8 @@ interface Raw {
 export function seriesStep(v: number, s: ESeries, k: number): number {
 	if (s === 'exact') return v;
 	let out = toESeries(v, s);
-	for (let i = 0; i < Math.abs(k); i++) out = k > 0 ? ceilToSeries(out * (1 + 1e-6), s) : floorToSeries(out * (1 - 1e-6), s);
+	for (let i = 0; i < Math.abs(k); i++)
+		out = k > 0 ? ceilToSeries(out * (1 + 1e-6), s) : floorToSeries(out * (1 - 1e-6), s);
 	return out;
 }
 
@@ -241,8 +250,12 @@ export function seriesStep(v: number, s: ESeries, k: number): number {
  */
 function variants(spec: StageSpec, o: DesignOptions): number[] {
 	if (spec.order === 1) return [0];
-	const around = (n: number) => [0, ...Array.from({ length: n }, (_, i) => [i + 1, -(i + 1)]).flat()];
-	if (spec.band !== 'bandpass' && o.topology === 'sk-equal' && spec.q >= 0.5) return o.rSeries === 'exact' ? [0] : around(6);
+	const around = (n: number) => [
+		0,
+		...Array.from({ length: n }, (_, i) => [i + 1, -(i + 1)]).flat()
+	];
+	if (spec.band !== 'bandpass' && o.topology === 'sk-equal' && spec.q >= 0.5)
+		return o.rSeries === 'exact' ? [0] : around(6);
 	if (o.cSeries === 'exact') return [0];
 	if (spec.band === 'lowpass') return [0, 1, 2, 3];
 	return around(3);
@@ -283,7 +296,8 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		const hmax = (q * q * (C1 + C2)) / C2;
 		let open = false;
 		if (H0 >= hmax * (1 - 1e-9)) {
-			if (H0 > hmax * (1 + 1e-9)) notes.push(`Centre gain limited to 2Q² = ${hmax.toPrecision(3)} (R3 omitted).`);
+			if (H0 > hmax * (1 + 1e-9))
+				notes.push(`Centre gain limited to 2Q² = ${hmax.toPrecision(3)} (R3 omitted).`);
 			H0 = hmax;
 			open = true;
 		}
@@ -308,7 +322,9 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 
 	let topology: StageTopology = o.topology;
 	if (topology === 'sk-equal' && q < 0.5 - 1e-12) {
-		notes.push('Equal-component Sallen–Key needs Q ≥ 0.5 (gain K = 3 − 1/Q ≥ 1); built as unity gain instead.');
+		notes.push(
+			'Equal-component Sallen–Key needs Q ≥ 0.5 (gain K = 3 − 1/Q ≥ 1); built as unity gain instead.'
+		);
 		topology = 'sk-unity';
 	}
 
@@ -322,7 +338,10 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 			const disc = Math.sqrt(Math.max(0, S * S - 4 * P));
 			const R1 = (S - disc) / 2;
 			const R2 = (S + disc) / 2;
-			if (C1 / C2 > 100) notes.push(`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — consider MFB or a different base value.`);
+			if (C1 / C2 > 100)
+				notes.push(
+					`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — consider MFB or a different base value.`
+				);
 			return {
 				topology,
 				parts: [
@@ -360,7 +379,10 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		const R = 1 / (w0 * C);
 		const R3 = seriesStep(o.rGain ?? 10e3, o.rSeries, variant);
 		const R4 = (K - 1) * R3;
-		if (q > 5) notes.push(`Q = ${q.toPrecision(3)}: the gain K must hit ${K.toPrecision(4)} very precisely — Q is extremely sensitive to R3/R4.`);
+		if (q > 5)
+			notes.push(
+				`Q = ${q.toPrecision(3)}: the gain K must hit ${K.toPrecision(4)} very precisely — Q is extremely sensitive to R3/R4.`
+			);
 		const isLp = band === 'lowpass';
 		return {
 			topology,
@@ -388,7 +410,10 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		const R2 = (1 / q - disc) / (2 * w0 * C2);
 		const R3 = 1 / (w0 * w0 * C1 * C2 * R2);
 		const R1 = R2 / G;
-		if (C1 / C2 > 100) notes.push(`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — lower the gain or the Q.`);
+		if (C1 / C2 > 100)
+			notes.push(
+				`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — lower the gain or the Q.`
+			);
 		return {
 			topology,
 			parts: [
@@ -427,7 +452,10 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 /** Error score of a realised stage: log errors of ω₀ and Q, plus a little of the gain. */
 function score(tf: StageTf, spec: StageSpec, gain: number): number {
 	const p = tfParams(tf, spec.band);
-	const e = Math.abs(Math.log(p.w0 / spec.w0)) + (spec.order === 2 ? Math.abs(Math.log(p.q / spec.q)) : 0) + 0.25 * Math.abs(Math.log(Math.abs(p.gain / gain)));
+	const e =
+		Math.abs(Math.log(p.w0 / spec.w0)) +
+		(spec.order === 2 ? Math.abs(Math.log(p.q / spec.q)) : 0) +
+		0.25 * Math.abs(Math.log(Math.abs(p.gain / gain)));
 	return Number.isFinite(e) ? e : Infinity;
 }
 
@@ -455,7 +483,11 @@ export function designStage(spec: StageSpec, o: DesignOptions): StageDesign {
 				rem = Math.floor(rem / c.length);
 				return v;
 			});
-			const tf = stageTf(raw.topology, spec.band, Object.fromEntries(raw.parts.map((p, i) => [p.role, values[i]])));
+			const tf = stageTf(
+				raw.topology,
+				spec.band,
+				Object.fromEntries(raw.parts.map((p, i) => [p.role, values[i]]))
+			);
 			const sc = score(tf, spec, raw.gain);
 			if (!best || sc < best.score - 1e-12) best = { raw, values, score: sc };
 		}
@@ -470,7 +502,9 @@ export function designStage(spec: StageSpec, o: DesignOptions): StageDesign {
 	const notes = [...raw.notes];
 	for (const p of parts) {
 		if (p.kind === 'R' && Number.isFinite(p.value) && (p.value < 100 || p.value > 2e6))
-			notes.push(`${p.role} = ${p.value < 100 ? 'below 100 Ω (loads the op-amp)' : 'above 2 MΩ (noise, bias currents)'} — try a ${p.value < 100 ? 'smaller' : 'larger'} base capacitor.`);
+			notes.push(
+				`${p.role} = ${p.value < 100 ? 'below 100 Ω (loads the op-amp)' : 'above 2 MΩ (noise, bias currents)'} — try a ${p.value < 100 ? 'smaller' : 'larger'} base capacitor.`
+			);
 	}
 	const f0 = spec.w0 / (2 * Math.PI);
 	let gbw: number;
@@ -569,14 +603,21 @@ export function tfMag2(tf: StageTf, w: number): number {
  * Monte-Carlo magnitude responses (dB) with every component scattered
  * uniformly within ±tol. Seeded, so the result is stable while dragging.
  */
-export function monteCarlo(stages: StageDesign[], tol: number, fHz: number[], runs = 40, seed = 20240229): number[][] {
+export function monteCarlo(
+	stages: StageDesign[],
+	tol: number,
+	fHz: number[],
+	runs = 40,
+	seed = 20240229
+): number[][] {
 	const rnd = mulberry32(seed);
 	const out: number[][] = [];
 	const w = fHz.map((f) => 2 * Math.PI * f);
 	for (let r = 0; r < runs; r++) {
 		const tfs = stages.map((st) => {
 			const v: Values = {};
-			for (const p of st.parts) v[p.role] = Number.isFinite(p.value) ? p.value * (1 + tol * (2 * rnd() - 1)) : p.value;
+			for (const p of st.parts)
+				v[p.role] = Number.isFinite(p.value) ? p.value * (1 + tol * (2 * rnd() - 1)) : p.value;
 			return stageTf(st.topology, st.spec.band, v);
 		});
 		out.push(

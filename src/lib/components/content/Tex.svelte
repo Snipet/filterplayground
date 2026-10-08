@@ -8,7 +8,12 @@
 	}
 	let { math, display = false }: Props = $props();
 	const html = $derived(
-		katex.renderToString(math, { displayMode: display, throwOnError: false, strict: 'ignore', output: 'html' })
+		katex.renderToString(math, {
+			displayMode: display,
+			throwOnError: false,
+			strict: 'ignore',
+			output: 'html'
+		})
 	);
 </script>
 

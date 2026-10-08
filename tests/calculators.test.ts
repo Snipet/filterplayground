@@ -198,7 +198,7 @@ describe('ripple', () => {
 	});
 	it('δp conventions', () => {
 		expect(rippleToDeltaSym(1)).toBeCloseTo(passbandRippleToDelta(1), 14);
-		expect(rippleToDeltaSym(1)).toBeCloseTo(0.05750, 5);
+		expect(rippleToDeltaSym(1)).toBeCloseTo(0.0575, 5);
 		expect(deltaSymToRipple(rippleToDeltaSym(0.25))).toBeCloseTo(0.25, 12);
 		expect(rippleToDeltaOne(1)).toBeCloseTo(0.10875, 5);
 		expect(deltaOneToRipple(rippleToDeltaOne(0.25))).toBeCloseTo(0.25, 12);

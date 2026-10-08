@@ -48,7 +48,10 @@ export function fftInPlace(re: Float64Array, im: Float64Array, inverse = false):
 }
 
 /** FFT of a real sequence zero-padded to `n` (power of two). */
-export function fftReal(x: ArrayLike<number>, n = nextPow2(x.length)): { re: Float64Array; im: Float64Array } {
+export function fftReal(
+	x: ArrayLike<number>,
+	n = nextPow2(x.length)
+): { re: Float64Array; im: Float64Array } {
 	const re = new Float64Array(n);
 	const im = new Float64Array(n);
 	for (let i = 0; i < Math.min(n, x.length); i++) re[i] = x[i];
@@ -60,7 +63,10 @@ export function fftReal(x: ArrayLike<number>, n = nextPow2(x.length)): { re: Flo
  * Magnitude spectrum (one-sided, 0..fs/2) of a real sequence, zero padded to n.
  * Returns frequencies normalised to cycles/sample (0..0.5) and linear magnitudes.
  */
-export function magnitudeSpectrum(x: ArrayLike<number>, n = nextPow2(Math.max(1024, x.length * 8))): { f: number[]; mag: number[] } {
+export function magnitudeSpectrum(
+	x: ArrayLike<number>,
+	n = nextPow2(Math.max(1024, x.length * 8))
+): { f: number[]; mag: number[] } {
 	const { re, im } = fftReal(x, n);
 	const half = n / 2;
 	const f: number[] = [];

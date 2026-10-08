@@ -13,7 +13,8 @@
  * Frequencies are in Hz (ω = 2πf).
  */
 
-export type FactorType = 'gain' | 'power' | 'realPole' | 'realZero' | 'complexPole' | 'complexZero' | 'delay';
+export type FactorType =
+	'gain' | 'power' | 'realPole' | 'realZero' | 'complexPole' | 'complexZero' | 'delay';
 
 export interface Factor {
 	id: number;
@@ -52,7 +53,11 @@ export const FACTOR_TYPES: { id: FactorType; name: string }[] = [
 
 let nextId = 1;
 
-export function makeFactor(type: FactorType, slot: number, p: Partial<Omit<Factor, 'id' | 'slot' | 'type'>> = {}): Factor {
+export function makeFactor(
+	type: FactorType,
+	slot: number,
+	p: Partial<Omit<Factor, 'id' | 'slot' | 'type'>> = {}
+): Factor {
 	return {
 		id: nextId++,
 		slot,
@@ -196,7 +201,10 @@ export function characteristicFrequencies(factors: readonly Factor[]): number[] 
 
 /** Display range: one decade beyond the extreme corners, at least 3 decades. */
 export function autoRange(factors: readonly Factor[], extra: number[] = []): [number, number] {
-	const fr = [...characteristicFrequencies(factors), ...extra.filter((v) => Number.isFinite(v) && v > 0)];
+	const fr = [
+		...characteristicFrequencies(factors),
+		...extra.filter((v) => Number.isFinite(v) && v > 0)
+	];
 	if (!fr.length) return [1, 1e4];
 	let lo = Math.pow(10, Math.floor(Math.log10(Math.min(...fr))) - 1);
 	let hi = Math.pow(10, Math.ceil(Math.log10(Math.max(...fr))) + 1);
@@ -284,8 +292,14 @@ export function margins(factors: readonly Factor[], lo: number, hi: number, n = 
 			phaseCrossovers.push({ f: Math.pow(10, lf), margin: -at(lf).db });
 		}
 	}
-	const pm = gainCrossovers.reduce<Crossing | null>((m, c) => (m === null || c.margin < m.margin ? c : m), null);
-	const gm = phaseCrossovers.reduce<Crossing | null>((m, c) => (m === null || c.margin < m.margin ? c : m), null);
+	const pm = gainCrossovers.reduce<Crossing | null>(
+		(m, c) => (m === null || c.margin < m.margin ? c : m),
+		null
+	);
+	const gm = phaseCrossovers.reduce<Crossing | null>(
+		(m, c) => (m === null || c.margin < m.margin ? c : m),
+		null
+	);
 	return { gainCrossovers, phaseCrossovers, pm, gm };
 }
 
@@ -387,7 +401,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'mixed',
 		label: 'Mixed example',
-		description: 'Gain, a real pole, a real zero and a lightly damped pole pair — every kind of corner at once.',
+		description:
+			'Gain, a real pole, a real zero and a lightly damped pole pair — every kind of corner at once.',
 		loop: false,
 		build: () =>
 			seq([
@@ -400,7 +415,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'loop',
 		label: 'Integrator + pole (type-1 loop)',
-		description: 'L(s) = (ω_u/s)·1/(1 + s/ω_p): a classic servo loop. Turn on open-loop analysis to read the margins.',
+		description:
+			'L(s) = (ω_u/s)·1/(1 + s/ω_p): a classic servo loop. Turn on open-loop analysis to read the margins.',
 		loop: true,
 		build: () =>
 			seq([
@@ -412,7 +428,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'lead',
 		label: 'Lead compensator',
-		description: 'A zero below a pole: up to +55° of phase boost between them, at the cost of high-frequency gain.',
+		description:
+			'A zero below a pole: up to +55° of phase boost between them, at the cost of high-frequency gain.',
 		loop: false,
 		build: () =>
 			seq([
@@ -423,7 +440,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'lag',
 		label: 'Lag compensator',
-		description: 'A pole below a zero: raises low-frequency gain (smaller steady-state error) with little phase cost far above.',
+		description:
+			'A pole below a zero: raises low-frequency gain (smaller steady-state error) with little phase cost far above.',
 		loop: false,
 		build: () =>
 			seq([
@@ -435,7 +453,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'pid',
 		label: 'PID-like controller',
-		description: 'Integrator plus two zeros (PI and D action) and a roll-off pole to keep the derivative finite.',
+		description:
+			'Integrator plus two zeros (PI and D action) and a roll-off pole to keep the derivative finite.',
 		loop: false,
 		build: () =>
 			seq([
@@ -448,14 +467,16 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'resonance',
 		label: '2nd-order resonance, ζ = 0.1',
-		description: 'A lightly damped pole pair: a +14 dB peak the asymptote ignores, and a phase drop that is nearly a step.',
+		description:
+			'A lightly damped pole pair: a +14 dB peak the asymptote ignores, and a phase drop that is nearly a step.',
 		loop: false,
 		build: () => seq([['complexPole', { f: 1000, zeta: 0.1 }]])
 	},
 	{
 		id: 'delay',
 		label: 'Loop with time delay',
-		description: 'The type-1 loop plus a 1 ms delay: the magnitude is unchanged but the phase margin shrinks.',
+		description:
+			'The type-1 loop plus a 1 ms delay: the magnitude is unchanged but the phase margin shrinks.',
 		loop: true,
 		build: () =>
 			seq([
@@ -467,7 +488,8 @@ export const PRESETS: BodePreset[] = [
 	{
 		id: 'nmp',
 		label: 'Right-half-plane zero',
-		description: '(1 − s/ω_z): the same magnitude as a normal zero but the phase goes the wrong way — non-minimum phase.',
+		description:
+			'(1 − s/ω_z): the same magnitude as a normal zero but the phase goes the wrong way — non-minimum phase.',
 		loop: false,
 		build: () =>
 			seq([

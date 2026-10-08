@@ -30,10 +30,12 @@ export const isBand = (b: BandType): boolean => b === 'bandpass' || b === 'bands
 /** Human-readable problem with the specification, or null if it is valid. */
 export function validateSpec(s: OrderSpec): string | null {
 	const edges = isBand(s.band) ? [...s.fp, ...s.fst] : [s.fp[0], s.fst[0]];
-	if (edges.some((e) => !(e > 0) || !Number.isFinite(e))) return 'All band edges must be positive frequencies.';
+	if (edges.some((e) => !(e > 0) || !Number.isFinite(e)))
+		return 'All band edges must be positive frequencies.';
 	if (s.domain === 'digital') {
 		if (!(s.fs > 0)) return 'The sample rate must be positive.';
-		if (edges.some((e) => e >= s.fs / 2)) return `All band edges must lie below the Nyquist frequency fs/2 = ${s.fs / 2} Hz.`;
+		if (edges.some((e) => e >= s.fs / 2))
+			return `All band edges must lie below the Nyquist frequency fs/2 = ${s.fs / 2} Hz.`;
 	}
 	if (!(s.rp > 0)) return 'The passband ripple Rp must be greater than 0 dB.';
 	if (!(s.rs > s.rp)) return 'The stopband attenuation Rs must exceed the passband ripple Rp.';
@@ -41,13 +43,21 @@ export function validateSpec(s: OrderSpec): string | null {
 	const [s1, s2] = s.fst;
 	switch (s.band) {
 		case 'lowpass':
-			return s1 > p1 ? null : 'For a low-pass filter the stopband edge must be above the passband edge.';
+			return s1 > p1
+				? null
+				: 'For a low-pass filter the stopband edge must be above the passband edge.';
 		case 'highpass':
-			return s1 < p1 ? null : 'For a high-pass filter the stopband edge must be below the passband edge.';
+			return s1 < p1
+				? null
+				: 'For a high-pass filter the stopband edge must be below the passband edge.';
 		case 'bandpass':
-			return s1 < p1 && p1 < p2 && p2 < s2 ? null : 'For a band-pass filter the edges must be ordered: stop₁ < pass₁ < pass₂ < stop₂.';
+			return s1 < p1 && p1 < p2 && p2 < s2
+				? null
+				: 'For a band-pass filter the edges must be ordered: stop₁ < pass₁ < pass₂ < stop₂.';
 		case 'bandstop':
-			return p1 < s1 && s1 < s2 && s2 < p2 ? null : 'For a band-stop filter the edges must be ordered: pass₁ < stop₁ < stop₂ < pass₂.';
+			return p1 < s1 && s1 < s2 && s2 < p2
+				? null
+				: 'For a band-stop filter the edges must be ordered: pass₁ < stop₁ < stop₂ < pass₂.';
 	}
 }
 
@@ -196,7 +206,12 @@ export function cachedPrototype(family: AnalogFamily, N: number, rp: number, rs:
 }
 
 /** Minimum order N and natural-frequency factor wn of the normalised prototype (as estimateOrder). */
-function orderFor(family: AnalogFamily, ws: number, rp: number, rs: number): { N: number; wn: number; capped: boolean } {
+function orderFor(
+	family: AnalogFamily,
+	ws: number,
+	rp: number,
+	rs: number
+): { N: number; wn: number; capped: boolean } {
 	if (family === 'butter' || RIPPLE_FAMILIES.includes(family)) {
 		const r = estimateOrder(family, ws, rp, rs);
 		return { N: r.N, wn: r.wn, capped: !!r.capped };
@@ -254,13 +269,17 @@ export interface Estimate {
 export function estimate(family: AnalogFamily, s: OrderSpec): Estimate {
 	const digital = s.domain === 'digital';
 	const toW = (f: number) => (digital ? prewarp(f, s.fs) : 2 * Math.PI * f);
-	const fromW = (w: number) => (digital ? (s.fs / Math.PI) * Math.atan(w / (2 * s.fs)) : w / (2 * Math.PI));
+	const fromW = (w: number) =>
+		digital ? (s.fs / Math.PI) * Math.atan(w / (2 * s.fs)) : w / (2 * Math.PI);
 	let [p1, p2] = s.fp.map(toW);
 	const [s1, s2] = s.fst.map(toW);
 	if (s.band === 'bandstop' && p1 < s1 && s2 < p2) {
 		// slide the passband edges towards the stopband for symmetric geometry (as SciPy)
 		const sel = (a: number, b: number) =>
-			Math.min(Math.abs((s1 * (b - a)) / (a * b - s1 * s1)), Math.abs((s2 * (b - a)) / (a * b - s2 * s2)));
+			Math.min(
+				Math.abs((s1 * (b - a)) / (a * b - s1 * s1)),
+				Math.abs((s2 * (b - a)) / (a * b - s2 * s2))
+			);
 		p1 = goldenMax((a) => sel(a, p2), p1, s1 - 1e-9 * s1);
 		p2 = goldenMax((b) => sel(p1, b), s2 + 1e-9 * s2, p2);
 	}
@@ -293,7 +312,10 @@ export function estimate(family: AnalogFamily, s: OrderSpec): Estimate {
 		if (family === 'butter') wn = Math.pow(gp, -1 / (2 * maxN));
 		else if (family === 'cheby2') wn = Math.cosh(Math.acosh(Math.sqrt(gs / gp)) / maxN);
 	}
-	const pair = (W: number): [number, number] => [fromW((-W + Math.sqrt(W * W + 4 * w02)) / 2), fromW((W + Math.sqrt(W * W + 4 * w02)) / 2)];
+	const pair = (W: number): [number, number] => [
+		fromW((-W + Math.sqrt(W * W + 4 * w02)) / 2),
+		fromW((W + Math.sqrt(W * W + 4 * w02)) / 2)
+	];
 	switch (s.band) {
 		case 'lowpass':
 			return { order, f1: fromW(wn * p1), capped: capped || N > maxN };
@@ -317,7 +339,10 @@ export function designFor(family: AnalogFamily, s: OrderSpec, est: Estimate): Fi
 	const band = isBand(s.band);
 	if (s.domain === 'analog') {
 		const w1 = 2 * Math.PI * est.f1;
-		return { kind: 'analog', zpk: transformPrototype(proto, s.band, w1, band ? 2 * Math.PI * f2 : w1) };
+		return {
+			kind: 'analog',
+			zpk: transformPrototype(proto, s.band, w1, band ? 2 * Math.PI * f2 : w1)
+		};
 	}
 	const nyq = s.fs / 2;
 	const clamp = (f: number) => Math.min(Math.max(f, nyq * 1e-6), nyq * 0.999999);
@@ -350,9 +375,20 @@ export function iirResults(s: OrderSpec): IirResult[] {
 		};
 		try {
 			const filter = designFor(fam.id, s, est);
-			return { ...base, passAtt: worst(filter, grids.pass, 'pass'), stopAtt: worst(filter, grids.stop, 'stop'), filter };
+			return {
+				...base,
+				passAtt: worst(filter, grids.pass, 'pass'),
+				stopAtt: worst(filter, grids.stop, 'stop'),
+				filter
+			};
 		} catch (e) {
-			return { ...base, passAtt: NaN, stopAtt: NaN, filter: { kind: 'analog', zpk: { z: [], p: [], k: 1 } }, error: String(e) };
+			return {
+				...base,
+				passAtt: NaN,
+				stopAtt: NaN,
+				filter: { kind: 'analog', zpk: { z: [], p: [], k: 1 } },
+				error: String(e)
+			};
 		}
 	});
 }
@@ -383,7 +419,13 @@ export const WINDOW_RULES = [
 	{ id: 'blackman', name: 'Blackman', c: 5.5, att: 74, ripple: 0.0017 }
 ] as const;
 
-export function firResults(s: OrderSpec): { df: number; dp: number; ds: number; kaiserA: number; rows: FirResult[] } {
+export function firResults(s: OrderSpec): {
+	df: number;
+	dp: number;
+	ds: number;
+	kaiserA: number;
+	rows: FirResult[];
+} {
 	const df = transitionHz(s) / s.fs;
 	const dp = passbandRippleToDelta(s.rp);
 	const ds = stopbandAttenToDelta(s.rs);

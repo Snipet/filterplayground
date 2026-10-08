@@ -46,10 +46,46 @@ function noise(n: number, seed = 1) {
 }
 
 const iirCases = [
-	{ name: 'butter4', sos: designDigital({ family: 'butter', band: 'lowpass', order: 4, f1: 2000, fs: 48000 }).sos },
-	{ name: 'ellip3', sos: designDigital({ family: 'ellip', band: 'lowpass', order: 3, f1: 3000, rp: 1, rs: 40, fs: 48000 }).sos },
-	{ name: 'cheby1 bp6', sos: designDigital({ family: 'cheby1', band: 'bandpass', order: 3, f1: 1000, f2: 4000, rp: 0.5, fs: 48000 }).sos },
-	{ name: 'ellip hp5', sos: designDigital({ family: 'ellip', band: 'highpass', order: 5, f1: 5000, rp: 0.5, rs: 50, fs: 48000 }).sos },
+	{
+		name: 'butter4',
+		sos: designDigital({ family: 'butter', band: 'lowpass', order: 4, f1: 2000, fs: 48000 }).sos
+	},
+	{
+		name: 'ellip3',
+		sos: designDigital({
+			family: 'ellip',
+			band: 'lowpass',
+			order: 3,
+			f1: 3000,
+			rp: 1,
+			rs: 40,
+			fs: 48000
+		}).sos
+	},
+	{
+		name: 'cheby1 bp6',
+		sos: designDigital({
+			family: 'cheby1',
+			band: 'bandpass',
+			order: 3,
+			f1: 1000,
+			f2: 4000,
+			rp: 0.5,
+			fs: 48000
+		}).sos
+	},
+	{
+		name: 'ellip hp5',
+		sos: designDigital({
+			family: 'ellip',
+			band: 'highpass',
+			order: 5,
+			f1: 5000,
+			rp: 0.5,
+			rs: 50,
+			fs: 48000
+		}).sos
+	},
 	{ name: 'peaking', sos: [biquad({ type: 'peaking', f0: 1000, fs: 48000, q: 2, gainDb: 6 })] },
 	// numerator longer than denominator (direct terms in the parallel form)
 	{ name: 'b longer', ba: { b: [0.3, 0.2, -0.1, 0.05, 0.02], a: [1, -0.6, 0.3] } }
@@ -67,8 +103,12 @@ describe('IIR structures reproduce lfilter / sosfilt', () => {
 			expect(maxDiff(runProcessor(df1(b, a), x), ref)).toBeLessThan(tol);
 			expect(maxDiff(runProcessor(df2(b, a), x), ref)).toBeLessThan(tol);
 			expect(maxDiff(runProcessor(tdf2(b, a), x), ref)).toBeLessThan(tol);
-			expect(maxDiff(runProcessor(parallel(parallelForm(b, a)), x), ref)).toBeLessThan(1e-9 * scale);
-			expect(maxDiff(runProcessor(latticeLadderProc(latticeLadder(b, a)), x), ref)).toBeLessThan(1e-9 * scale);
+			expect(maxDiff(runProcessor(parallel(parallelForm(b, a)), x), ref)).toBeLessThan(
+				1e-9 * scale
+			);
+			expect(maxDiff(runProcessor(latticeLadderProc(latticeLadder(b, a)), x), ref)).toBeLessThan(
+				1e-9 * scale
+			);
 			const sos = c.sos ?? zpk2sos(tf2zpk({ b, a }));
 			expect(maxDiff(runProcessor(cascade(sos), x), ref)).toBeLessThan(1e-9 * scale);
 		});
@@ -79,7 +119,14 @@ describe('IIR structures reproduce lfilter / sosfilt', () => {
 			const { b, a } = normalizeTf(row.slice(0, 3), row.slice(3, 6));
 			const x = impulse(200);
 			const ref = Array.from(sosfilt([row], x));
-			for (const p of [df1(b, a), df2(b, a), tdf2(b, a), cascade([row]), latticeLadderProc(latticeLadder(b, a)), parallel(parallelForm(b, a))])
+			for (const p of [
+				df1(b, a),
+				df2(b, a),
+				tdf2(b, a),
+				cascade([row]),
+				latticeLadderProc(latticeLadder(b, a)),
+				parallel(parallelForm(b, a))
+			])
 				expect(maxDiff(runProcessor(p, x), ref)).toBeLessThan(1e-10);
 		}
 	});
@@ -87,7 +134,15 @@ describe('IIR structures reproduce lfilter / sosfilt', () => {
 
 describe('lattice', () => {
 	it('reflection coefficients detect stability', () => {
-		const stable = designDigital({ family: 'ellip', band: 'lowpass', order: 6, f1: 2000, rp: 1, rs: 60, fs: 48000 }).sos;
+		const stable = designDigital({
+			family: 'ellip',
+			band: 'lowpass',
+			order: 6,
+			f1: 2000,
+			rp: 1,
+			rs: 60,
+			fs: 48000
+		}).sos;
 		const { a } = sos2tf(stable);
 		expect(reflectionCoefficients(a).k.every((k) => Math.abs(k) < 1)).toBe(true);
 		const unstable = reflectionCoefficients([1, -1.6, -0.81]).k;

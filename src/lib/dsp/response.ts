@@ -147,7 +147,15 @@ function polyGroupDelay(b: readonly number[], wi: number): number {
 	const num = dtft(nb, wi);
 	const den = dtft(b, wi);
 	const d2 = abs2(den);
-	if (d2 < 1e-24 * Math.max(1, b.reduce((s, v) => s + v * v, 0))) return NaN;
+	if (
+		d2 <
+		1e-24 *
+			Math.max(
+				1,
+				b.reduce((s, v) => s + v * v, 0)
+			)
+	)
+		return NaN;
 	return (num.re * den.re + num.im * den.im) / d2;
 }
 

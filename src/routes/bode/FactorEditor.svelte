@@ -20,14 +20,39 @@
 
 <div class="factor">
 	<div class="head">
-		<svg width="18" height="8" aria-hidden="true"><line x1="1" y1="4" x2="17" y2="4" stroke={color} stroke-width="2.5" stroke-linecap="round" /></svg>
+		<svg width="18" height="8" aria-hidden="true"
+			><line
+				x1="1"
+				y1="4"
+				x2="17"
+				y2="4"
+				stroke={color}
+				stroke-width="2.5"
+				stroke-linecap="round"
+			/></svg
+		>
 		<span class="name">{index + 1}. {name}</span>
-		<button class="btn ghost small" type="button" aria-label="Remove factor {index + 1} ({name})" onclick={onremove}>✕</button>
+		<button
+			class="btn ghost small"
+			type="button"
+			aria-label="Remove factor {index + 1} ({name})"
+			onclick={onremove}>✕</button
+		>
 	</div>
 	<div class="body">
 		{#if factor.type === 'gain'}
-			<Slider label="|K|" value={factor.gainDb} min={-40} max={80} step={0.5} unit="dB" onchange={(v) => onupdate({ gainDb: v })} />
-			<p class="small muted lin">|K| = {trimNumber(Math.pow(10, factor.gainDb / 20), 4)} (linear)</p>
+			<Slider
+				label="|K|"
+				value={factor.gainDb}
+				min={-40}
+				max={80}
+				step={0.5}
+				unit="dB"
+				onchange={(v) => onupdate({ gainDb: v })}
+			/>
+			<p class="small muted lin">
+				|K| = {trimNumber(Math.pow(10, factor.gainDb / 20), 4)} (linear)
+			</p>
 			<Segmented
 				size="small"
 				label="Sign"
@@ -51,20 +76,65 @@
 				]}
 				onchange={(v) => onupdate({ n: v })}
 			/>
-			<Slider label="0 dB frequency f_u" value={factor.f} min={0.1} max={1e6} log si unit="Hz" onchange={(v) => onupdate({ f: v })} />
+			<Slider
+				label="0 dB frequency f_u"
+				value={factor.f}
+				min={0.1}
+				max={1e6}
+				log
+				si
+				unit="Hz"
+				onchange={(v) => onupdate({ f: v })}
+			/>
 		{:else if factor.type === 'realPole' || factor.type === 'realZero'}
-			<Slider label="Corner frequency" value={factor.f} min={0.1} max={1e6} log si unit="Hz" onchange={(v) => onupdate({ f: v })} />
+			<Slider
+				label="Corner frequency"
+				value={factor.f}
+				min={0.1}
+				max={1e6}
+				log
+				si
+				unit="Hz"
+				onchange={(v) => onupdate({ f: v })}
+			/>
 			<Toggle
 				checked={factor.rhp}
 				label="Right half-plane"
-				help={factor.type === 'realZero' ? 'Non-minimum phase: same |H|, phase goes the other way' : 'Unstable pole: same |H|, phase rises'}
+				help={factor.type === 'realZero'
+					? 'Non-minimum phase: same |H|, phase goes the other way'
+					: 'Unstable pole: same |H|, phase rises'}
 				onchange={(v) => onupdate({ rhp: v })}
 			/>
 		{:else if factor.type === 'complexPole' || factor.type === 'complexZero'}
-			<Slider label="Natural frequency f_n" value={factor.f} min={0.1} max={1e6} log si unit="Hz" onchange={(v) => onupdate({ f: v })} />
-			<Slider label="Damping ζ" value={factor.zeta} min={0.005} max={2} log onchange={(v) => onupdate({ zeta: v })} />
+			<Slider
+				label="Natural frequency f_n"
+				value={factor.f}
+				min={0.1}
+				max={1e6}
+				log
+				si
+				unit="Hz"
+				onchange={(v) => onupdate({ f: v })}
+			/>
+			<Slider
+				label="Damping ζ"
+				value={factor.zeta}
+				min={0.005}
+				max={2}
+				log
+				onchange={(v) => onupdate({ zeta: v })}
+			/>
 		{:else if factor.type === 'delay'}
-			<Slider label="Delay T" value={factor.T} min={1e-6} max={1} log si unit="s" onchange={(v) => onupdate({ T: v })} />
+			<Slider
+				label="Delay T"
+				value={factor.T}
+				min={1e-6}
+				max={1}
+				log
+				si
+				unit="s"
+				onchange={(v) => onupdate({ T: v })}
+			/>
 		{/if}
 	</div>
 </div>

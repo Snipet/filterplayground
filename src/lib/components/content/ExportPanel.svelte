@@ -27,22 +27,86 @@
 	let fixedBits = $state(16);
 
 	const tabs = $derived.by(() => {
-		const t: { id: string; label: string; code: string; language: string; filename?: string }[] = [];
-		for (const r of recipes) t.push({ id: `r-${r.label}`, label: r.label, code: r.code, language: r.language ?? 'python' });
+		const t: { id: string; label: string; code: string; language: string; filename?: string }[] =
+			[];
+		for (const r of recipes)
+			t.push({
+				id: `r-${r.label}`,
+				label: r.label,
+				code: r.code,
+				language: r.language ?? 'python'
+			});
 		if (kind === 'digital' && fir) {
-			t.push({ id: 'fir-py', label: 'Python', code: ex.arrayToPython('h', fir) + `\n\n# from scipy import signal\n# y = signal.lfilter(h, 1.0, x)`, language: 'python' });
-			t.push({ id: 'fir-c', label: 'C array', code: ex.arrayToC('h', fir, ctype), language: 'c', filename: `${name}.h` });
-			t.push({ id: 'fir-impl', label: 'C implementation', code: ex.firImplementationC(fir, ctype, name), language: 'c', filename: `${name}.c` });
-			t.push({ id: 'fir-q', label: 'Fixed point', code: ex.firToFixedC(fir, fixedBits, 'h'), language: 'c' });
-			t.push({ id: 'fir-m', label: 'MATLAB', code: ex.arrayToMatlab('h', fir), language: 'matlab' });
-			t.push({ id: 'fir-csv', label: 'CSV', code: fir.map((v) => ex.num(v)).join('\n'), language: 'csv', filename: `${name}.csv` });
+			t.push({
+				id: 'fir-py',
+				label: 'Python',
+				code:
+					ex.arrayToPython('h', fir) +
+					`\n\n# from scipy import signal\n# y = signal.lfilter(h, 1.0, x)`,
+				language: 'python'
+			});
+			t.push({
+				id: 'fir-c',
+				label: 'C array',
+				code: ex.arrayToC('h', fir, ctype),
+				language: 'c',
+				filename: `${name}.h`
+			});
+			t.push({
+				id: 'fir-impl',
+				label: 'C implementation',
+				code: ex.firImplementationC(fir, ctype, name),
+				language: 'c',
+				filename: `${name}.c`
+			});
+			t.push({
+				id: 'fir-q',
+				label: 'Fixed point',
+				code: ex.firToFixedC(fir, fixedBits, 'h'),
+				language: 'c'
+			});
+			t.push({
+				id: 'fir-m',
+				label: 'MATLAB',
+				code: ex.arrayToMatlab('h', fir),
+				language: 'matlab'
+			});
+			t.push({
+				id: 'fir-csv',
+				label: 'CSV',
+				code: fir.map((v) => ex.num(v)).join('\n'),
+				language: 'csv',
+				filename: `${name}.csv`
+			});
 			t.push({ id: 'fir-json', label: 'JSON', code: JSON.stringify(fir), language: 'json' });
 		}
 		if (kind === 'digital' && sos) {
-			t.push({ id: 'sos-py', label: 'SOS (Python)', code: ex.sosScipyUsage(sos, fs), language: 'python' });
-			t.push({ id: 'sos-c', label: 'SOS (C array)', code: ex.sosToC(sos, 'sos', ctype), language: 'c', filename: `${name}_sos.h` });
-			t.push({ id: 'sos-impl', label: 'C implementation', code: ex.sosImplementationC(sos, ctype, name), language: 'c', filename: `${name}.c` });
-			t.push({ id: 'sos-js', label: 'JavaScript', code: ex.sosImplementationJs(sos), language: 'javascript' });
+			t.push({
+				id: 'sos-py',
+				label: 'SOS (Python)',
+				code: ex.sosScipyUsage(sos, fs),
+				language: 'python'
+			});
+			t.push({
+				id: 'sos-c',
+				label: 'SOS (C array)',
+				code: ex.sosToC(sos, 'sos', ctype),
+				language: 'c',
+				filename: `${name}_sos.h`
+			});
+			t.push({
+				id: 'sos-impl',
+				label: 'C implementation',
+				code: ex.sosImplementationC(sos, ctype, name),
+				language: 'c',
+				filename: `${name}.c`
+			});
+			t.push({
+				id: 'sos-js',
+				label: 'JavaScript',
+				code: ex.sosImplementationJs(sos),
+				language: 'javascript'
+			});
 			t.push({ id: 'sos-m', label: 'SOS (MATLAB)', code: ex.sosToMatlab(sos), language: 'matlab' });
 			t.push({ id: 'sos-json', label: 'JSON', code: ex.sosToJson(sos), language: 'json' });
 		}
@@ -59,11 +123,22 @@
 		if (tf && !fir) {
 			t.push({ id: 'tf-py', label: 'b / a (Python)', code: ex.tfToPython(tf), language: 'python' });
 			t.push({ id: 'tf-m', label: 'b / a (MATLAB)', code: ex.tfToMatlab(tf), language: 'matlab' });
-			if (kind === 'digital') t.push({ id: 'tf-c', label: 'b / a (C)', code: ex.tfToC(tf, ctype), language: 'c' });
+			if (kind === 'digital')
+				t.push({ id: 'tf-c', label: 'b / a (C)', code: ex.tfToC(tf, ctype), language: 'c' });
 		}
 		if (zpk) {
-			t.push({ id: 'zpk-py', label: 'Poles / zeros (Python)', code: ex.zpkToPython(zpk) + (kind === 'analog' ? '\n# analog: units are rad/s' : ''), language: 'python' });
-			t.push({ id: 'zpk-m', label: 'Poles / zeros (MATLAB)', code: ex.zpkToMatlab(zpk), language: 'matlab' });
+			t.push({
+				id: 'zpk-py',
+				label: 'Poles / zeros (Python)',
+				code: ex.zpkToPython(zpk) + (kind === 'analog' ? '\n# analog: units are rad/s' : ''),
+				language: 'python'
+			});
+			t.push({
+				id: 'zpk-m',
+				label: 'Poles / zeros (MATLAB)',
+				code: ex.zpkToMatlab(zpk),
+				language: 'matlab'
+			});
 		}
 		return t;
 	});
@@ -91,7 +166,9 @@
 				<label><input type="radio" bind:group={ctype} value="float" /> float</label>
 				<label><input type="radio" bind:group={ctype} value="double" /> double</label>
 				{#if current.id === 'fir-q'}
-					<label class="bits">bits <input type="number" min="4" max="32" bind:value={fixedBits} /></label>
+					<label class="bits"
+						>bits <input type="number" min="4" max="32" bind:value={fixedBits} /></label
+					>
 				{/if}
 			</div>
 		{/if}

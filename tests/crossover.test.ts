@@ -35,7 +35,10 @@ describe('crossover sums', () => {
 
 	it('BW3 sums flat with either polarity; BW1 sums to exactly 1 (zero phase)', () => {
 		for (const inv of [false, true]) {
-			const r = evaluateCrossover(buildWays({ ...cfg('bw3', 2, [1000]), invert: { low: false, mid: false, high: inv } }), f);
+			const r = evaluateCrossover(
+				buildWays({ ...cfg('bw3', 2, [1000]), invert: { low: false, mid: false, high: inv } }),
+				f
+			);
 			for (const m of r.sum.magDb) expect(Math.abs(m)).toBeLessThan(1e-9);
 		}
 		const r1 = evaluateCrossover(buildWays(cfg('bw1', 2, [1000])), f);
@@ -47,7 +50,15 @@ describe('crossover sums', () => {
 
 	it('even-order Butterworth: +3 dB bump with one polarity, a notch with the other', () => {
 		const at = (type: XoType, invertHigh: boolean) =>
-			db(evaluateCrossover(buildWays({ ...cfg(type, 2, [1000]), invert: { low: false, mid: false, high: invertHigh } }), [1000]).sum.H[0]);
+			db(
+				evaluateCrossover(
+					buildWays({
+						...cfg(type, 2, [1000]),
+						invert: { low: false, mid: false, high: invertHigh }
+					}),
+					[1000]
+				).sum.H[0]
+			);
 		expect(at('bw2', true)).toBeCloseTo(3.0103, 3);
 		expect(at('bw2', false)).toBeLessThan(-100);
 		expect(at('bw4', false)).toBeCloseTo(3.0103, 3);

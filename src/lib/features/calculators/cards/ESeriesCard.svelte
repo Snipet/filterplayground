@@ -8,19 +8,39 @@
 
 	let value = $state(5000);
 	const rows = $derived(SERIES_NAMES.map((s) => ({ s, n: eSeriesNeighbours(value, s) })));
-	const tol: Record<string, string> = { E6: '±20 %', E12: '±10 %', E24: '±5 %', E48: '±2 %', E96: '±1 %' };
+	const tol: Record<string, string> = {
+		E6: '±20 %',
+		E12: '±10 %',
+		E24: '±5 %',
+		E48: '±2 %',
+		E96: '±1 %'
+	};
 	const pct = (v: number) => {
 		const r = Math.round(v * 1e4) / 1e4 || 0;
 		return `${r > 0 ? '+' : ''}${trimNumber(r, 3)} %`;
 	};
 </script>
 
-<CalcCard {id} {title} blurb="Nearest preferred (IEC 60063) values below and above any value, with the error each introduces.">
-	<NumberInput label="Value (any unit; SI prefixes like 4k7, 33n work)" bind:value si min={1e-15} logStep={1.05} />
+<CalcCard
+	{id}
+	{title}
+	blurb="Nearest preferred (IEC 60063) values below and above any value, with the error each introduces."
+>
+	<NumberInput
+		label="Value (any unit; SI prefixes like 4k7, 33n work)"
+		bind:value
+		si
+		min={1e-15}
+		logStep={1.05}
+	/>
 	<div class="wrap">
 		<table>
 			<thead>
-				<tr><th>Series</th><th class="num">Below</th><th class="num">Error</th><th class="num">Above</th><th class="num">Error</th></tr>
+				<tr
+					><th>Series</th><th class="num">Below</th><th class="num">Error</th><th class="num"
+						>Above</th
+					><th class="num">Error</th></tr
+				>
 			</thead>
 			<tbody>
 				{#each rows as r (r.s)}
@@ -35,12 +55,17 @@
 			</tbody>
 		</table>
 	</div>
-	<p class="note">The highlighted value is the nearest in ratio (log distance). Tolerances are the ones each series was designed for.</p>
+	<p class="note">
+		The highlighted value is the nearest in ratio (log distance). Tolerances are the ones each
+		series was designed for.
+	</p>
 
 	{#snippet formula()}
 		<p class="small muted f">
-			E<em>n</em> has <em>n</em> values per decade spaced ≈ 10<sup>1/n</sup> apart. E48/E96 are 10<sup>i/n</sup> rounded to three figures;
-			E6–E24 use historical values (2.7, 3.3, 3.9, 4.7, 8.2 differ from pure rounding).
+			E<em>n</em> has <em>n</em> values per decade spaced ≈ 10<sup>1/n</sup> apart. E48/E96 are 10<sup
+				>i/n</sup
+			> rounded to three figures; E6–E24 use historical values (2.7, 3.3, 3.9, 4.7, 8.2 differ from pure
+			rounding).
 		</p>
 	{/snippet}
 </CalcCard>

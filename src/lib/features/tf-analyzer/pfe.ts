@@ -55,14 +55,19 @@ export const REPEATED_TOL = 1e-6;
  *   H(z) = B(z)/A(z) = Σ rᵢ / (1 − pᵢ z⁻¹) + Σ kⱼ z⁻ʲ
  * `poles` may be passed in (e.g. from an accurate ZPK); otherwise A is rooted.
  */
-export function residuez(bIn: readonly number[], aIn: readonly number[], poles?: readonly Complex[]): PartialFractions {
+export function residuez(
+	bIn: readonly number[],
+	aIn: readonly number[],
+	poles?: readonly Complex[]
+): PartialFractions {
 	const a0 = aIn[0];
 	if (!a0) throw new Error('a[0] must be non-zero');
 	const b = bIn.map((v) => v / a0);
 	let a = aIn.map((v) => v / a0);
 	while (a.length > 1 && a[a.length - 1] === 0) a = a.slice(0, -1);
 	const M = a.length - 1;
-	if (M === 0) return { residues: [], poles: [], direct: [...b], repeated: false, minSeparation: Infinity };
+	if (M === 0)
+		return { residues: [], poles: [], direct: [...b], repeated: false, minSeparation: Infinity };
 
 	// direct terms: divide B(q) by A(q) in ascending powers of q = z⁻¹
 	let R: number[] = [...b];
@@ -77,7 +82,8 @@ export function residuez(bIn: readonly number[], aIn: readonly number[], poles?:
 	let ps: Complex[] = poles ? poles.filter((p) => abs(p) > 0).map((p) => ({ ...p })) : [];
 	if (ps.length !== M) ps = cleanRealRoots(roots(a));
 	const minSep = separation(ps);
-	if (minSep < REPEATED_TOL) return { residues: [], poles: ps, direct, repeated: true, minSeparation: minSep };
+	if (minSep < REPEATED_TOL)
+		return { residues: [], poles: ps, direct, repeated: true, minSeparation: minSep };
 
 	const residues = ps.map((p, i) => {
 		const qi = div(c(1), p);
@@ -99,14 +105,19 @@ export function residuez(bIn: readonly number[], aIn: readonly number[], poles?:
  * Analog partial fractions:
  *   H(s) = B(s)/A(s) = Σ rᵢ / (s − pᵢ) + k(s)
  */
-export function residue(bIn: readonly number[], aIn: readonly number[], poles?: readonly Complex[]): PartialFractions {
+export function residue(
+	bIn: readonly number[],
+	aIn: readonly number[],
+	poles?: readonly Complex[]
+): PartialFractions {
 	const aT = trimLeading(aIn);
 	if (aT.length === 0 || aT[0] === 0) throw new Error('The denominator must be non-zero');
 	const lead = aT[0];
 	const a = aT.map((v) => v / lead);
 	const b = trimLeading(bIn).map((v) => v / lead);
 	const M = a.length - 1;
-	if (M === 0) return { residues: [], poles: [], direct: b, repeated: false, minSeparation: Infinity };
+	if (M === 0)
+		return { residues: [], poles: [], direct: b, repeated: false, minSeparation: Infinity };
 	let R = [...b];
 	let direct: number[] = [];
 	if (b.length - 1 >= M) {
@@ -117,7 +128,8 @@ export function residue(bIn: readonly number[], aIn: readonly number[], poles?: 
 	let ps: Complex[] = poles ? poles.map((p) => ({ ...p })) : [];
 	if (ps.length !== M) ps = cleanRealRoots(roots(a));
 	const minSep = separation(ps);
-	if (minSep < REPEATED_TOL) return { residues: [], poles: ps, direct, repeated: true, minSeparation: minSep };
+	if (minSep < REPEATED_TOL)
+		return { residues: [], poles: ps, direct, repeated: true, minSeparation: minSep };
 	const residues = ps.map((p, i) => {
 		let num = c(0);
 		for (const coef of R) num = add(mul(num, p), c(coef));

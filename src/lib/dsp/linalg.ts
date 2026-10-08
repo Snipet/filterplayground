@@ -28,8 +28,10 @@ export function matvec(a: Matrix, x: readonly number[]): number[] {
 	return a.map((row) => row.reduce((s, v, j) => s + v * x[j], 0));
 }
 
-export const matadd = (a: Matrix, b: Matrix): Matrix => a.map((r, i) => r.map((v, j) => v + b[i][j]));
-export const matsub = (a: Matrix, b: Matrix): Matrix => a.map((r, i) => r.map((v, j) => v - b[i][j]));
+export const matadd = (a: Matrix, b: Matrix): Matrix =>
+	a.map((r, i) => r.map((v, j) => v + b[i][j]));
+export const matsub = (a: Matrix, b: Matrix): Matrix =>
+	a.map((r, i) => r.map((v, j) => v - b[i][j]));
 export const matscale = (a: Matrix, s: number): Matrix => a.map((r) => r.map((v) => v * s));
 
 export function norm1(a: Matrix): number {

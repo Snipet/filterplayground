@@ -19,7 +19,15 @@
 		/** Serializable design state; shows a "Copy link" button in the header. */
 		share?: unknown;
 	}
-	let { slug, controls, children, theory, related = [], wideControls = false, share }: Props = $props();
+	let {
+		slug,
+		controls,
+		children,
+		theory,
+		related = [],
+		wideControls = false,
+		share
+	}: Props = $props();
 	const tool = $derived(toolBySlug(slug)!);
 	const cat = $derived(categoryById(tool.category));
 	const relatedTools = $derived(related.map(toolBySlug).filter((t) => !!t));

@@ -26,7 +26,13 @@
 			const mid = (last.f1 + last.f2) / 2;
 			const old = last.f2;
 			last.f2 = round(mid - gap / 2);
-			bands.push({ f1: round(mid + gap / 2), f2: old, d1: last.d2, d2: last.d2, weight: last.weight });
+			bands.push({
+				f1: round(mid + gap / 2),
+				f2: old,
+				d1: last.d2,
+				d2: last.d2,
+				weight: last.weight
+			});
 		}
 	}
 	function remove(i: number) {
@@ -53,19 +59,40 @@
 				<tr>
 					<td class="idx">{i + 1}</td>
 					<td>
-						<label class="visually-hidden" for="band-{i}-f1">Band {i + 1} start frequency (Hz)</label>
-						<NumberInput id="band-{i}-f1" bind:value={b.f1} min={0} max={nyq} unit="Hz" si logStep={1.02} />
+						<label class="visually-hidden" for="band-{i}-f1"
+							>Band {i + 1} start frequency (Hz)</label
+						>
+						<NumberInput
+							id="band-{i}-f1"
+							bind:value={b.f1}
+							min={0}
+							max={nyq}
+							unit="Hz"
+							si
+							logStep={1.02}
+						/>
 					</td>
 					<td>
 						<label class="visually-hidden" for="band-{i}-f2">Band {i + 1} end frequency (Hz)</label>
-						<NumberInput id="band-{i}-f2" bind:value={b.f2} min={0} max={nyq} unit="Hz" si logStep={1.02} />
+						<NumberInput
+							id="band-{i}-f2"
+							bind:value={b.f2}
+							min={0}
+							max={nyq}
+							unit="Hz"
+							si
+							logStep={1.02}
+						/>
 					</td>
 					<td>
-						<label class="visually-hidden" for="band-{i}-d1">Band {i + 1} desired gain at start</label>
+						<label class="visually-hidden" for="band-{i}-d1"
+							>Band {i + 1} desired gain at start</label
+						>
 						<NumberInput id="band-{i}-d1" bind:value={b.d1} step={0.1} />
 					</td>
 					<td>
-						<label class="visually-hidden" for="band-{i}-d2">Band {i + 1} desired gain at end</label>
+						<label class="visually-hidden" for="band-{i}-d2">Band {i + 1} desired gain at end</label
+						>
 						<NumberInput id="band-{i}-d2" bind:value={b.d2} step={0.1} />
 					</td>
 					{#if showWeight}
@@ -75,8 +102,12 @@
 						</td>
 					{/if}
 					<td>
-						<button class="btn ghost small" type="button" onclick={() => remove(i)} disabled={bands.length <= 1} aria-label="Remove band {i + 1}"
-							>✕</button
+						<button
+							class="btn ghost small"
+							type="button"
+							onclick={() => remove(i)}
+							disabled={bands.length <= 1}
+							aria-label="Remove band {i + 1}">✕</button
 						>
 					</td>
 				</tr>
@@ -86,7 +117,9 @@
 </div>
 <div class="foot">
 	<button class="btn small" type="button" onclick={add}>+ Add band</button>
-	<span class="small muted">Gains are linear amplitudes; between bands the response is unconstrained (“don’t care”).</span>
+	<span class="small muted"
+		>Gains are linear amplitudes; between bands the response is unconstrained (“don’t care”).</span
+	>
 </div>
 {#if errors.length}
 	<ul class="errs small" role="alert">

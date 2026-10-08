@@ -27,7 +27,11 @@ const wrapDeg = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
 
 describe('pole-zero model: roots', () => {
 	it('expands pairs into conjugates and adds causal poles at z = 0', () => {
-		const items: PzItem[] = [makeItem('zero', 0.5, 0.5), makeItem('zero', -1, 0, false), makeItem('pole', 0.3, 0, false)];
+		const items: PzItem[] = [
+			makeItem('zero', 0.5, 0.5),
+			makeItem('zero', -1, 0, false),
+			makeItem('pole', 0.3, 0, false)
+		];
 		const r = planeRoots(items, 'z');
 		expect(r.zeros).toHaveLength(3);
 		expect(r.poles).toHaveLength(3);
@@ -76,7 +80,10 @@ describe('pole-zero model: geometric evaluation matches evaluate()', () => {
 	it('dbAt agrees with the geometric magnitude', () => {
 		const roots = planeRoots(Z_PRESETS[0].build(fs), 'z');
 		const x = freqPoint('z', 3000, fs);
-		expect(dbAt(roots.zeros, roots.poles, 0.3, x)).toBeCloseTo(20 * Math.log10(geometric(roots, 0.3, x).mag), 9);
+		expect(dbAt(roots.zeros, roots.poles, 0.3, x)).toBeCloseTo(
+			20 * Math.log10(geometric(roots, 0.3, x).mag),
+			9
+		);
 	});
 });
 
@@ -93,7 +100,10 @@ describe('pole-zero model: gain normalisation', () => {
 
 	it('DC normalisation chooses the sign so that H(DC) = +1', () => {
 		// first-order all-pass (a − s)/(s + a)
-		const roots = planeRoots([makeItem('zero', 1000, 0, false), makeItem('pole', -1000, 0, false)], 's');
+		const roots = planeRoots(
+			[makeItem('zero', 1000, 0, false), makeItem('pole', -1000, 0, false)],
+			's'
+		);
 		const { K } = normalizeGain(roots, 's', 'dc', fs);
 		expect(K).toBeCloseTo(-1, 12);
 		const zpk = toZpk(roots, K, 's');
@@ -193,6 +203,8 @@ describe('pole-zero model: TeX', () => {
 			[{ re: 0.5, im: 0.5, pair: true }],
 			0.25
 		);
-		expect(tex).toBe('H(z) = 0.25\\,\\dfrac{\\left(z + 1\\right)^{2}}{\\left(z^2 - z + 0.5\\right)}');
+		expect(tex).toBe(
+			'H(z) = 0.25\\,\\dfrac{\\left(z + 1\\right)^{2}}{\\left(z^2 - z + 0.5\\right)}'
+		);
 	});
 });

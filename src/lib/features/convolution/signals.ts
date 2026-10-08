@@ -5,8 +5,10 @@
 import { firwin } from '$lib/dsp/fir';
 import { windowValues } from '$lib/dsp/windows';
 
-export type XKind = 'impulse' | 'step' | 'rect' | 'train' | 'ramp' | 'sine' | 'noisyStep' | 'random';
-export type HKind = 'movingAverage' | 'expDecay' | 'difference' | 'hann' | 'lowpass7' | 'echo' | 'custom';
+export type XKind =
+	'impulse' | 'step' | 'rect' | 'train' | 'ramp' | 'sine' | 'noisyStep' | 'random';
+export type HKind =
+	'movingAverage' | 'expDecay' | 'difference' | 'hann' | 'lowpass7' | 'echo' | 'custom';
 
 export const X_KINDS: { id: XKind; name: string }[] = [
 	{ id: 'impulse', name: 'Unit impulse δ[n]' },
@@ -101,7 +103,10 @@ export function makeH(kind: Exclude<HKind, 'custom'>, p: HParams): number[] {
 			return new Array(p.taps).fill(r4(1 / p.taps));
 		case 'expDecay': {
 			// (1 − a)·aⁿ: unit DC gain, truncated once it falls below 1 % of its start
-			const L = Math.min(24, Math.max(2, Math.ceil(Math.log(0.01) / Math.log(Math.max(p.a, 1e-6)))));
+			const L = Math.min(
+				24,
+				Math.max(2, Math.ceil(Math.log(0.01) / Math.log(Math.max(p.a, 1e-6))))
+			);
 			return Array.from({ length: L }, (_, i) => r4((1 - p.a) * Math.pow(p.a, i)));
 		}
 		case 'difference':
@@ -174,7 +179,12 @@ export function texVal(v: number, digits = 3): string {
  * TeX for y[n] = Σ x[k]h[n−k] = (symbolic terms) = (numeric terms) = value,
  * listing only non-zero products and eliding the middle of long sums.
  */
-export function sumTex(x: readonly number[], h: readonly number[], n: number, maxTerms = 6): string {
+export function sumTex(
+	x: readonly number[],
+	h: readonly number[],
+	n: number,
+	maxTerms = 6
+): string {
 	const terms = overlapTerms(x, h, n).filter((t) => t.product !== 0);
 	const value = terms.reduce((s, t) => s + t.product, 0);
 	const head = `y[${n}] &= \\sum_k x[k]\\,h[${n}-k]`;

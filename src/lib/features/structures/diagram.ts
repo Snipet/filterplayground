@@ -13,9 +13,25 @@ export type El =
 	| { t: 'wire'; pts: Pt[]; arrow: boolean }
 	| { t: 'sum'; x: number; y: number }
 	| { t: 'delay'; x: number; y: number; state: number; vertical: boolean }
-	| { t: 'gain'; x: number; y: number; angle: number; label: string; lx: number; ly: number; anchor: 'start' | 'middle' | 'end' }
+	| {
+			t: 'gain';
+			x: number;
+			y: number;
+			angle: number;
+			label: string;
+			lx: number;
+			ly: number;
+			anchor: 'start' | 'middle' | 'end';
+	  }
 	| { t: 'dot'; x: number; y: number }
-	| { t: 'text'; x: number; y: number; text: string; anchor: 'start' | 'middle' | 'end'; kind: 'signal' | 'caption' };
+	| {
+			t: 'text';
+			x: number;
+			y: number;
+			text: string;
+			anchor: 'start' | 'middle' | 'end';
+			kind: 'signal' | 'caption';
+	  };
 
 export interface Diagram {
 	width: number;
@@ -68,7 +84,18 @@ class Builder {
 		this.els.push({ t: 'dot', x, y });
 	}
 	/** Multiplier triangle pointing along `angle` (degrees, 0 = right, 90 = down). */
-	gain(x: number, y: number, angle: number, value: number, labelAt: 'above' | 'below' | 'right' | 'left' | { x: number; y: number; anchor?: 'start' | 'end' } = 'above') {
+	gain(
+		x: number,
+		y: number,
+		angle: number,
+		value: number,
+		labelAt:
+			| 'above'
+			| 'below'
+			| 'right'
+			| 'left'
+			| { x: number; y: number; anchor?: 'start' | 'end' } = 'above'
+	) {
 		const label = coef(value);
 		let lx = x;
 		let ly = y;
@@ -89,18 +116,37 @@ class Builder {
 			anchor = 'end';
 		}
 		this.els.push({ t: 'gain', x, y, angle, label, lx, ly, anchor });
-		this.grow(Math.max(x + 12, lx + (anchor === 'start' ? label.length * 7 : 0)), Math.max(y + 24, ly + 6));
+		this.grow(
+			Math.max(x + 12, lx + (anchor === 'start' ? label.length * 7 : 0)),
+			Math.max(y + 24, ly + 6)
+		);
 	}
-	text(x: number, y: number, text: string, anchor: 'start' | 'middle' | 'end' = 'middle', kind: 'signal' | 'caption' = 'signal') {
+	text(
+		x: number,
+		y: number,
+		text: string,
+		anchor: 'start' | 'middle' | 'end' = 'middle',
+		kind: 'signal' | 'caption' = 'signal'
+	) {
 		this.els.push({ t: 'text', x, y, text, anchor, kind });
-		this.grow(x + (anchor === 'start' ? text.length * 7 : anchor === 'middle' ? text.length * 3.5 : 0), y + 6);
+		this.grow(
+			x + (anchor === 'start' ? text.length * 7 : anchor === 'middle' ? text.length * 3.5 : 0),
+			y + 6
+		);
 	}
 	done(minW = 0): Diagram {
-		return { width: Math.ceil(Math.max(minW, this.maxX + 16)), height: Math.ceil(this.maxY + 14), els: this.els };
+		return {
+			width: Math.ceil(Math.max(minW, this.maxX + 16)),
+			height: Math.ceil(this.maxY + 14),
+			els: this.els
+		};
 	}
 }
 
-const pad = (v: readonly number[], n: number) => [...v, ...new Array(Math.max(0, n - v.length)).fill(0)];
+const pad = (v: readonly number[], n: number) => [
+	...v,
+	...new Array(Math.max(0, n - v.length)).fill(0)
+];
 const nz = (v: number | undefined) => v !== undefined && v !== 0;
 
 // ---------------------------------------------------------------------------
@@ -116,7 +162,14 @@ interface Block {
 
 const TDF2_W = 300;
 
-function tdf2Block(B: Builder, ox: number, oy: number, bIn: readonly number[], aIn: readonly number[], s0: number): Block {
+function tdf2Block(
+	B: Builder,
+	ox: number,
+	oy: number,
+	bIn: readonly number[],
+	aIn: readonly number[],
+	s0: number
+): Block {
 	const K = Math.max(bIn.length, aIn.length) - 1;
 	const b = pad(bIn, K + 1);
 	const a = pad(aIn, K + 1);
@@ -149,8 +202,23 @@ function tdf2Block(B: Builder, ox: number, oy: number, bIn: readonly number[], a
 	for (let i = 0; i <= K; i++) {
 		if (!hasB(i)) continue;
 		if (i < lastB || (i === 0 && lastB > 0)) B.dot(xBus, y(i));
-		if (adder(i) || i === 0) B.wire([[xBus, y(i)], [xS, y(i)]], { arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 });
-		else B.wire([[xBus, y(i)], [xS, y(i)], [xS, dc(i - 1) + DELAY_H / 2]], { arrow: true });
+		if (adder(i) || i === 0)
+			B.wire(
+				[
+					[xBus, y(i)],
+					[xS, y(i)]
+				],
+				{ arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 }
+			);
+		else
+			B.wire(
+				[
+					[xBus, y(i)],
+					[xS, y(i)],
+					[xS, dc(i - 1) + DELAY_H / 2]
+				],
+				{ arrow: true }
+			);
 		B.gain(xGb, y(i), 0, b[i]);
 	}
 
@@ -168,8 +236,23 @@ function tdf2Block(B: Builder, ox: number, oy: number, bIn: readonly number[], a
 	for (let i = 1; i <= K; i++) {
 		if (!hasA(i)) continue;
 		if (i < lastA) B.dot(xY, y(i));
-		if (adder(i)) B.wire([[xY, y(i)], [xS, y(i)]], { arrow: true, trimEnd: SUM_R });
-		else B.wire([[xY, y(i)], [xS, y(i)], [xS, dc(i - 1) + DELAY_H / 2]], { arrow: true });
+		if (adder(i))
+			B.wire(
+				[
+					[xY, y(i)],
+					[xS, y(i)]
+				],
+				{ arrow: true, trimEnd: SUM_R }
+			);
+		else
+			B.wire(
+				[
+					[xY, y(i)],
+					[xS, y(i)],
+					[xS, dc(i - 1) + DELAY_H / 2]
+				],
+				{ arrow: true }
+			);
 		B.gain(xGa, y(i), 180, -a[i]);
 	}
 
@@ -177,10 +260,28 @@ function tdf2Block(B: Builder, ox: number, oy: number, bIn: readonly number[], a
 	for (let i = 0; i < K; i++) {
 		B.delay(xS, dc(i), s0 + i);
 		// from node i+1 up into the delay
-		if (adder(i + 1)) B.wire([[xS, y(i + 1)], [xS, dc(i) + DELAY_H / 2]], { arrow: true, trimStart: SUM_R });
+		if (adder(i + 1))
+			B.wire(
+				[
+					[xS, y(i + 1)],
+					[xS, dc(i) + DELAY_H / 2]
+				],
+				{ arrow: true, trimStart: SUM_R }
+			);
 		// from the delay up into node i
-		if (adder(i)) B.wire([[xS, dc(i) - DELAY_H / 2], [xS, y(i)]], { arrow: true, trimEnd: SUM_R });
-		else B.wire([[xS, dc(i) - DELAY_H / 2], [xS, y(i)]]);
+		if (adder(i))
+			B.wire(
+				[
+					[xS, dc(i) - DELAY_H / 2],
+					[xS, y(i)]
+				],
+				{ arrow: true, trimEnd: SUM_R }
+			);
+		else
+			B.wire([
+				[xS, dc(i) - DELAY_H / 2],
+				[xS, y(i)]
+			]);
 	}
 	for (let i = 0; i <= K; i++) if (adder(i)) B.sum(xS, y(i));
 	return { inPt: [ox, y(0)], outPt: [xOut, y(0)], width: TDF2_W, height: K * RH };
@@ -231,7 +332,13 @@ export function diagramDf1(b: readonly number[], a: readonly number[]): Diagram 
 	]);
 	// x delay chain
 	for (let i = 1; i <= M; i++) {
-		B.wire([[xTx, y(i - 1)], [xTx, mid(i) - DELAY_H / 2]], { arrow: true });
+		B.wire(
+			[
+				[xTx, y(i - 1)],
+				[xTx, mid(i) - DELAY_H / 2]
+			],
+			{ arrow: true }
+		);
 		B.wire([
 			[xTx, mid(i) + DELAY_H / 2],
 			[xTx, y(i)]
@@ -242,15 +349,33 @@ export function diagramDf1(b: readonly number[], a: readonly number[]): Diagram 
 	if (M >= 1) B.dot(xTx, y(0));
 	for (let i = 0; i <= M; i++) {
 		if (!hasB(i)) continue;
-		B.wire([[xTx, y(i)], [xS, y(i)]], { arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xTx, y(i)],
+				[xS, y(i)]
+			],
+			{ arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 }
+		);
 		B.gain(xGb, y(i), 0, b[i]);
 	}
 	// output and y delay chain
-	B.wire([[xS, y(0)], [xOut, y(0)]], { arrow: true, trimStart: adder(0) ? SUM_R : 0 });
+	B.wire(
+		[
+			[xS, y(0)],
+			[xOut, y(0)]
+		],
+		{ arrow: true, trimStart: adder(0) ? SUM_R : 0 }
+	);
 	B.text(xOut + 4, y(0) + 4, 'y[n]', 'start');
 	if (N >= 1) B.dot(xTy, y(0));
 	for (let i = 1; i <= N; i++) {
-		B.wire([[xTy, y(i - 1)], [xTy, mid(i) - DELAY_H / 2]], { arrow: true });
+		B.wire(
+			[
+				[xTy, y(i - 1)],
+				[xTy, mid(i) - DELAY_H / 2]
+			],
+			{ arrow: true }
+		);
 		B.wire([
 			[xTy, mid(i) + DELAY_H / 2],
 			[xTy, y(i)]
@@ -260,13 +385,25 @@ export function diagramDf1(b: readonly number[], a: readonly number[]): Diagram 
 	}
 	for (let i = 1; i <= N; i++) {
 		if (!hasA(i)) continue;
-		B.wire([[xTy, y(i)], [xS, y(i)]], { arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xTy, y(i)],
+				[xS, y(i)]
+			],
+			{ arrow: adder(i), trimEnd: adder(i) ? SUM_R : 0 }
+		);
 		B.gain(xGa, y(i), 180, -a[i]);
 	}
 	// adder chain
 	for (let i = 1; i <= R; i++) {
 		if (own(i) === 0 && !below(i)) continue;
-		B.wire([[xS, y(i)], [xS, y(i - 1)]], { arrow: adder(i - 1), trimStart: adder(i) ? SUM_R : 0, trimEnd: adder(i - 1) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xS, y(i)],
+				[xS, y(i - 1)]
+			],
+			{ arrow: adder(i - 1), trimStart: adder(i) ? SUM_R : 0, trimEnd: adder(i - 1) ? SUM_R : 0 }
+		);
 	}
 	for (let i = 0; i <= R; i++) if (adder(i)) B.sum(xS, y(i));
 	return B.done();
@@ -294,12 +431,30 @@ export function diagramDf2(bIn: readonly number[], aIn: readonly number[]): Diag
 	const adderR = (i: number) => (hasB(i) ? 1 : 0) + (belowB(i) ? 1 : 0) >= 2;
 
 	B.text(8, y(0) + 4, 'x[n]', 'start');
-	B.wire([[xIn, y(0)], [xSL, y(0)]], { arrow: adderL(0), trimEnd: adderL(0) ? SUM_R : 0 });
+	B.wire(
+		[
+			[xIn, y(0)],
+			[xSL, y(0)]
+		],
+		{ arrow: adderL(0), trimEnd: adderL(0) ? SUM_R : 0 }
+	);
 	// left adder → centre node
-	B.wire([[xSL, y(0)], [xD, y(0)]], { trimStart: adderL(0) ? SUM_R : 0 });
+	B.wire(
+		[
+			[xSL, y(0)],
+			[xD, y(0)]
+		],
+		{ trimStart: adderL(0) ? SUM_R : 0 }
+	);
 	// centre delay chain
 	for (let i = 1; i <= K; i++) {
-		B.wire([[xD, y(i - 1)], [xD, mid(i) - DELAY_H / 2]], { arrow: true });
+		B.wire(
+			[
+				[xD, y(i - 1)],
+				[xD, mid(i) - DELAY_H / 2]
+			],
+			{ arrow: true }
+		);
 		B.wire([
 			[xD, mid(i) + DELAY_H / 2],
 			[xD, y(i)]
@@ -311,24 +466,54 @@ export function diagramDf2(bIn: readonly number[], aIn: readonly number[]): Diag
 	// feedback
 	for (let i = 1; i <= K; i++) {
 		if (!hasA(i)) continue;
-		B.wire([[xD, y(i)], [xSL, y(i)]], { arrow: adderL(i), trimEnd: adderL(i) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xD, y(i)],
+				[xSL, y(i)]
+			],
+			{ arrow: adderL(i), trimEnd: adderL(i) ? SUM_R : 0 }
+		);
 		B.gain(xGa, y(i), 180, -a[i]);
 	}
 	for (let i = 1; i <= K; i++) {
 		if (!hasA(i) && !belowA(i)) continue;
-		B.wire([[xSL, y(i)], [xSL, y(i - 1)]], { arrow: adderL(i - 1), trimStart: adderL(i) ? SUM_R : 0, trimEnd: adderL(i - 1) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xSL, y(i)],
+				[xSL, y(i - 1)]
+			],
+			{ arrow: adderL(i - 1), trimStart: adderL(i) ? SUM_R : 0, trimEnd: adderL(i - 1) ? SUM_R : 0 }
+		);
 	}
 	// feed-forward
 	for (let i = 0; i <= K; i++) {
 		if (!hasB(i)) continue;
-		B.wire([[xD, y(i)], [xSR, y(i)]], { arrow: adderR(i), trimEnd: adderR(i) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xD, y(i)],
+				[xSR, y(i)]
+			],
+			{ arrow: adderR(i), trimEnd: adderR(i) ? SUM_R : 0 }
+		);
 		B.gain(xGb, y(i), 0, b[i]);
 	}
 	for (let i = 1; i <= K; i++) {
 		if (!hasB(i) && !belowB(i)) continue;
-		B.wire([[xSR, y(i)], [xSR, y(i - 1)]], { arrow: adderR(i - 1), trimStart: adderR(i) ? SUM_R : 0, trimEnd: adderR(i - 1) ? SUM_R : 0 });
+		B.wire(
+			[
+				[xSR, y(i)],
+				[xSR, y(i - 1)]
+			],
+			{ arrow: adderR(i - 1), trimStart: adderR(i) ? SUM_R : 0, trimEnd: adderR(i - 1) ? SUM_R : 0 }
+		);
 	}
-	B.wire([[xSR, y(0)], [xOut, y(0)]], { arrow: true, trimStart: adderR(0) ? SUM_R : 0 });
+	B.wire(
+		[
+			[xSR, y(0)],
+			[xOut, y(0)]
+		],
+		{ arrow: true, trimStart: adderR(0) ? SUM_R : 0 }
+	);
 	B.text(xOut + 4, y(0) + 4, 'y[n]', 'start');
 	for (let i = 0; i <= K; i++) {
 		if (adderL(i)) B.sum(xSL, y(i));
@@ -412,19 +597,34 @@ export function diagramParallel(form: ParallelForm): Diagram {
 			out = blk.outPt;
 		} else {
 			B.text(ox + TDF2_W / 2, bk.oy - 22, 'Direct term', 'middle', 'caption');
-			B.wire([[xBus, bk.oy], [ox + TDF2_W, bk.oy]]);
+			B.wire([
+				[xBus, bk.oy],
+				[ox + TDF2_W, bk.oy]
+			]);
 			B.gain(ox + 82, bk.oy, 0, form.direct[0]);
 			out = [ox + TDF2_W, bk.oy];
 		}
 		B.wire([out, [xSum, bk.oy]], { arrow: sumHere || j === 0, trimEnd: sumHere ? SUM_R : 0 });
 		if (j > 0) {
 			const prevSum = j - 1 < last;
-			B.wire([[xSum, bk.oy], [xSum, blocks[j - 1].oy]], { arrow: prevSum, trimStart: sumHere ? SUM_R : 0, trimEnd: prevSum ? SUM_R : 0 });
+			B.wire(
+				[
+					[xSum, bk.oy],
+					[xSum, blocks[j - 1].oy]
+				],
+				{ arrow: prevSum, trimStart: sumHere ? SUM_R : 0, trimEnd: prevSum ? SUM_R : 0 }
+			);
 		}
 		if (sumHere) B.sum(xSum, bk.oy);
 	});
 	const y0 = blocks[0].oy;
-	B.wire([[xSum, y0], [xSum + 40, y0]], { arrow: true, trimStart: last > 0 ? SUM_R : 0 });
+	B.wire(
+		[
+			[xSum, y0],
+			[xSum + 40, y0]
+		],
+		{ arrow: true, trimStart: last > 0 ? SUM_R : 0 }
+	);
 	B.text(xSum + 44, y0 + 4, 'y[n]', 'start');
 	return B.done();
 }
@@ -453,7 +653,13 @@ export function diagramFir(h: readonly number[]): Diagram {
 	]);
 	for (let k = 1; k <= M; k++) {
 		const mx = (x(k - 1) + x(k)) / 2;
-		B.wire([[x(k - 1), yT], [mx - DELAY_W / 2, yT]], { arrow: true });
+		B.wire(
+			[
+				[x(k - 1), yT],
+				[mx - DELAY_W / 2, yT]
+			],
+			{ arrow: true }
+		);
 		B.wire([
 			[mx + DELAY_W / 2, yT],
 			[x(k), yT]
@@ -463,14 +669,32 @@ export function diagramFir(h: readonly number[]): Diagram {
 	for (let k = 0; k <= M; k++) {
 		if (k < M && hasH(k)) B.dot(x(k), yT);
 		if (!hasH(k)) continue;
-		B.wire([[x(k), yT], [x(k), yB]], { arrow: adder(k), trimEnd: adder(k) ? SUM_R : 0 });
+		B.wire(
+			[
+				[x(k), yT],
+				[x(k), yB]
+			],
+			{ arrow: adder(k), trimEnd: adder(k) ? SUM_R : 0 }
+		);
 		B.gain(x(k), yG, 90, h[k], 'right');
 	}
 	for (let k = 1; k <= M; k++) {
 		if (!left(k)) continue;
-		B.wire([[x(k - 1), yB], [x(k), yB]], { arrow: adder(k), trimStart: adder(k - 1) ? SUM_R : 0, trimEnd: adder(k) ? SUM_R : 0 });
+		B.wire(
+			[
+				[x(k - 1), yB],
+				[x(k), yB]
+			],
+			{ arrow: adder(k), trimStart: adder(k - 1) ? SUM_R : 0, trimEnd: adder(k) ? SUM_R : 0 }
+		);
 	}
-	B.wire([[x(M), yB], [x(M) + 44, yB]], { arrow: true, trimStart: adder(M) ? SUM_R : 0 });
+	B.wire(
+		[
+			[x(M), yB],
+			[x(M) + 44, yB]
+		],
+		{ arrow: true, trimStart: adder(M) ? SUM_R : 0 }
+	);
 	B.text(x(M) + 48, yB + 4, 'y[n]', 'start');
 	for (let k = 0; k <= M; k++) if (adder(k)) B.sum(x(k), yB);
 	return B.done();
@@ -496,18 +720,42 @@ export function diagramFirTransposed(h: readonly number[]): Diagram {
 	for (let k = 0; k <= M; k++) {
 		if (!hasH(k)) continue;
 		if (k < lastH) B.dot(x(k), yT);
-		B.wire([[x(k), yT], [x(k), yB]], { arrow: adder(k) || k < M, trimEnd: adder(k) ? SUM_R : 0 });
+		B.wire(
+			[
+				[x(k), yT],
+				[x(k), yB]
+			],
+			{ arrow: adder(k) || k < M, trimEnd: adder(k) ? SUM_R : 0 }
+		);
 		B.gain(x(k), yG, 90, h[k], 'right');
 	}
 	for (let k = 0; k < M; k++) {
 		const mx = (x(k) + x(k + 1)) / 2;
 		B.delay(mx, yB, k, false);
 		if (right(k)) {
-			B.wire([[x(k + 1), yB], [mx + DELAY_W / 2, yB]], { arrow: true, trimStart: adder(k + 1) ? SUM_R : 0 });
-			B.wire([[mx - DELAY_W / 2, yB], [x(k), yB]], { arrow: adder(k), trimEnd: adder(k) ? SUM_R : 0 });
+			B.wire(
+				[
+					[x(k + 1), yB],
+					[mx + DELAY_W / 2, yB]
+				],
+				{ arrow: true, trimStart: adder(k + 1) ? SUM_R : 0 }
+			);
+			B.wire(
+				[
+					[mx - DELAY_W / 2, yB],
+					[x(k), yB]
+				],
+				{ arrow: adder(k), trimEnd: adder(k) ? SUM_R : 0 }
+			);
 		}
 	}
-	B.wire([[x(0), yB], [x(0) - 40, yB]], { arrow: true, trimStart: adder(0) ? SUM_R : 0 });
+	B.wire(
+		[
+			[x(0), yB],
+			[x(0) - 40, yB]
+		],
+		{ arrow: true, trimStart: adder(0) ? SUM_R : 0 }
+	);
 	B.text(x(0) - 44, yB + 4, 'y[n]', 'end');
 	for (let k = 0; k <= M; k++) if (adder(k)) B.sum(x(k), yB);
 	return B.done();
@@ -552,7 +800,13 @@ export function diagramLatticeLadder(ll: LatticeLadder): Diagram {
 		B.wire([T, [L + STAGE_W, yF]], { trimStart: SUM_R });
 		B.dot(Dt[0], Dt[1]);
 		// bottom line (flows right → left)
-		B.wire([[L + STAGE_W, yG], [delayX + DELAY_W / 2, yG]], { arrow: true });
+		B.wire(
+			[
+				[L + STAGE_W, yG],
+				[delayX + DELAY_W / 2, yG]
+			],
+			{ arrow: true }
+		);
 		B.delay(delayX, yG, m - 1, false);
 		B.wire([[delayX - DELAY_W / 2, yG], Bt], { arrow: true, trimEnd: SUM_R });
 		B.dot(Db[0], Db[1]);
@@ -570,7 +824,12 @@ export function diagramLatticeLadder(ll: LatticeLadder): Diagram {
 		B.sum(Bt[0], Bt[1]);
 	}
 	// turnaround f_0 → g_0
-	B.wire([[xEnd, yF], [xEnd + 20, yF], [xEnd + 20, yG], [xEnd, yG]]);
+	B.wire([
+		[xEnd, yF],
+		[xEnd + 20, yF],
+		[xEnd + 20, yG],
+		[xEnd, yG]
+	]);
 	B.text(xEnd + 26, (yF + yG) / 2 + 4, 'f₀ = g₀', 'start', 'caption');
 
 	// ladder
@@ -580,17 +839,35 @@ export function diagramLatticeLadder(ll: LatticeLadder): Diagram {
 		if (m !== 0) B.dot(tx, yG);
 		else B.dot(tx, yG);
 		const isSum = idx > 0;
-		B.wire([[tx, yG], [tx, yS]], { arrow: isSum, trimEnd: isSum ? SUM_R : 0 });
+		B.wire(
+			[
+				[tx, yG],
+				[tx, yS]
+			],
+			{ arrow: isSum, trimEnd: isSum ? SUM_R : 0 }
+		);
 		B.gain(tx, yV, 90, ll.v[m], 'right');
 		if (idx > 0) {
 			const px = tapX(taps[idx - 1]);
-			B.wire([[px, yS], [tx, yS]], { arrow: true, trimStart: idx - 1 > 0 ? SUM_R : 0, trimEnd: SUM_R });
+			B.wire(
+				[
+					[px, yS],
+					[tx, yS]
+				],
+				{ arrow: true, trimStart: idx - 1 > 0 ? SUM_R : 0, trimEnd: SUM_R }
+			);
 		}
 	});
 	B.text(tapX(N) + 8, yG + 16, `g${sub(N)}`, 'start', 'caption');
 	if (taps.length) {
 		const lx = tapX(taps[taps.length - 1]);
-		B.wire([[lx, yS], [lx + 44, yS]], { arrow: true, trimStart: taps.length > 1 ? SUM_R : 0 });
+		B.wire(
+			[
+				[lx, yS],
+				[lx + 44, yS]
+			],
+			{ arrow: true, trimStart: taps.length > 1 ? SUM_R : 0 }
+		);
 		B.text(lx + 48, yS + 4, 'y[n]', 'start');
 		taps.forEach((m, idx) => {
 			if (idx > 0) B.sum(tapX(m), yS);
@@ -630,7 +907,13 @@ export function diagramFirLattice(fl: FirLattice): Diagram {
 		B.text(L + 95, TOP - 6, `Stage ${m}`, 'middle', 'caption');
 		B.wire([[L, yF], T], { arrow: true, trimEnd: SUM_R });
 		B.wire([T, [L + STAGE_W, yF]], { trimStart: SUM_R });
-		B.wire([[L, yG], [delayX - DELAY_W / 2, yG]], { arrow: true });
+		B.wire(
+			[
+				[L, yG],
+				[delayX - DELAY_W / 2, yG]
+			],
+			{ arrow: true }
+		);
 		B.delay(delayX, yG, m - 1, false);
 		B.wire([[delayX + DELAY_W / 2, yG], Bt], { arrow: true, trimEnd: SUM_R });
 		B.wire([Bt, [L + STAGE_W, yG]], { trimStart: SUM_R });
@@ -648,7 +931,13 @@ export function diagramFirLattice(fl: FirLattice): Diagram {
 		B.sum(Bt[0], Bt[1]);
 	}
 	const xe = xs(M);
-	B.wire([[xe, yF], [xe + 90, yF]], { arrow: true });
+	B.wire(
+		[
+			[xe, yF],
+			[xe + 90, yF]
+		],
+		{ arrow: true }
+	);
 	if (fl.h0 !== 1) B.gain(xe + 40, yF, 0, fl.h0);
 	B.text(xe + 94, yF + 4, 'y[n]', 'start');
 	return B.done();

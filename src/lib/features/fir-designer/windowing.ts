@@ -86,7 +86,13 @@ export function cachedWindow(type: WindowType, N: number, param?: number): numbe
 }
 
 /** Same result as firwin(numtaps, cutoffs, window, passZero, fs), using the cached windows. */
-export function firwinFast(numtaps: number, cutoffs: number[], window: WindowSpec, passZero: boolean, fs: number): number[] {
+export function firwinFast(
+	numtaps: number,
+	cutoffs: number[],
+	window: WindowSpec,
+	passZero: boolean,
+	fs: number
+): number[] {
 	const nyq = fs / 2;
 	const c = cutoffs.map((f) => f / nyq);
 	const passNyquist = (c.length % 2 === 1) !== passZero;

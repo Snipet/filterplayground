@@ -34,13 +34,47 @@
 	};
 
 	const pulseSeries = $derived.by((): Series[] => {
-		if (kind === 'gaussian') return [{ x: tAxis(gauss), y: peakNorm(gauss), label: `Gaussian, BT = ${bt}`, color: COLOR.gauss, format: (v: number) => trimNumber(v, 4) }];
+		if (kind === 'gaussian')
+			return [
+				{
+					x: tAxis(gauss),
+					y: peakNorm(gauss),
+					label: `Gaussian, BT = ${bt}`,
+					color: COLOR.gauss,
+					format: (v: number) => trimNumber(v, 4)
+				}
+			];
 		const inst = rc.map((_, i) => i).filter((i) => (i - (rc.length - 1) / 2) % sps === 0);
 		return [
-			{ x: tAxis(rc), y: rc, label: 'Raised cosine', color: COLOR.rc, format: (v: number) => trimNumber(v, 4) },
-			{ x: tAxis(rrc), y: peakNorm(rrc), label: 'Root raised cosine', color: COLOR.rrc, format: (v: number) => trimNumber(v, 4) },
-			{ x: tAxis(cascade), y: peakNorm(cascade), label: 'RRC ∗ RRC', color: COLOR.cascade, dash: '6 4', format: (v: number) => trimNumber(v, 4) },
-			{ x: inst.map((i) => (i - (rc.length - 1) / 2) / sps), y: inst.map((i) => rc[i]), color: COLOR.rc, kind: 'points', hidden: true }
+			{
+				x: tAxis(rc),
+				y: rc,
+				label: 'Raised cosine',
+				color: COLOR.rc,
+				format: (v: number) => trimNumber(v, 4)
+			},
+			{
+				x: tAxis(rrc),
+				y: peakNorm(rrc),
+				label: 'Root raised cosine',
+				color: COLOR.rrc,
+				format: (v: number) => trimNumber(v, 4)
+			},
+			{
+				x: tAxis(cascade),
+				y: peakNorm(cascade),
+				label: 'RRC ∗ RRC',
+				color: COLOR.cascade,
+				dash: '6 4',
+				format: (v: number) => trimNumber(v, 4)
+			},
+			{
+				x: inst.map((i) => (i - (rc.length - 1) / 2) / sps),
+				y: inst.map((i) => rc[i]),
+				color: COLOR.rc,
+				kind: 'points',
+				hidden: true
+			}
 		];
 	});
 
@@ -51,10 +85,24 @@
 	const filters = $derived(
 		kind === 'rc'
 			? [
-					{ filter: { kind: 'digital' as const, fs, fir: dcNorm(rc) }, label: 'Raised cosine', color: COLOR.rc },
-					{ filter: { kind: 'digital' as const, fs, fir: dcNorm(rrc) }, label: 'Root raised cosine', color: COLOR.rrc }
+					{
+						filter: { kind: 'digital' as const, fs, fir: dcNorm(rc) },
+						label: 'Raised cosine',
+						color: COLOR.rc
+					},
+					{
+						filter: { kind: 'digital' as const, fs, fir: dcNorm(rrc) },
+						label: 'Root raised cosine',
+						color: COLOR.rrc
+					}
 				]
-			: [{ filter: { kind: 'digital' as const, fs, fir: gauss }, label: `Gaussian, BT = ${bt}`, color: COLOR.gauss }]
+			: [
+					{
+						filter: { kind: 'digital' as const, fs, fir: gauss },
+						label: `Gaussian, BT = ${bt}`,
+						color: COLOR.gauss
+					}
+				]
 	);
 	const vlines = $derived(
 		kind === 'rc'
@@ -69,8 +117,12 @@
 	// eye diagram
 	const eyeH = $derived(kind === 'gaussian' ? gauss : eyeMode === 'rc' ? rc : cascade);
 	const eye = $derived(eyeDiagram(eyeH, sps, kind === 'gaussian'));
-	const eyeColor = $derived(kind === 'gaussian' ? COLOR.gauss : eyeMode === 'rc' ? COLOR.rc : COLOR.cascade);
-	const eyeSeries = $derived<Series[]>(eye.traces.map((t) => ({ ...t, color: eyeColor, hidden: true, opacity: 0.45, width: 1.25 })));
+	const eyeColor = $derived(
+		kind === 'gaussian' ? COLOR.gauss : eyeMode === 'rc' ? COLOR.rc : COLOR.cascade
+	);
+	const eyeSeries = $derived<Series[]>(
+		eye.traces.map((t) => ({ ...t, color: eyeColor, hidden: true, opacity: 0.45, width: 1.25 }))
+	);
 
 	const stats = $derived.by((): Stat[] => {
 		const out: Stat[] = [
@@ -78,28 +130,60 @@
 			{ label: 'Symbol rate Rs', value: formatSI(Rs, 'Bd', 4), hint: 'fs / samples per symbol' }
 		];
 		if (kind === 'rc') {
-			out.push({ label: 'Occupied bandwidth', value: formatSI(((1 + beta) * Rs) / 2, 'Hz', 4), hint: '(1 + β)·Rs/2 (one-sided)' });
+			out.push({
+				label: 'Occupied bandwidth',
+				value: formatSI(((1 + beta) * Rs) / 2, 'Hz', 4),
+				hint: '(1 + β)·Rs/2 (one-sided)'
+			});
 			const m = denseMag(dcNorm(rrc), 8192);
 			let worst = 0;
 			m.f.forEach((f, i) => {
 				if (f * sps > (1 + beta) / 2 + 0.05) worst = Math.max(worst, m.mag[i]);
 			});
-			out.push({ label: 'RRC stopband', value: `${trimNumber(-20 * Math.log10(Math.max(worst, 1e-12)), 3)} dB`, hint: 'Attenuation beyond (1+β)·Rs/2 + 0.05·Rs: limited by truncating the pulse to the span' });
+			out.push({
+				label: 'RRC stopband',
+				value: `${trimNumber(-20 * Math.log10(Math.max(worst, 1e-12)), 3)} dB`,
+				hint: 'Attenuation beyond (1+β)·Rs/2 + 0.05·Rs: limited by truncating the pulse to the span'
+			});
 		} else {
 			const m = denseMag(gauss, 8192);
 			const k = m.mag.findIndex((v) => v < Math.SQRT1_2);
-			out.push({ label: '−3 dB bandwidth', value: k > 0 ? `${formatSI(m.f[k] * fs, 'Hz', 4)} (BT·Rs = ${formatSI(bt * Rs, 'Hz', 4)})` : '—' });
+			out.push({
+				label: '−3 dB bandwidth',
+				value:
+					k > 0 ? `${formatSI(m.f[k] * fs, 'Hz', 4)} (BT·Rs = ${formatSI(bt * Rs, 'Hz', 4)})` : '—'
+			});
 			const c = (gauss.length - 1) / 2;
 			const isi = c + sps < gauss.length ? gauss[c + sps] / gauss[c] : 0;
-			out.push({ label: 'Pulse at ±T', value: `${trimNumber(100 * isi, 3)} % of peak`, hint: 'How much each symbol spills into its neighbours' });
+			out.push({
+				label: 'Pulse at ±T',
+				value: `${trimNumber(100 * isi, 3)} % of peak`,
+				hint: 'How much each symbol spills into its neighbours'
+			});
 		}
 		out.push({
-			label: kind === 'gaussian' ? 'Peak ISI (NRZ)' : eyeMode === 'rc' ? 'Peak ISI (RC)' : 'Peak ISI (RRC→RRC)',
+			label:
+				kind === 'gaussian'
+					? 'Peak ISI (NRZ)'
+					: eyeMode === 'rc'
+						? 'Peak ISI (RC)'
+						: 'Peak ISI (RRC→RRC)',
 			value: eye.peakIsi < 1e-9 ? '0 % (exact)' : `${trimNumber(100 * eye.peakIsi, 3)} %`,
-			status: kind === 'gaussian' ? undefined : eye.peakIsi < 1e-3 ? 'good' : eye.peakIsi < 0.05 ? 'warning' : 'critical',
+			status:
+				kind === 'gaussian'
+					? undefined
+					: eye.peakIsi < 1e-3
+						? 'good'
+						: eye.peakIsi < 0.05
+							? 'warning'
+							: 'critical',
 			hint: 'Largest deviation of the samples at the symbol instants from ±1'
 		});
-		out.push({ label: 'Eye opening', value: `${trimNumber(100 * eye.opening, 3)} %`, hint: 'Worst-case vertical opening at the sampling instant' });
+		out.push({
+			label: 'Eye opening',
+			value: `${trimNumber(100 * eye.opening, 3)} %`,
+			hint: 'Worst-case vertical opening at the sampling instant'
+		});
 		return out;
 	});
 
@@ -115,11 +199,30 @@
 
 <StatGrid {stats} />
 
-<Card title="Pulse shape" subtitle={kind === 'rc' ? 'Time in symbol periods T. The raised cosine (dots) is zero at every non-zero multiple of T; the RRC alone is not — only RRC ∗ RRC is.' : 'Time in symbol periods T, normalised to a peak of 1.'}>
-	<Plot series={pulseSeries} xLabel="Time (symbols)" yLabel="Amplitude" height={250} exportName="pulse" />
+<Card
+	title="Pulse shape"
+	subtitle={kind === 'rc'
+		? 'Time in symbol periods T. The raised cosine (dots) is zero at every non-zero multiple of T; the RRC alone is not — only RRC ∗ RRC is.'
+		: 'Time in symbol periods T, normalised to a peak of 1.'}
+>
+	<Plot
+		series={pulseSeries}
+		xLabel="Time (symbols)"
+		yLabel="Amplitude"
+		height={250}
+		exportName="pulse"
+	/>
 </Card>
 
-<ResponseView {filters} views={[]} {vlines} title={kind === 'rc' ? 'Magnitude (0 dB at DC; lines at (1−β)Rs/2, Rs/2, (1+β)Rs/2)' : 'Magnitude (0 dB at DC)'} dbRange={100} />
+<ResponseView
+	{filters}
+	views={[]}
+	{vlines}
+	title={kind === 'rc'
+		? 'Magnitude (0 dB at DC; lines at (1−β)Rs/2, Rs/2, (1+β)Rs/2)'
+		: 'Magnitude (0 dB at DC)'}
+	dbRange={100}
+/>
 
 <Card
 	title="Eye diagram"
@@ -144,6 +247,18 @@
 	/>
 </Card>
 
-<Card title="Export ({kind === 'gaussian' ? 'Gaussian' : eyeMode === 'rc' ? 'raised cosine' : 'root raised cosine'})">
-	<ExportPanel kind="digital" fir={exportH} {fs} recipes={[{ label: 'NumPy', code: recipe }]} name={kind === 'gaussian' ? 'gaussian' : eyeMode} />
+<Card
+	title="Export ({kind === 'gaussian'
+		? 'Gaussian'
+		: eyeMode === 'rc'
+			? 'raised cosine'
+			: 'root raised cosine'})"
+>
+	<ExportPanel
+		kind="digital"
+		fir={exportH}
+		{fs}
+		recipes={[{ label: 'NumPy', code: recipe }]}
+		name={kind === 'gaussian' ? 'gaussian' : eyeMode}
+	/>
 </Card>

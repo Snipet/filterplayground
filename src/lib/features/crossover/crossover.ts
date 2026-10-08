@@ -33,15 +33,87 @@ export interface XoTypeInfo {
 }
 
 export const XO_TYPES: XoTypeInfo[] = [
-	{ id: 'bw1', name: 'Butterworth 1st order', slope: 6, sigma: 1, allPass: true, family: 'butter', order: 1 },
-	{ id: 'bw2', name: 'Butterworth 2nd order', slope: 12, sigma: -1, allPass: false, family: 'butter', order: 2 },
-	{ id: 'bw3', name: 'Butterworth 3rd order', slope: 18, sigma: 1, allPass: true, family: 'butter', order: 3 },
-	{ id: 'bw4', name: 'Butterworth 4th order', slope: 24, sigma: 1, allPass: false, family: 'butter', order: 4 },
-	{ id: 'lr2', name: 'Linkwitz–Riley LR2 (12 dB/oct)', slope: 12, sigma: -1, allPass: true, family: 'lr', order: 2 },
-	{ id: 'lr4', name: 'Linkwitz–Riley LR4 (24 dB/oct)', slope: 24, sigma: 1, allPass: true, family: 'lr', order: 4 },
-	{ id: 'lr8', name: 'Linkwitz–Riley LR8 (48 dB/oct)', slope: 48, sigma: 1, allPass: true, family: 'lr', order: 8 },
-	{ id: 'bes2', name: 'Bessel 2nd order', slope: 12, sigma: -1, allPass: false, family: 'bessel', order: 2 },
-	{ id: 'bes4', name: 'Bessel 4th order', slope: 24, sigma: 1, allPass: false, family: 'bessel', order: 4 }
+	{
+		id: 'bw1',
+		name: 'Butterworth 1st order',
+		slope: 6,
+		sigma: 1,
+		allPass: true,
+		family: 'butter',
+		order: 1
+	},
+	{
+		id: 'bw2',
+		name: 'Butterworth 2nd order',
+		slope: 12,
+		sigma: -1,
+		allPass: false,
+		family: 'butter',
+		order: 2
+	},
+	{
+		id: 'bw3',
+		name: 'Butterworth 3rd order',
+		slope: 18,
+		sigma: 1,
+		allPass: true,
+		family: 'butter',
+		order: 3
+	},
+	{
+		id: 'bw4',
+		name: 'Butterworth 4th order',
+		slope: 24,
+		sigma: 1,
+		allPass: false,
+		family: 'butter',
+		order: 4
+	},
+	{
+		id: 'lr2',
+		name: 'Linkwitz–Riley LR2 (12 dB/oct)',
+		slope: 12,
+		sigma: -1,
+		allPass: true,
+		family: 'lr',
+		order: 2
+	},
+	{
+		id: 'lr4',
+		name: 'Linkwitz–Riley LR4 (24 dB/oct)',
+		slope: 24,
+		sigma: 1,
+		allPass: true,
+		family: 'lr',
+		order: 4
+	},
+	{
+		id: 'lr8',
+		name: 'Linkwitz–Riley LR8 (48 dB/oct)',
+		slope: 48,
+		sigma: 1,
+		allPass: true,
+		family: 'lr',
+		order: 8
+	},
+	{
+		id: 'bes2',
+		name: 'Bessel 2nd order',
+		slope: 12,
+		sigma: -1,
+		allPass: false,
+		family: 'bessel',
+		order: 2
+	},
+	{
+		id: 'bes4',
+		name: 'Bessel 4th order',
+		slope: 24,
+		sigma: 1,
+		allPass: false,
+		family: 'bessel',
+		order: 4
+	}
 ];
 
 export const xoInfo = (id: XoType): XoTypeInfo => XO_TYPES.find((t) => t.id === id) ?? XO_TYPES[5];
@@ -164,14 +236,23 @@ export interface Way {
 }
 
 /** Build the ways (all in rad/s). Inversions and delays are kept separate from the ZPK. */
-export function buildWays(cfg: XoConfig, freqScale: (fHz: number) => number = (f) => 2 * Math.PI * f): Way[] {
+export function buildWays(
+	cfg: XoConfig,
+	freqScale: (fHz: number) => number = (f) => 2 * Math.PI * f
+): Way[] {
 	const info = xoInfo(cfg.type);
 	const sgn = (w: WayId): 1 | -1 => (cfg.invert[w] ? -1 : 1);
 	if (cfg.ways === 2) {
 		const w = freqScale(cfg.freqs[0]);
 		return [
 			{ id: 'low', label: 'Low', zpk: lowpass(cfg.type, w), sign: sgn('low'), delay: 0 },
-			{ id: 'high', label: 'High', zpk: highpass(cfg.type, w), sign: sgn('high'), delay: cfg.highDelay }
+			{
+				id: 'high',
+				label: 'High',
+				zpk: highpass(cfg.type, w),
+				sign: sgn('high'),
+				delay: cfg.highDelay
+			}
 		];
 	}
 	const w1 = freqScale(cfg.freqs[0]);
@@ -260,7 +341,12 @@ function unwrapDeg(rad: number[]): number[] {
 }
 
 export function evaluateCrossover(ways: Way[], fHz: readonly number[]): XoResponse {
-	const per = ways.map((w) => ({ id: w.id, label: w.label, H: [] as Complex[], dH: [] as Complex[] }));
+	const per = ways.map((w) => ({
+		id: w.id,
+		label: w.label,
+		H: [] as Complex[],
+		dH: [] as Complex[]
+	}));
 	const S: Complex[] = [];
 	const gd: number[] = [];
 	const power: number[] = [];
@@ -376,7 +462,11 @@ export function passiveValues(type: PassiveType, fc: number, R: number): Passive
 }
 
 /** Voltage across the (resistive) driver divided by the source voltage, per section. */
-export function simulatePassive(v: PassiveValues, R: number, fHz: readonly number[]): { low: Complex[]; high: Complex[] } {
+export function simulatePassive(
+	v: PassiveValues,
+	R: number,
+	fHz: readonly number[]
+): { low: Complex[]; high: Complex[] } {
 	const low: Complex[] = [];
 	const high: Complex[] = [];
 	const par = (a: Complex, b: Complex) => div(mul(a, b), add(a, b));

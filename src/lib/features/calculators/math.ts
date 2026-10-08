@@ -276,8 +276,16 @@ export function eSeriesNeighbours(value: number, series: SeriesName): Neighbours
 	}
 	const err = (v: number) => ((v - value) / value) * 100;
 	// "nearest" in the logarithmic sense, as tolerances are relative
-	const nearest = Math.abs(Math.log(below / value)) <= Math.abs(Math.log(above / value)) ? below : above;
-	return { below, above, nearest, errBelow: err(below), errAbove: err(above), errNearest: err(nearest) };
+	const nearest =
+		Math.abs(Math.log(below / value)) <= Math.abs(Math.log(above / value)) ? below : above;
+	return {
+		below,
+		above,
+		nearest,
+		errBelow: err(below),
+		errAbove: err(above),
+		errNearest: err(nearest)
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -298,9 +306,11 @@ export const riseTime1090 = (tau: number): number => tau * Math.log(9);
 // ---------------------------------------------------------------------------
 
 /** Analog frequency (Hz) that the bilinear transform maps onto digital fd: (fs/π)·tan(π fd/fs). */
-export const prewarpHz = (fd: number, fs: number): number => (fs / Math.PI) * Math.tan((Math.PI * fd) / fs);
+export const prewarpHz = (fd: number, fs: number): number =>
+	(fs / Math.PI) * Math.tan((Math.PI * fd) / fs);
 /** Digital frequency (Hz) that analog fa lands on after the (unwarped) bilinear transform. */
-export const unwarpHz = (fa: number, fs: number): number => (fs / Math.PI) * Math.atan((Math.PI * fa) / fs);
+export const unwarpHz = (fa: number, fs: number): number =>
+	(fs / Math.PI) * Math.atan((Math.PI * fa) / fs);
 
 // ---------------------------------------------------------------------------
 // Phase ↔ delay
@@ -358,7 +368,11 @@ export function zPoleInfo(r: number, theta: number, fs: number): PoleInfo {
 }
 
 /** f0, Q → z-plane pole (r, θ) through z = e^(sT) (underdamped poles only). */
-export function zPoleFromF0Q(f0: number, q: number, fs: number): { r: number; theta: number } | null {
+export function zPoleFromF0Q(
+	f0: number,
+	q: number,
+	fs: number
+): { r: number; theta: number } | null {
 	const [p] = sPolesFromF0Q(f0, q);
 	if (p.im === 0) return null;
 	return { r: Math.exp(p.re / fs), theta: p.im / fs };

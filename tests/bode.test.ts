@@ -93,7 +93,11 @@ describe('bode factors: exact values', () => {
 
 describe('bode: slopes, slots, range, TeX', () => {
 	it('slopes count powers and orders', () => {
-		const fs = [makeFactor('power', 0, { n: -2 }), makeFactor('realZero', 1), makeFactor('complexPole', 2)];
+		const fs = [
+			makeFactor('power', 0, { n: -2 }),
+			makeFactor('realZero', 1),
+			makeFactor('complexPole', 2)
+		];
 		expect(slopes(fs)).toEqual({ low: -40, high: -60 });
 	});
 
@@ -117,12 +121,17 @@ describe('bode: slopes, slots, range, TeX', () => {
 
 describe('bode: margins', () => {
 	it('type-1 loop with two poles matches the analytic margins', () => {
-		const fs = [makeFactor('power', 0, { n: -1, f: 100 }), makeFactor('realPole', 1, { f: 200 }), makeFactor('realPole', 2, { f: 2000 })];
+		const fs = [
+			makeFactor('power', 0, { n: -1, f: 100 }),
+			makeFactor('realPole', 1, { f: 200 }),
+			makeFactor('realPole', 2, { f: 2000 })
+		];
 		const m = margins(fs, 0.1, 1e6);
 		// phase crossover where atan(f/200)+atan(f/2000) = 90° → f = sqrt(200·2000)
 		expect(m.gm!.f).toBeCloseTo(Math.sqrt(200 * 2000), 4);
 		const f = m.gm!.f;
-		const magDb = 20 * Math.log10((100 / f) / Math.sqrt(1 + (f / 200) ** 2) / Math.sqrt(1 + (f / 2000) ** 2));
+		const magDb =
+			20 * Math.log10(100 / f / Math.sqrt(1 + (f / 200) ** 2) / Math.sqrt(1 + (f / 2000) ** 2));
 		expect(m.gm!.margin).toBeCloseTo(-magDb, 6);
 		// at the gain crossover |L| = 1 and PM = 90° − atan(f/200) − atan(f/2000)
 		const g = m.pm!.f;
@@ -132,7 +141,10 @@ describe('bode: margins', () => {
 	});
 
 	it('three identical poles: GM = 20·log10(8/K)', () => {
-		const fs = [makeFactor('gain', 0, { gainDb: 20 * Math.log10(2) }), ...[1, 2, 3].map((i) => makeFactor('realPole', i, { f: 100 }))];
+		const fs = [
+			makeFactor('gain', 0, { gainDb: 20 * Math.log10(2) }),
+			...[1, 2, 3].map((i) => makeFactor('realPole', i, { f: 100 }))
+		];
 		const m = margins(fs, 1, 1e5);
 		expect(m.gm!.f).toBeCloseTo(100 * Math.sqrt(3), 4);
 		expect(m.gm!.margin).toBeCloseTo(20 * Math.log10(8 / 2), 6);

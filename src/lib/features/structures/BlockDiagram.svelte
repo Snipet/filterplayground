@@ -13,19 +13,38 @@
 
 	const uid = `bd-${Math.random().toString(36).slice(2, 9)}`;
 	const fmtVal = (v: number) => (Math.abs(v) < 1e-12 ? '0' : trimNumber(v, 4).replace('-', '−'));
-	const pts = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+	const pts = (p: [number, number][]) =>
+		p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 </script>
 
 <div class="bd-wrap">
-	<svg width={diagram.width} height={diagram.height} viewBox="0 0 {diagram.width} {diagram.height}" role="img" aria-label={label}>
+	<svg
+		width={diagram.width}
+		height={diagram.height}
+		viewBox="0 0 {diagram.width} {diagram.height}"
+		role="img"
+		aria-label={label}
+	>
 		<defs>
-			<marker id="{uid}-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+			<marker
+				id="{uid}-arrow"
+				viewBox="0 0 10 10"
+				refX="9"
+				refY="5"
+				markerWidth="7"
+				markerHeight="7"
+				orient="auto-start-reverse"
+			>
 				<path d="M0,1 L9,5 L0,9 z" class="arrowhead" />
 			</marker>
 		</defs>
 		{#each diagram.els as e, i (i)}
 			{#if e.t === 'wire'}
-				<polyline class="wire" points={pts(e.pts)} marker-end={e.arrow ? `url(#${uid}-arrow)` : undefined} />
+				<polyline
+					class="wire"
+					points={pts(e.pts)}
+					marker-end={e.arrow ? `url(#${uid}-arrow)` : undefined}
+				/>
 			{/if}
 		{/each}
 		{#each diagram.els as e, i (i)}
@@ -39,13 +58,25 @@
 			{:else if e.t === 'delay'}
 				{@const v = values?.[e.state]}
 				<g class="delay" class:live={values !== null && values !== undefined}>
-					<rect x={e.x - DELAY_W / 2} y={e.y - DELAY_H / 2} width={DELAY_W} height={DELAY_H} rx="3" />
-					<text x={e.x} y={e.y + 4} text-anchor="middle">z<tspan dy="-5" font-size="8.5">−1</tspan></text>
+					<rect
+						x={e.x - DELAY_W / 2}
+						y={e.y - DELAY_H / 2}
+						width={DELAY_W}
+						height={DELAY_H}
+						rx="3"
+					/>
+					<text x={e.x} y={e.y + 4} text-anchor="middle"
+						>z<tspan dy="-5" font-size="8.5">−1</tspan></text
+					>
 					{#if v !== undefined}
 						{#if e.vertical}
-							<text class="val" x={e.x + DELAY_W / 2 + 5} y={e.y + 4} text-anchor="start">{fmtVal(v)}</text>
+							<text class="val" x={e.x + DELAY_W / 2 + 5} y={e.y + 4} text-anchor="start"
+								>{fmtVal(v)}</text
+							>
 						{:else}
-							<text class="val" x={e.x} y={e.y + DELAY_H / 2 + 13} text-anchor="middle">{fmtVal(v)}</text>
+							<text class="val" x={e.x} y={e.y + DELAY_H / 2 + 13} text-anchor="middle"
+								>{fmtVal(v)}</text
+							>
 						{/if}
 					{/if}
 				</g>

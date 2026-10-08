@@ -3,3 +3,4 @@ build
 .svelte-kit
 node_modules
 static
+tests/fixtures/scipy_reference.json

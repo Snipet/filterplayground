@@ -12,14 +12,14 @@ as a reference you keep open while designing.
 
 ## Tools
 
-| Area | Tools |
-| --- | --- |
-| **Playgrounds** | Pole–zero playground (s- and z-plane, geometric evaluation), Bode plot builder, RC/RL/RLC circuit explorer, convolution visualizer, sampling & aliasing |
+| Area              | Tools                                                                                                                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Playgrounds**   | Pole–zero playground (s- and z-plane, geometric evaluation), Bode plot builder, RC/RL/RLC circuit explorer, convolution visualizer, sampling & aliasing                                                                                                               |
 | **Analog design** | Analog filter designer (Butterworth, Chebyshev I/II, elliptic, Bessel, Legendre, Gaussian, critically damped; LP/HP/BP/BS; from order or specs), family comparison, active filters (Sallen–Key / MFB with E-series parts), passive LC ladders, loudspeaker crossovers |
-| **Digital IIR** | IIR designer (bilinear, matched-Z, impulse invariance), RBJ biquad cookbook, parametric EQ, simple filters (one-pole, DC blocker, combs, resonators…), analog → digital mapping |
-| **Digital FIR** | FIR designer (window, Kaiser, least squares, frequency sampling, Parks–McClellan), window function explorer, special FIRs (Hilbert, differentiator, raised cosine, Savitzky–Golay, CIC, half-band), linear vs minimum phase |
-| **Analysis** | Transfer function analyzer, signal lab with audio playback, coefficient quantization, filter structures with block diagrams and code |
-| **Reference** | Order calculator, engineering calculators, formula sheet, glossary |
+| **Digital IIR**   | IIR designer (bilinear, matched-Z, impulse invariance), RBJ biquad cookbook, parametric EQ, simple filters (one-pole, DC blocker, combs, resonators…), analog → digital mapping                                                                                       |
+| **Digital FIR**   | FIR designer (window, Kaiser, least squares, frequency sampling, Parks–McClellan), window function explorer, special FIRs (Hilbert, differentiator, raised cosine, Savitzky–Golay, CIC, half-band), linear vs minimum phase                                           |
+| **Analysis**      | Transfer function analyzer, signal lab with audio playback, coefficient quantization, filter structures with block diagrams and code                                                                                                                                  |
+| **Reference**     | Order calculator, engineering calculators, formula sheet, glossary                                                                                                                                                                                                    |
 
 ## Accuracy
 

@@ -15,7 +15,8 @@ import {
 	type LadderForm
 } from '../src/lib/features/lc-ladder/ladder';
 
-const relClose = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
+const relClose = (a: number, b: number, tol: number) =>
+	Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
 
 describe('Darlington ladder synthesis', () => {
 	it('reproduces the closed-form Butterworth g-values (N = 1…12)', () => {
@@ -23,7 +24,9 @@ describe('Darlington ladder synthesis', () => {
 			const syn = synthesizeLadder(ladderPrototype('butter', n));
 			const ref = butterworthG(n);
 			expect(syn.g.length).toBe(n);
-			syn.g.forEach((g, i) => expect(relClose(g, ref[i], 1e-6), `N=${n} g${i + 1}: ${g} vs ${ref[i]}`).toBe(true));
+			syn.g.forEach((g, i) =>
+				expect(relClose(g, ref[i], 1e-6), `N=${n} g${i + 1}: ${g} vs ${ref[i]}`).toBe(true)
+			);
 			expect(relClose(syn.gLoad, 1, 1e-6)).toBe(true);
 			expect(relClose(syn.rLoadSeries, 1, 1e-6)).toBe(true);
 		}
@@ -39,9 +42,14 @@ describe('Darlington ladder synthesis', () => {
 				const syn = synthesizeLadder(ladderPrototype('cheby1', n, rp));
 				const ref = chebyshevG(n, rp);
 				syn.g.forEach((g, i) =>
-					expect(relClose(g, ref[i], 2e-6), `Rp=${rp} N=${n} g${i + 1}: ${g} vs ${ref[i]}`).toBe(true)
+					expect(relClose(g, ref[i], 2e-6), `Rp=${rp} N=${n} g${i + 1}: ${g} vs ${ref[i]}`).toBe(
+						true
+					)
 				);
-				expect(relClose(syn.gLoad, ref[n], 2e-6), `Rp=${rp} N=${n} g_{n+1}: ${syn.gLoad} vs ${ref[n]}`).toBe(true);
+				expect(
+					relClose(syn.gLoad, ref[n], 2e-6),
+					`Rp=${rp} N=${n} g_{n+1}: ${syn.gLoad} vs ${ref[n]}`
+				).toBe(true);
 			}
 		}
 	});
@@ -64,7 +72,14 @@ describe('Darlington ladder synthesis', () => {
 });
 
 describe('ABCD simulation of the synthesized ladder', () => {
-	const families: LadderFamily[] = ['butter', 'cheby1', 'bessel', 'legendre', 'gaussian', 'critical'];
+	const families: LadderFamily[] = [
+		'butter',
+		'cheby1',
+		'bessel',
+		'legendre',
+		'gaussian',
+		'critical'
+	];
 	const forms: LadderForm[] = ['series', 'shunt'];
 	const bands: LadderBand[] = ['lowpass', 'highpass', 'bandpass'];
 
@@ -86,7 +101,8 @@ describe('ABCD simulation of the synthesized ladder', () => {
 						).map(abs);
 						for (let i = 0; i < f.length; i++) {
 							const dDb = 20 * Math.log10(sim[i] / ref[i]);
-							if (ref[i] > 1e-6) expect(Math.abs(dDb), `${fam} N=${n} ${form} ${band} f=${f[i]}`).toBeLessThan(1e-6);
+							if (ref[i] > 1e-6)
+								expect(Math.abs(dDb), `${fam} N=${n} ${form} ${band} f=${f[i]}`).toBeLessThan(1e-6);
 						}
 					}
 				}
@@ -100,7 +116,10 @@ describe('ABCD simulation of the synthesized ladder', () => {
 		const net = scaleLadder(syn, { form: 'series', band: 'lowpass', r0: 50, f0: 1000 });
 		const f = logspace(10, 1e5, 60);
 		const sim = simulateLadder(net, f);
-		const ref = freqsZpk(lp2lpRef(proto, 2 * Math.PI * 1000), f.map((v) => 2 * Math.PI * v));
+		const ref = freqsZpk(
+			lp2lpRef(proto, 2 * Math.PI * 1000),
+			f.map((v) => 2 * Math.PI * v)
+		);
 		for (let i = 0; i < f.length; i++) {
 			expect(Math.abs(sim.s21[i].re - ref[i].re)).toBeLessThan(1e-8);
 			expect(Math.abs(sim.s21[i].im - ref[i].im)).toBeLessThan(1e-8);
@@ -120,5 +139,9 @@ describe('ABCD simulation of the synthesized ladder', () => {
 });
 
 function lp2lpRef(z: ZPK, w: number): ZPK {
-	return { z: [], p: z.p.map((p) => ({ re: p.re * w, im: p.im * w })), k: z.k * Math.pow(w, z.p.length) };
+	return {
+		z: [],
+		p: z.p.map((p) => ({ re: p.re * w, im: p.im * w })),
+		k: z.k * Math.pow(w, z.p.length)
+	};
 }

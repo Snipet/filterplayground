@@ -22,7 +22,14 @@ export function aliasOf(f: number, fs: number): Alias {
 	const k = Math.round(af / fs);
 	const fSigned = af - k * fs;
 	const zone = Math.floor((2 * af) / fs) + 1;
-	return { fa: Math.abs(fSigned), fSigned, k, zone, folds: af > fs / 2 * (1 + 1e-12), inverted: fSigned < 0 };
+	return {
+		fa: Math.abs(fSigned),
+		fSigned,
+		k,
+		zone,
+		folds: af > (fs / 2) * (1 + 1e-12),
+		inverted: fSigned < 0
+	};
 }
 
 /**
@@ -38,7 +45,7 @@ export function aliasWave(f: number, fs: number, phi: number): { fa: number; pha
 export function foldingCurve(fs: number, fmax: number): { x: number[]; y: number[] } {
 	const x: number[] = [];
 	const y: number[] = [];
-	for (let i = 0; i * fs / 2 <= fmax + 1e-9; i++) {
+	for (let i = 0; (i * fs) / 2 <= fmax + 1e-9; i++) {
 		x.push((i * fs) / 2);
 		y.push(i % 2 === 0 ? 0 : fs / 2);
 	}
@@ -79,7 +86,10 @@ export function legendreL(N: number): number[] {
 		if (n === 0) return p0;
 		let p1 = [1, 0];
 		for (let k = 1; k < n; k++) {
-			const next = polyadd(polymul([2 * k + 1, 0], p1), p0.map((v) => -k * v)).map((v) => v / (k + 1));
+			const next = polyadd(
+				polymul([2 * k + 1, 0], p1),
+				p0.map((v) => -k * v)
+			).map((v) => v / (k + 1));
 			p0 = p1;
 			p1 = next;
 		}
@@ -89,12 +99,21 @@ export function legendreL(N: number): number[] {
 	if (N % 2 === 1) {
 		const k = (N - 1) / 2;
 		let sum: number[] = [0];
-		for (let i = 0; i <= k; i++) sum = polyadd(sum, legendre(i).map((v) => v * (2 * i + 1)));
+		for (let i = 0; i <= k; i++)
+			sum = polyadd(
+				sum,
+				legendre(i).map((v) => v * (2 * i + 1))
+			);
 		integrand = polymul(sum, sum);
 	} else {
 		const k = (N - 2) / 2;
 		let sum: number[] = [0];
-		for (let i = 0; i <= k; i++) if (i % 2 === k % 2) sum = polyadd(sum, legendre(i).map((v) => v * (2 * i + 1)));
+		for (let i = 0; i <= k; i++)
+			if (i % 2 === k % 2)
+				sum = polyadd(
+					sum,
+					legendre(i).map((v) => v * (2 * i + 1))
+				);
 		integrand = polymul([1, 1], polymul(sum, sum));
 	}
 	const F = polyint(integrand);
@@ -177,7 +196,12 @@ export interface MonotonicSpec {
 	f3: number;
 }
 
-export function monotonicSpec(family: MonotonicFamily, N: number, rp: number, rs: number): MonotonicSpec {
+export function monotonicSpec(
+	family: MonotonicFamily,
+	N: number,
+	rp: number,
+	rs: number
+): MonotonicSpec {
 	const K = characteristic(family, N);
 	const xp = solveLevel(K, Math.expm1(0.1 * rp * Math.LN10));
 	const xs = solveLevel(K, Math.expm1(0.1 * rs * Math.LN10));
@@ -186,7 +210,12 @@ export function monotonicSpec(family: MonotonicFamily, N: number, rp: number, rs
 }
 
 /** Attenuation (dB) at frequency ratio r = f / f_passband-edge for order N. */
-export function monotonicAttenuation(family: MonotonicFamily, N: number, rp: number, r: number): number {
+export function monotonicAttenuation(
+	family: MonotonicFamily,
+	N: number,
+	rp: number,
+	r: number
+): number {
 	const K = characteristic(family, N);
 	const xp = solveLevel(K, Math.expm1(0.1 * rp * Math.LN10));
 	return 10 * Math.log10(1 + K(xp * r * r));
@@ -200,7 +229,12 @@ export interface MinOrder {
 }
 
 /** Minimum order of a monotonic family for selectivity ws (> 1). */
-export function minOrderMonotonic(family: MonotonicFamily, ws: number, rp: number, rs: number): MinOrder {
+export function minOrderMonotonic(
+	family: MonotonicFamily,
+	ws: number,
+	rp: number,
+	rs: number
+): MinOrder {
 	const maxN = familyInfo(family).maxOrder;
 	let last: MonotonicSpec | null = null;
 	for (let N = 1; N <= maxN; N++) {
@@ -219,7 +253,10 @@ export function minOrderMonotonic(family: MonotonicFamily, ws: number, rp: numbe
 export function orderVsOsr(family: AnalogFamily, rp: number, rs: number, osr: number[]): number[] {
 	if (!isMonotonicFamily(family)) return osr.map((r) => estimateOrder(family, 2 * r - 1, rp, rs).N);
 	const maxN = familyInfo(family).maxOrder;
-	const thr = Array.from({ length: maxN }, (_, i) => monotonicSpec(family, i + 1, rp, rs).threshold);
+	const thr = Array.from(
+		{ length: maxN },
+		(_, i) => monotonicSpec(family, i + 1, rp, rs).threshold
+	);
 	return osr.map((r) => {
 		const i = thr.findIndex((t) => 2 * r - 1 >= t);
 		return i < 0 ? NaN : i + 1;

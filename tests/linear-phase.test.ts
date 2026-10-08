@@ -31,7 +31,8 @@ describe('linear-phase: types and forced zeros', () => {
 		}
 	});
 	it('forced zeros appear at z = ±1', () => {
-		const at = (h: number[], x: number) => Math.min(...firZeros(h).map((z) => Math.hypot(z.re - x, z.im)));
+		const at = (h: number[], x: number) =>
+			Math.min(...firZeros(h).map((z) => Math.hypot(z.re - x, z.im)));
 		expect(at(randomTaps(2, 20, 1), -1)).toBeLessThan(1e-6);
 		expect(at(randomTaps(3, 21, 1), 1)).toBeLessThan(1e-6);
 		expect(at(randomTaps(3, 21, 1), -1)).toBeLessThan(1e-6);
@@ -43,11 +44,15 @@ describe('linear-phase: types and forced zeros', () => {
 	it('the amplitude is real, signed and matches |H|', () => {
 		for (const t of [1, 2, 3, 4] as LpType[]) {
 			const h = randomTaps(t, t % 2 ? 15 : 16, 9);
-			for (const f of [0.05, 0.17, 0.33]) expect(Math.abs(amplitude(h, f, t > 2))).toBeCloseTo(magnitude(h, f), 10);
+			for (const f of [0.05, 0.17, 0.33])
+				expect(Math.abs(amplitude(h, f, t > 2))).toBeCloseTo(magnitude(h, f), 10);
 		}
 		// Hilbert (−j·sgn) has A = −1 under the H = j·A·e^{−jωM} convention; the differentiator has A = +ω
 		expect(amplitude(demoTaps(3, 41, 'hilbert', win), 0.25, true)).toBeCloseTo(-1, 1);
-		expect(amplitude(demoTaps(4, 40, 'differentiator', win), 0.05, true)).toBeCloseTo(2 * Math.PI * 0.05, 2);
+		expect(amplitude(demoTaps(4, 40, 'differentiator', win), 0.05, true)).toBeCloseTo(
+			2 * Math.PI * 0.05,
+			2
+		);
 		// type II high-pass is forced to zero at fs/2
 		expect(magnitude(demoTaps(2, 20, 'highpass', win), 0.5)).toBeLessThan(1e-12);
 	});
@@ -66,7 +71,9 @@ describe('linear-phase: zero symmetry', () => {
 		if (q) {
 			const [z] = q.members;
 			const r2 = z.re * z.re + z.im * z.im;
-			expect(q.members.some((w) => Math.hypot(w.re - z.re / r2, w.im + z.im / r2) < 1e-6)).toBe(true);
+			expect(q.members.some((w) => Math.hypot(w.re - z.re / r2, w.im + z.im / r2) < 1e-6)).toBe(
+				true
+			);
 		}
 	});
 	it('a low-pass has its stopband zeros on the unit circle', () => {

@@ -8,7 +8,8 @@ import type { BandType, ZPK } from '$lib/dsp/types';
 import { formatSI, toESeries, type ESeries } from '$lib/dsp/units';
 import type { SchematicItem } from './schematic/types';
 
-export type CircuitId = 'rc-lp' | 'rc-hp' | 'rl-lp' | 'rl-hp' | 'rlc-c' | 'rlc-r' | 'rlc-l' | 'rlc-lc' | 'tank';
+export type CircuitId =
+	'rc-lp' | 'rc-hp' | 'rl-lp' | 'rl-hp' | 'rlc-c' | 'rlc-r' | 'rlc-l' | 'rlc-lc' | 'tank';
 
 export interface CircuitInfo {
 	id: CircuitId;
@@ -25,18 +26,100 @@ export interface CircuitInfo {
 }
 
 export const CIRCUITS: CircuitInfo[] = [
-	{ id: 'rc-lp', name: 'RC low-pass', group: 'First order', order: 1, uses: { R: true, L: false, C: true }, band: 'lowpass', output: 'across C', family: 'rc' },
-	{ id: 'rc-hp', name: 'RC high-pass', group: 'First order', order: 1, uses: { R: true, L: false, C: true }, band: 'highpass', output: 'across R', family: 'rc' },
-	{ id: 'rl-lp', name: 'RL low-pass', group: 'First order', order: 1, uses: { R: true, L: true, C: false }, band: 'lowpass', output: 'across R', family: 'rl' },
-	{ id: 'rl-hp', name: 'RL high-pass', group: 'First order', order: 1, uses: { R: true, L: true, C: false }, band: 'highpass', output: 'across L', family: 'rl' },
-	{ id: 'rlc-c', name: 'Series RLC — output across C (low-pass)', group: 'Second order', order: 2, uses: { R: true, L: true, C: true }, band: 'lowpass', output: 'across C', family: 'series' },
-	{ id: 'rlc-r', name: 'Series RLC — output across R (band-pass)', group: 'Second order', order: 2, uses: { R: true, L: true, C: true }, band: 'bandpass', output: 'across R', family: 'series' },
-	{ id: 'rlc-l', name: 'Series RLC — output across L (high-pass)', group: 'Second order', order: 2, uses: { R: true, L: true, C: true }, band: 'highpass', output: 'across L', family: 'series' },
-	{ id: 'rlc-lc', name: 'Series RLC — output across L + C (notch)', group: 'Second order', order: 2, uses: { R: true, L: true, C: true }, band: 'bandstop', output: 'across the L–C pair', family: 'series' },
-	{ id: 'tank', name: 'Parallel LC tank fed through R (band-pass)', group: 'Second order', order: 2, uses: { R: true, L: true, C: true }, band: 'bandpass', output: 'across the tank', family: 'parallel' }
+	{
+		id: 'rc-lp',
+		name: 'RC low-pass',
+		group: 'First order',
+		order: 1,
+		uses: { R: true, L: false, C: true },
+		band: 'lowpass',
+		output: 'across C',
+		family: 'rc'
+	},
+	{
+		id: 'rc-hp',
+		name: 'RC high-pass',
+		group: 'First order',
+		order: 1,
+		uses: { R: true, L: false, C: true },
+		band: 'highpass',
+		output: 'across R',
+		family: 'rc'
+	},
+	{
+		id: 'rl-lp',
+		name: 'RL low-pass',
+		group: 'First order',
+		order: 1,
+		uses: { R: true, L: true, C: false },
+		band: 'lowpass',
+		output: 'across R',
+		family: 'rl'
+	},
+	{
+		id: 'rl-hp',
+		name: 'RL high-pass',
+		group: 'First order',
+		order: 1,
+		uses: { R: true, L: true, C: false },
+		band: 'highpass',
+		output: 'across L',
+		family: 'rl'
+	},
+	{
+		id: 'rlc-c',
+		name: 'Series RLC — output across C (low-pass)',
+		group: 'Second order',
+		order: 2,
+		uses: { R: true, L: true, C: true },
+		band: 'lowpass',
+		output: 'across C',
+		family: 'series'
+	},
+	{
+		id: 'rlc-r',
+		name: 'Series RLC — output across R (band-pass)',
+		group: 'Second order',
+		order: 2,
+		uses: { R: true, L: true, C: true },
+		band: 'bandpass',
+		output: 'across R',
+		family: 'series'
+	},
+	{
+		id: 'rlc-l',
+		name: 'Series RLC — output across L (high-pass)',
+		group: 'Second order',
+		order: 2,
+		uses: { R: true, L: true, C: true },
+		band: 'highpass',
+		output: 'across L',
+		family: 'series'
+	},
+	{
+		id: 'rlc-lc',
+		name: 'Series RLC — output across L + C (notch)',
+		group: 'Second order',
+		order: 2,
+		uses: { R: true, L: true, C: true },
+		band: 'bandstop',
+		output: 'across the L–C pair',
+		family: 'series'
+	},
+	{
+		id: 'tank',
+		name: 'Parallel LC tank fed through R (band-pass)',
+		group: 'Second order',
+		order: 2,
+		uses: { R: true, L: true, C: true },
+		band: 'bandpass',
+		output: 'across the tank',
+		family: 'parallel'
+	}
 ];
 
-export const circuitInfo = (id: CircuitId): CircuitInfo => CIRCUITS.find((c) => c.id === id) ?? CIRCUITS[0];
+export const circuitInfo = (id: CircuitId): CircuitInfo =>
+	CIRCUITS.find((c) => c.id === id) ?? CIRCUITS[0];
 
 // ---------------------------------------------------------------------------
 // Characteristic numbers
@@ -141,7 +224,13 @@ export interface Values {
 }
 
 /** First order: corner frequency (Hz) and one known component → the other. */
-export function solveFirstOrder(family: 'rc' | 'rl', fc: number, known: Known, value: number, current: Values): Values {
+export function solveFirstOrder(
+	family: 'rc' | 'rl',
+	fc: number,
+	known: Known,
+	value: number,
+	current: Values
+): Values {
 	const w = 2 * Math.PI * fc;
 	const out = { ...current, [known]: value };
 	if (family === 'rc') {
@@ -155,7 +244,13 @@ export function solveFirstOrder(family: 'rc' | 'rl', fc: number, known: Known, v
 }
 
 /** Second order: f₀ (Hz), Q and one known component → the other two. */
-export function solveSecondOrder(family: 'series' | 'parallel', f0: number, q: number, known: Known, value: number): Values {
+export function solveSecondOrder(
+	family: 'series' | 'parallel',
+	f0: number,
+	q: number,
+	known: Known,
+	value: number
+): Values {
 	const w = 2 * Math.PI * f0;
 	let R: number;
 	let L: number;
@@ -254,48 +349,134 @@ export function circuitSchematic(id: CircuitId, v: Values): SchematicItem[] {
 	const items: SchematicItem[] = [];
 	const xs = 40;
 	// source and its connections
-	items.push({ t: 'wire', pts: [[xs, TOP], [xs, 107]] });
-	items.push({ t: 'wire', pts: [[xs, 133], [xs, BOT]] });
+	items.push({
+		t: 'wire',
+		pts: [
+			[xs, TOP],
+			[xs, 107]
+		]
+	});
+	items.push({
+		t: 'wire',
+		pts: [
+			[xs, 133],
+			[xs, BOT]
+		]
+	});
 	items.push({ t: 'src', x: xs, y: 120, label: 'v_in' });
 
 	// series chain along the top rail
 	let x = 72;
-	items.push({ t: 'wire', pts: [[xs, TOP], [x, TOP]] });
+	items.push({
+		t: 'wire',
+		pts: [
+			[xs, TOP],
+			[x, TOP]
+		]
+	});
 	for (const p of series) {
-		items.push({ t: 'part', kind: p.kind, x1: x, y1: TOP, x2: x + 80, y2: TOP, name: p.name, value: p.value });
+		items.push({
+			t: 'part',
+			kind: p.kind,
+			x1: x,
+			y1: TOP,
+			x2: x + 80,
+			y2: TOP,
+			name: p.name,
+			value: p.value
+		});
 		x += 80;
 	}
 	const node = series.length === 1 ? 250 : 300;
-	items.push({ t: 'wire', pts: [[x, TOP], [node, TOP]] });
+	items.push({
+		t: 'wire',
+		pts: [
+			[x, TOP],
+			[node, TOP]
+		]
+	});
 
 	let xOut: number;
 	if (id === 'tank') {
 		const x2 = node + 70;
-		items.push({ t: 'part', x1: node, y1: TOP, x2: node, y2: BOT, ...shunt[0], labels: 'left', accent: true });
+		items.push({
+			t: 'part',
+			x1: node,
+			y1: TOP,
+			x2: node,
+			y2: BOT,
+			...shunt[0],
+			labels: 'left',
+			accent: true
+		});
 		items.push({ t: 'part', x1: x2, y1: TOP, x2: x2, y2: BOT, ...shunt[1], accent: true });
-		items.push({ t: 'wire', pts: [[node, TOP], [x2, TOP]] });
-		items.push({ t: 'dot', x: node, y: TOP }, { t: 'dot', x: node, y: BOT }, { t: 'dot', x: x2, y: TOP }, { t: 'dot', x: x2, y: BOT });
+		items.push({
+			t: 'wire',
+			pts: [
+				[node, TOP],
+				[x2, TOP]
+			]
+		});
+		items.push(
+			{ t: 'dot', x: node, y: TOP },
+			{ t: 'dot', x: node, y: BOT },
+			{ t: 'dot', x: x2, y: TOP },
+			{ t: 'dot', x: x2, y: BOT }
+		);
 		xOut = x2 + 100;
-		items.push({ t: 'wire', pts: [[x2, TOP], [xOut, TOP]] });
+		items.push({
+			t: 'wire',
+			pts: [
+				[x2, TOP],
+				[xOut, TOP]
+			]
+		});
 	} else if (stacked) {
 		const mid = (TOP + BOT) / 2;
 		items.push({ t: 'part', x1: node, y1: TOP, x2: node, y2: mid, ...shunt[0], accent: true });
 		items.push({ t: 'part', x1: node, y1: mid, x2: node, y2: BOT, ...shunt[1], accent: true });
 		items.push({ t: 'dot', x: node, y: TOP }, { t: 'dot', x: node, y: BOT });
 		xOut = node + 110;
-		items.push({ t: 'wire', pts: [[node, TOP], [xOut, TOP]] });
+		items.push({
+			t: 'wire',
+			pts: [
+				[node, TOP],
+				[xOut, TOP]
+			]
+		});
 	} else {
 		items.push({ t: 'part', x1: node, y1: TOP, x2: node, y2: BOT, ...shunt[0], accent: true });
 		items.push({ t: 'dot', x: node, y: TOP }, { t: 'dot', x: node, y: BOT });
 		xOut = node + 110;
-		items.push({ t: 'wire', pts: [[node, TOP], [xOut, TOP]] });
+		items.push({
+			t: 'wire',
+			pts: [
+				[node, TOP],
+				[xOut, TOP]
+			]
+		});
 	}
 	// ground rail
-	items.push({ t: 'wire', pts: [[xs, BOT], [xOut, BOT]] });
-	items.push({ t: 'wire', pts: [[xs, BOT], [xs, BOT + 8]] });
+	items.push({
+		t: 'wire',
+		pts: [
+			[xs, BOT],
+			[xOut, BOT]
+		]
+	});
+	items.push({
+		t: 'wire',
+		pts: [
+			[xs, BOT],
+			[xs, BOT + 8]
+		]
+	});
 	items.push({ t: 'gnd', x: xs, y: BOT + 8 });
 	// output port
-	items.push({ t: 'term', x: xOut, y: TOP, accent: true }, { t: 'term', x: xOut, y: BOT, accent: true });
+	items.push(
+		{ t: 'term', x: xOut, y: TOP, accent: true },
+		{ t: 'term', x: xOut, y: BOT, accent: true }
+	);
 	items.push({ t: 'volt', x: xOut, y1: TOP, y2: BOT, label: 'v_out', accent: true });
 	return items;
 }

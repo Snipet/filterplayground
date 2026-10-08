@@ -34,7 +34,14 @@
 	import { stageDrawing, type PartLabel } from '$lib/features/active-filters/schematics';
 	import { readSharedState } from '$lib/share';
 
-	const ALLOWED: AnalogFamily[] = ['butter', 'cheby1', 'bessel', 'legendre', 'gaussian', 'critical'];
+	const ALLOWED: AnalogFamily[] = [
+		'butter',
+		'cheby1',
+		'bessel',
+		'legendre',
+		'gaussian',
+		'critical'
+	];
 	const TWO_PI = 2 * Math.PI;
 
 	let mode = $state<'filter' | 'stage'>('filter');
@@ -57,7 +64,27 @@
 	let mc = $state(true);
 	let tol = $state(0.05);
 
-	const shared = $derived({ mode, family, band, order, fc, f1, f2, rp, sBand, f0, q, topology, gain, baseC, rSeries, cSeries, optimize, mc, tol });
+	const shared = $derived({
+		mode,
+		family,
+		band,
+		order,
+		fc,
+		f1,
+		f2,
+		rp,
+		sBand,
+		f0,
+		q,
+		topology,
+		gain,
+		baseC,
+		rSeries,
+		cSeries,
+		optimize,
+		mc,
+		tol
+	});
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
@@ -94,15 +121,29 @@
 		try {
 			let specs: StageSpec[];
 			if (mode === 'filter') {
-				if (band === 'bandpass' && !(f2 > f1)) throw new Error('The upper band edge must be above the lower edge.');
-				const zpk = designAnalog({ family, band, order: N, f1: band === 'bandpass' ? f1 : fc, f2, rp, besselNorm: 'mag' });
+				if (band === 'bandpass' && !(f2 > f1))
+					throw new Error('The upper band edge must be above the lower edge.');
+				const zpk = designAnalog({
+					family,
+					band,
+					order: N,
+					f1: band === 'bandpass' ? f1 : fc,
+					f2,
+					rp,
+					besselNorm: 'mag'
+				});
 				specs = stageSpecs(zpk, band);
 			} else {
 				specs = [{ band: sBand, order: 2, w0: TWO_PI * f0, q }];
 			}
 			if (!(baseC > 0)) throw new Error('The base capacitor must be positive.');
-			const stages = specs.map((s) => designStage(s, { topology, gain, baseC, rSeries, cSeries, optimize }));
-			for (const s of stages) for (const p of s.parts) if (Number.isNaN(p.exact) || p.exact <= 0) throw new Error(`Could not compute ${p.role} — check the inputs.`);
+			const stages = specs.map((s) =>
+				designStage(s, { topology, gain, baseC, rSeries, cSeries, optimize })
+			);
+			for (const s of stages)
+				for (const p of s.parts)
+					if (Number.isNaN(p.exact) || p.exact <= 0)
+						throw new Error(`Could not compute ${p.role} — check the inputs.`);
 			return { stages, error: null };
 		} catch (e) {
 			return { stages: [] as StageDesign[], error: (e as Error).message };
@@ -124,7 +165,9 @@
 		let cc = 0;
 		return stages.map((st, i) => {
 			const map: Record<string, string> = {};
-			for (const p of [...st.parts].sort((a, b) => a.role.localeCompare(b.role, 'en', { numeric: true }))) {
+			for (const p of [...st.parts].sort((a, b) =>
+				a.role.localeCompare(b.role, 'en', { numeric: true })
+			)) {
 				if (p.kind === 'R') {
 					if (Number.isFinite(p.exact)) map[p.role] = `R${++r}`;
 					else map[p.role] = '—';
@@ -134,11 +177,16 @@
 		});
 	});
 
-	const fmtV = (kind: 'R' | 'C', v: number, d = 3) => (Number.isFinite(v) ? formatSI(v, kind === 'R' ? 'Ω' : 'F', d) : 'open');
+	const fmtV = (kind: 'R' | 'C', v: number, d = 3) =>
+		Number.isFinite(v) ? formatSI(v, kind === 'R' ? 'Ω' : 'F', d) : 'open';
 	const pctErr = (a: number, b: number) => (a / b - 1) * 100;
 	const dbFmt = (v: number) => trimNumber(Math.abs(v) < 5e-4 ? 0 : v, 3);
 	const pct = (v: number) => `${v >= 0 ? '+' : '−'}${trimNumber(Math.abs(v), 2)} %`;
-	const bandName: Record<StageBand, string> = { lowpass: 'low-pass', highpass: 'high-pass', bandpass: 'band-pass' };
+	const bandName: Record<StageBand, string> = {
+		lowpass: 'low-pass',
+		highpass: 'high-pass',
+		bandpass: 'band-pass'
+	};
 	function stageTitle(st: StageDesign): string {
 		const b = bandName[st.spec.band];
 		switch (st.topology) {
@@ -158,7 +206,12 @@
 	const drawings = $derived(
 		stages.map((st, i) => {
 			const labels: Record<string, PartLabel> = {};
-			for (const p of st.parts) labels[p.role] = { name: designators[i].parts[p.role], value: fmtV(p.kind, p.value), open: !Number.isFinite(p.value) };
+			for (const p of st.parts)
+				labels[p.role] = {
+					name: designators[i].parts[p.role],
+					value: fmtV(p.kind, p.value),
+					open: !Number.isFinite(p.value)
+				};
 			const vin = i === 0 ? 'v_in' : `v_${i}`;
 			const vout = i === stages.length - 1 ? 'v_out' : `v_${i + 1}`;
 			return stageDrawing(st.topology, st.spec.band, labels, vin, vout, designators[i].opamp);
@@ -195,16 +248,46 @@
 			};
 			const cT = cross(rt, gT);
 			const cB = cross(rb, gB);
-			if (cT && cB) out.push({ label: '−3 dB frequency (built)', value: formatSI(cB, 'Hz', 4), hint: `Target ${formatSI(cT, 'Hz', 4)} (${pct(pctErr(cB, cT))})` });
+			if (cT && cB)
+				out.push({
+					label: '−3 dB frequency (built)',
+					value: formatSI(cB, 'Hz', 4),
+					hint: `Target ${formatSI(cT, 'Hz', 4)} (${pct(pctErr(cB, cT))})`
+				});
 		}
 		const fe = Math.max(...stages.map((st) => Math.abs(pctErr(st.realizedParams.w0, st.spec.w0))));
 		const second = stages.filter((st) => st.spec.order === 2);
-		const qe = second.length ? Math.max(...second.map((st) => Math.abs(pctErr(st.realizedParams.q, st.spec.q)))) : 0;
-		out.push({ label: 'Worst f₀ error', value: `${trimNumber(fe, 2)} %`, status: fe < 1 ? 'good' : 'warning', hint: 'Largest stage natural-frequency error caused by standard values (✓ < 1 %)' });
-		if (second.length) out.push({ label: 'Worst Q error', value: `${trimNumber(qe, 2)} %`, status: qe < 1 ? 'good' : 'warning', hint: 'Largest stage Q error caused by standard values (✓ < 1 %)' });
-		out.push({ label: 'Highest stage Q', value: trimNumber(Math.max(...stages.map((st) => st.spec.q)), 4) });
-		out.push({ label: 'Op-amp GBW ≥', value: formatSI(Math.max(...stages.map((st) => st.gbw)), 'Hz', 3), hint: 'Largest per-stage rule-of-thumb requirement (see the stage table)' });
-		if (mcData) out.push({ label: `Spread at ${formatSI(fRef, 'Hz', 3)} (±${tol * 100} %)`, value: `${trimNumber(mcData.spread, 3)} dB`, hint: 'Max − min gain over the Monte-Carlo runs' });
+		const qe = second.length
+			? Math.max(...second.map((st) => Math.abs(pctErr(st.realizedParams.q, st.spec.q))))
+			: 0;
+		out.push({
+			label: 'Worst f₀ error',
+			value: `${trimNumber(fe, 2)} %`,
+			status: fe < 1 ? 'good' : 'warning',
+			hint: 'Largest stage natural-frequency error caused by standard values (✓ < 1 %)'
+		});
+		if (second.length)
+			out.push({
+				label: 'Worst Q error',
+				value: `${trimNumber(qe, 2)} %`,
+				status: qe < 1 ? 'good' : 'warning',
+				hint: 'Largest stage Q error caused by standard values (✓ < 1 %)'
+			});
+		out.push({
+			label: 'Highest stage Q',
+			value: trimNumber(Math.max(...stages.map((st) => st.spec.q)), 4)
+		});
+		out.push({
+			label: 'Op-amp GBW ≥',
+			value: formatSI(Math.max(...stages.map((st) => st.gbw)), 'Hz', 3),
+			hint: 'Largest per-stage rule-of-thumb requirement (see the stage table)'
+		});
+		if (mcData)
+			out.push({
+				label: `Spread at ${formatSI(fRef, 'Hz', 3)} (±${tol * 100} %)`,
+				value: `${trimNumber(mcData.spread, 3)} dB`,
+				hint: 'Max − min gain over the Monte-Carlo runs'
+			});
 		return out;
 	});
 
@@ -234,7 +317,11 @@
 			xs.push(...grid, NaN);
 			ys.push(...r, NaN);
 		}
-		const iRef = grid.reduce((best, f, i) => (Math.abs(Math.log(f / fRef)) < Math.abs(Math.log(grid[best] / fRef)) ? i : best), 0);
+		const iRef = grid.reduce(
+			(best, f, i) =>
+				Math.abs(Math.log(f / fRef)) < Math.abs(Math.log(grid[best] / fRef)) ? i : best,
+			0
+		);
 		const atRef = runs.map((r) => r[iRef]);
 		let top = -Infinity;
 		for (const r of runs) for (const v of r) if (Number.isFinite(v)) top = Math.max(top, v);
@@ -246,12 +333,25 @@
 			{ x: grid, y: nominal, label: 'Built, nominal values', color: 'var(--s2)', format: fmt },
 			{ x: [], y: [], label: `40 random builds (±${tol * 100} %)`, color: 'var(--s3)' }
 		];
-		return { series, domain: [lo, hi] as [number, number], yDomain: [top - 30, top] as [number, number], spread: Math.max(...atRef) - Math.min(...atRef) };
+		return {
+			series,
+			domain: [lo, hi] as [number, number],
+			yDomain: [top - 30, top] as [number, number],
+			spread: Math.max(...atRef) - Math.min(...atRef)
+		};
 	});
 
 	// ---------------- BOM ----------------
 	const bom = $derived.by(() => {
-		const rows: { ref: string; type: string; value: string; si: string; ideal: string; stage: number; fn: string }[] = [];
+		const rows: {
+			ref: string;
+			type: string;
+			value: string;
+			si: string;
+			ideal: string;
+			stage: number;
+			fn: string;
+		}[] = [];
 		stages.forEach((st, i) => {
 			for (const p of st.parts) {
 				if (!Number.isFinite(p.value)) continue;
@@ -265,23 +365,45 @@
 					fn: p.desc
 				});
 			}
-			rows.push({ ref: designators[i].opamp, type: 'Op-amp', value: `GBW ≥ ${formatSI(st.gbw, 'Hz', 2)}`, si: String(Math.round(st.gbw)), ideal: '', stage: i + 1, fn: TOPOLOGY_NAMES[st.topology] });
+			rows.push({
+				ref: designators[i].opamp,
+				type: 'Op-amp',
+				value: `GBW ≥ ${formatSI(st.gbw, 'Hz', 2)}`,
+				si: String(Math.round(st.gbw)),
+				ideal: '',
+				stage: i + 1,
+				fn: TOPOLOGY_NAMES[st.topology]
+			});
 		});
 		const order = (r: (typeof rows)[number]) => ({ R: 0, C: 1, U: 2 })[r.ref[0] as 'R'] ?? 3;
 		rows.sort((a, b) => order(a) - order(b) || Number(a.ref.slice(1)) - Number(b.ref.slice(1)));
 		const csvEsc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-		const csv = ['Designator,Type,Value,Value (SI),Ideal value,Stage,Function', ...rows.map((r) => [r.ref, r.type, r.value, r.si, r.ideal, r.stage, r.fn].map((v) => csvEsc(String(v))).join(','))].join('\n');
+		const csv = [
+			'Designator,Type,Value,Value (SI),Ideal value,Stage,Function',
+			...rows.map((r) =>
+				[r.ref, r.type, r.value, r.si, r.ideal, r.stage, r.fn]
+					.map((v) => csvEsc(String(v)))
+					.join(',')
+			)
+		].join('\n');
 		return { rows, csv };
 	});
 
 	// ---------------- options ----------------
-	const familyOptions = FAMILIES.map((f) => ({ value: f.id, label: f.name, disabled: !ALLOWED.includes(f.id) }));
+	const familyOptions = FAMILIES.map((f) => ({
+		value: f.id,
+		label: f.name,
+		disabled: !ALLOWED.includes(f.id)
+	}));
 	const topologyOptions = [
 		{ value: 'sk-unity' as Topology, label: 'Sallen–Key, unity gain' },
 		{ value: 'sk-equal' as Topology, label: 'Sallen–Key, equal components (K = 3 − 1/Q)' },
 		{ value: 'mfb' as Topology, label: 'Multiple feedback (MFB, inverting)' }
 	];
-	const seriesOptions = (['E6', 'E12', 'E24', 'E48', 'E96', 'exact'] as ESeries[]).map((s) => ({ value: s, label: s === 'exact' ? 'Exact (no rounding)' : s }));
+	const seriesOptions = (['E6', 'E12', 'E24', 'E48', 'E96', 'exact'] as ESeries[]).map((s) => ({
+		value: s,
+		label: s === 'exact' ? 'Exact (no rounding)' : s
+	}));
 	const bandOptions = [
 		{ value: 'lowpass' as StageBand, label: 'LP' },
 		{ value: 'highpass' as StageBand, label: 'HP' },
@@ -292,7 +414,11 @@
 	const usesGain = $derived(effBand === 'bandpass' || topology === 'mfb');
 </script>
 
-<ToolLayout slug="active-filters" share={shared} related={['analog-designer', 'family-compare', 'rlc', 'lc-ladder', 'bode']}>
+<ToolLayout
+	slug="active-filters"
+	share={shared}
+	related={['analog-designer', 'family-compare', 'rlc', 'lc-ladder', 'bode']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Design">
 			<Segmented
@@ -306,9 +432,20 @@
 
 		{#if mode === 'filter'}
 			<ControlGroup title="Filter">
-				<Select label="Family" bind:value={family} options={familyOptions} help="Chebyshev II and elliptic need notch stages and are not offered." />
+				<Select
+					label="Family"
+					bind:value={family}
+					options={familyOptions}
+					help="Chebyshev II and elliptic need notch stages and are not offered."
+				/>
 				<Segmented label="Response" bind:value={band} options={bandOptions} />
-				<Slider label={band === 'bandpass' ? 'Prototype order N (2N poles)' : 'Order N'} bind:value={order} min={1} max={maxOrder} integer />
+				<Slider
+					label={band === 'bandpass' ? 'Prototype order N (2N poles)' : 'Order N'}
+					bind:value={order}
+					min={1}
+					max={maxOrder}
+					integer
+				/>
 				{#if band === 'bandpass'}
 					<Slider label="Lower edge f₁" bind:value={f1} min={1} max={100000} log unit="Hz" />
 					<Slider label="Upper edge f₂" bind:value={f2} min={1} max={100000} log unit="Hz" />
@@ -319,7 +456,9 @@
 					<Slider label="Passband ripple Rp" bind:value={rp} min={0.01} max={3} log unit="dB" />
 				{/if}
 				<p class="small muted note">
-					{family === 'bessel' ? 'Bessel is normalised for −3 dB at the cutoff.' : `Cutoff = ${info.cutoffMeaning}.`}
+					{family === 'bessel'
+						? 'Bessel is normalised for −3 dB at the cutoff.'
+						: `Cutoff = ${info.cutoffMeaning}.`}
 				</p>
 			</ControlGroup>
 		{:else}
@@ -332,12 +471,25 @@
 
 		<ControlGroup title="Circuit">
 			{#if effBand === 'bandpass'}
-				<p class="small muted note">Band-pass stages use the multiple-feedback band-pass circuit (inverting, with R3 to set f₀ independently of the gain).</p>
+				<p class="small muted note">
+					Band-pass stages use the multiple-feedback band-pass circuit (inverting, with R3 to set f₀
+					independently of the gain).
+				</p>
 			{:else}
-				<Select label="Topology (second-order stages)" bind:value={topology} options={topologyOptions} />
+				<Select
+					label="Topology (second-order stages)"
+					bind:value={topology}
+					options={topologyOptions}
+				/>
 			{/if}
 			{#if usesGain}
-				<Slider label={effBand === 'bandpass' ? 'Centre gain per stage |H₀|' : 'Gain per stage |G|'} bind:value={gain} min={0.1} max={10} log />
+				<Slider
+					label={effBand === 'bandpass' ? 'Centre gain per stage |H₀|' : 'Gain per stage |G|'}
+					bind:value={gain}
+					min={0.1}
+					max={10}
+					log
+				/>
 			{/if}
 			{#if mode === 'filter' && effBand !== 'bandpass' && N % 2 === 1}
 				<p class="small muted note">Odd order: the real pole is built as a buffered RC section.</p>
@@ -345,7 +497,16 @@
 		</ControlGroup>
 
 		<ControlGroup title="Components">
-			<NumberInput label="Base capacitor" bind:value={baseC} unit="F" si min={1e-12} max={1e-3} logStep={1.2} help="Capacitors come in fewer values, so they are chosen first; resistors are computed." />
+			<NumberInput
+				label="Base capacitor"
+				bind:value={baseC}
+				unit="F"
+				si
+				min={1e-12}
+				max={1e-3}
+				logStep={1.2}
+				help="Capacitors come in fewer values, so they are chosen first; resistors are computed."
+			/>
 			<Select label="Resistor series" bind:value={rSeries} options={seriesOptions} />
 			<Select label="Capacitor series" bind:value={cSeries} options={seriesOptions} />
 			<Toggle
@@ -356,7 +517,11 @@
 		</ControlGroup>
 
 		<ControlGroup title="Tolerance analysis">
-			<Toggle bind:checked={mc} label="Monte-Carlo (40 runs)" help="Every R and C scattered uniformly within the tolerance; fixed seed." />
+			<Toggle
+				bind:checked={mc}
+				label="Monte-Carlo (40 runs)"
+				help="Every R and C scattered uniformly within the tolerance; fixed seed."
+			/>
 			{#if mc}
 				<Segmented size="small" bind:value={tol} options={tolOptions} />
 			{/if}
@@ -373,7 +538,10 @@
 		<ResponseView
 			filters={[
 				{ filter: target, label: 'Target (ideal)' },
-				{ filter: built, label: `Built (${rSeries === 'exact' ? 'exact' : rSeries} R, ${cSeries === 'exact' ? 'exact' : cSeries} C)` }
+				{
+					filter: built,
+					label: `Built (${rSeries === 'exact' ? 'exact' : rSeries} R, ${cSeries === 'exact' ? 'exact' : cSeries} C)`
+				}
 			]}
 			{vlines}
 			views={['phase', 'step']}
@@ -381,7 +549,11 @@
 	{/if}
 
 	{#if mcData}
-		<Card title="Tolerance analysis" subtitle="Each thin line is one possible build with every R and C off by up to ±{tol * 100} % — the spread shows which stages are fragile.">
+		<Card
+			title="Tolerance analysis"
+			subtitle="Each thin line is one possible build with every R and C off by up to ±{tol *
+				100} % — the spread shows which stages are fragile."
+		>
 			<Plot
 				series={mcData.series}
 				xScale="log"
@@ -399,7 +571,10 @@
 	{/if}
 
 	{#if stages.length}
-		<Card title="Stages" subtitle="Cascade order: increasing Q. f₀ and Q are recomputed from the standard values actually used.">
+		<Card
+			title="Stages"
+			subtitle="Cascade order: increasing Q. f₀ and Q are recomputed from the standard values actually used."
+		>
 			<div class="table-wrap">
 				<table>
 					<thead>
@@ -422,9 +597,16 @@
 								<td>{st.spec.order === 1 ? '1st-order ' : ''}{bandName[st.spec.band]}</td>
 								<td>{TOPOLOGY_NAMES[st.topology]}</td>
 								<td class="num">{formatSI(st.spec.w0 / TWO_PI, 'Hz', 4)}</td>
-								<td class="num">{formatSI(st.realizedParams.w0 / TWO_PI, 'Hz', 4)} <span class="err">({pct(pctErr(st.realizedParams.w0, st.spec.w0))})</span></td>
+								<td class="num"
+									>{formatSI(st.realizedParams.w0 / TWO_PI, 'Hz', 4)}
+									<span class="err">({pct(pctErr(st.realizedParams.w0, st.spec.w0))})</span></td
+								>
 								<td class="num">{st.spec.order === 2 ? trimNumber(st.spec.q, 4) : '—'}</td>
-								<td class="num">{#if st.spec.order === 2}{trimNumber(st.realizedParams.q, 4)} <span class="err">({pct(pctErr(st.realizedParams.q, st.spec.q))})</span>{:else}—{/if}</td>
+								<td class="num"
+									>{#if st.spec.order === 2}{trimNumber(st.realizedParams.q, 4)}
+										<span class="err">({pct(pctErr(st.realizedParams.q, st.spec.q))})</span
+										>{:else}—{/if}</td
+								>
 								<td class="num">{trimNumber(st.realizedParams.gain, 4)}</td>
 								<td class="num" title="Rule: GBW ≥ {st.gbwRule}">{formatSI(st.gbw, 'Hz', 2)}</td>
 							</tr>
@@ -433,21 +615,38 @@
 				</table>
 			</div>
 			<p class="small muted">
-				GBW rules of thumb (≈ 40 dB of loop gain at f₀): Sallen–Key 100·K·Q·f₀ (K = 1 for unity gain), MFB 100·(1+|G|)·Q·f₀,
-				MFB band-pass 100·(1+2Q²)·f₀ (its noise gain at f₀ is 1 + 2Q²), buffered RC 100·f₀. Hover a value for its rule.
+				GBW rules of thumb (≈ 40 dB of loop gain at f₀): Sallen–Key 100·K·Q·f₀ (K = 1 for unity
+				gain), MFB 100·(1+|G|)·Q·f₀, MFB band-pass 100·(1+2Q²)·f₀ (its noise gain at f₀ is 1 + 2Q²),
+				buffered RC 100·f₀. Hover a value for its rule.
 			</p>
 		</Card>
 
 		{#each stages as st, i (i)}
-			<Card title="Stage {i + 1} · {stageTitle(st)}" subtitle="f₀ = {formatSI(st.spec.w0 / TWO_PI, 'Hz', 4)}{st.spec.order === 2 ? `, Q = ${trimNumber(st.spec.q, 4)}` : ''}, gain {trimNumber(st.gain, 4)}">
+			<Card
+				title="Stage {i + 1} · {stageTitle(st)}"
+				subtitle="f₀ = {formatSI(st.spec.w0 / TWO_PI, 'Hz', 4)}{st.spec.order === 2
+					? `, Q = ${trimNumber(st.spec.q, 4)}`
+					: ''}, gain {trimNumber(st.gain, 4)}"
+			>
 				<div class="stage">
 					<div class="stage-schem">
-						<Schematic items={drawings[i].items} width={drawings[i].width} height={drawings[i].height} title="Stage {i + 1} schematic" />
+						<Schematic
+							items={drawings[i].items}
+							width={drawings[i].width}
+							height={drawings[i].height}
+							title="Stage {i + 1} schematic"
+						/>
 					</div>
 					<div class="stage-parts">
 						<div class="table-wrap">
 							<table class="parts">
-								<thead><tr><th>Part</th><th class="num">Value</th><th class="num">Ideal</th><th>Function</th></tr></thead>
+								<thead
+									><tr
+										><th>Part</th><th class="num">Value</th><th class="num">Ideal</th><th
+											>Function</th
+										></tr
+									></thead
+								>
 								<tbody>
 									{#each st.parts as p (p.role)}
 										<tr>
@@ -461,7 +660,11 @@
 							</table>
 						</div>
 						<p class="small built">
-							Built: f₀ {formatSI(st.realizedParams.w0 / TWO_PI, 'Hz', 4)} ({pct(pctErr(st.realizedParams.w0, st.spec.w0))}){#if st.spec.order === 2}, Q {trimNumber(st.realizedParams.q, 4)} ({pct(pctErr(st.realizedParams.q, st.spec.q))}){/if}, gain {trimNumber(st.realizedParams.gain, 4)}.
+							Built: f₀ {formatSI(st.realizedParams.w0 / TWO_PI, 'Hz', 4)} ({pct(
+								pctErr(st.realizedParams.w0, st.spec.w0)
+							)}){#if st.spec.order === 2}, Q {trimNumber(st.realizedParams.q, 4)} ({pct(
+									pctErr(st.realizedParams.q, st.spec.q)
+								)}){/if}, gain {trimNumber(st.realizedParams.gain, 4)}.
 							{designators[i].opamp}: GBW ≥ {formatSI(st.gbw, 'Hz', 2)} ({st.gbwRule}).
 						</p>
 						{#each st.notes as n (n)}
@@ -472,19 +675,37 @@
 			</Card>
 		{/each}
 
-		<Card title="Bill of materials" subtitle="Standard values per the selected E-series. Download as CSV for your parts list.">
+		<Card
+			title="Bill of materials"
+			subtitle="Standard values per the selected E-series. Download as CSV for your parts list."
+		>
 			<div class="table-wrap">
 				<table>
-					<thead><tr><th>Ref</th><th>Type</th><th class="num">Value</th><th class="num">Ideal</th><th class="num">Stage</th><th>Function</th></tr></thead>
+					<thead
+						><tr
+							><th>Ref</th><th>Type</th><th class="num">Value</th><th class="num">Ideal</th><th
+								class="num">Stage</th
+							><th>Function</th></tr
+						></thead
+					>
 					<tbody>
 						{#each bom.rows as r (r.ref + r.stage)}
-							<tr><td>{r.ref}</td><td>{r.type}</td><td class="num">{r.value}</td><td class="num muted">{r.ideal}</td><td class="num">{r.stage}</td><td class="small">{r.fn}</td></tr>
+							<tr
+								><td>{r.ref}</td><td>{r.type}</td><td class="num">{r.value}</td><td
+									class="num muted">{r.ideal}</td
+								><td class="num">{r.stage}</td><td class="small">{r.fn}</td></tr
+							>
 						{/each}
 					</tbody>
 				</table>
 			</div>
 			<div class="csv">
-				<CodeBlock code={bom.csv} language="csv" filename="active-filter-bom.csv" maxHeight="12rem" />
+				<CodeBlock
+					code={bom.csv}
+					language="csv"
+					filename="active-filter-bom.csv"
+					maxHeight="12rem"
+				/>
 			</div>
 		</Card>
 	{/if}
@@ -492,81 +713,150 @@
 	{#snippet theory()}
 		<h2>From transfer function to op-amp stages</h2>
 		<p>
-			An N-th order all-pole filter factors into ⌊N/2⌋ second-order sections plus, for odd N, one first-order section. Each
-			second-order section is a pole pair with natural frequency ω₀ and quality factor Q, and is built with one op-amp:
+			An N-th order all-pole filter factors into ⌊N/2⌋ second-order sections plus, for odd N, one
+			first-order section. Each second-order section is a pole pair with natural frequency ω₀ and
+			quality factor Q, and is built with one op-amp:
 		</p>
-		<Tex display math={'H_{LP}(s) = \\frac{G\\,\\omega_0^2}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}\\qquad H_{HP}(s) = \\frac{G\\,s^2}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}\\qquad H_{BP}(s) = \\frac{G\\,\\frac{\\omega_0}{Q}s}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}'} />
+		<Tex
+			display
+			math={'H_{LP}(s) = \\frac{G\\,\\omega_0^2}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}\\qquad H_{HP}(s) = \\frac{G\\,s^2}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}\\qquad H_{BP}(s) = \\frac{G\\,\\frac{\\omega_0}{Q}s}{s^2 + \\frac{\\omega_0}{Q}s + \\omega_0^2}'}
+		/>
 		<p>
-			Names below follow the stage-1 schematic (later stages continue the numbering). The first-order section is an RC divider
-			followed by a voltage follower so the next stage does not load it.
+			Names below follow the stage-1 schematic (later stages continue the numbering). The
+			first-order section is an RC divider followed by a voltage follower so the next stage does not
+			load it.
 		</p>
 
 		<h3>Sallen–Key</h3>
-		<p>A non-inverting amplifier of gain K = 1 + R4/R3 (K = 1 for the follower) with positive feedback through C1 (R1 for HP):</p>
-		<Tex display math={'H_{LP}(s)=\\frac{K/(R_1R_2C_1C_2)}{s^2+s\\left(\\frac{1}{R_1C_1}+\\frac{1}{R_2C_1}+\\frac{1-K}{R_2C_2}\\right)+\\frac{1}{R_1R_2C_1C_2}}'} />
-		<Tex display math={'H_{HP}(s)=\\frac{K\\,s^2}{s^2+s\\left(\\frac{1}{R_2C_2}+\\frac{1}{R_2C_1}+\\frac{1-K}{R_1C_1}\\right)+\\frac{1}{R_1R_2C_1C_2}}'} />
 		<p>
-			<strong>Unity-gain LP</strong>: pick C2, then C1 ≥ 4Q²C2 (the next standard value up), and solve the quadratic for the resistors:
+			A non-inverting amplifier of gain K = 1 + R4/R3 (K = 1 for the follower) with positive
+			feedback through C1 (R1 for HP):
 		</p>
-		<Tex display math={'R_{1,2} = \\frac{1}{2\\omega_0 Q C_2}\\left(1 \\mp \\sqrt{1 - \\frac{4Q^2 C_2}{C_1}}\\right)'} />
-		<p><strong>Unity-gain HP</strong> with C1 = C2 = C: <Tex math={'R_1 = \\frac{1}{2Q\\omega_0 C},\\; R_2 = \\frac{2Q}{\\omega_0 C}'} />.</p>
+		<Tex
+			display
+			math={'H_{LP}(s)=\\frac{K/(R_1R_2C_1C_2)}{s^2+s\\left(\\frac{1}{R_1C_1}+\\frac{1}{R_2C_1}+\\frac{1-K}{R_2C_2}\\right)+\\frac{1}{R_1R_2C_1C_2}}'}
+		/>
+		<Tex
+			display
+			math={'H_{HP}(s)=\\frac{K\\,s^2}{s^2+s\\left(\\frac{1}{R_2C_2}+\\frac{1}{R_2C_1}+\\frac{1-K}{R_1C_1}\\right)+\\frac{1}{R_1R_2C_1C_2}}'}
+		/>
 		<p>
-			<strong>Equal components</strong> (R1 = R2 = R, C1 = C2 = C, LP or HP): <Tex math={'\\omega_0 = \\frac{1}{RC}'} /> and
-			<Tex math={'Q = \\frac{1}{3-K}'} />, so <Tex math={'K = 3 - \\frac1Q'} />. Elegant, but the sensitivity of Q to the gain is
+			<strong>Unity-gain LP</strong>: pick C2, then C1 ≥ 4Q²C2 (the next standard value up), and
+			solve the quadratic for the resistors:
+		</p>
+		<Tex
+			display
+			math={'R_{1,2} = \\frac{1}{2\\omega_0 Q C_2}\\left(1 \\mp \\sqrt{1 - \\frac{4Q^2 C_2}{C_1}}\\right)'}
+		/>
+		<p>
+			<strong>Unity-gain HP</strong> with C1 = C2 = C: <Tex
+				math={'R_1 = \\frac{1}{2Q\\omega_0 C},\\; R_2 = \\frac{2Q}{\\omega_0 C}'}
+			/>.
+		</p>
+		<p>
+			<strong>Equal components</strong> (R1 = R2 = R, C1 = C2 = C, LP or HP): <Tex
+				math={'\\omega_0 = \\frac{1}{RC}'}
+			/> and
+			<Tex math={'Q = \\frac{1}{3-K}'} />, so <Tex math={'K = 3 - \\frac1Q'} />. Elegant, but the
+			sensitivity of Q to the gain is
 		</p>
 		<Tex display math={'S^Q_K = \\frac{K}{Q}\\frac{\\partial Q}{\\partial K} = KQ = 3Q - 1'} />
 		<p>
-			— at Q = 10 a 1 % error in R4/R3 moves Q by 29 %, and K → 3 makes the stage oscillate. In a unity-gain Sallen–Key every
-			passive Q sensitivity is at most ½ in magnitude, and in an MFB stage at most 1; ω₀ sensitivities are ½ or less everywhere.
-			That is why those two are preferred for high Q.
+			— at Q = 10 a 1 % error in R4/R3 moves Q by 29 %, and K → 3 makes the stage oscillate. In a
+			unity-gain Sallen–Key every passive Q sensitivity is at most ½ in magnitude, and in an MFB
+			stage at most 1; ω₀ sensitivities are ½ or less everywhere. That is why those two are
+			preferred for high Q.
 		</p>
 
 		<h3>Multiple feedback (MFB)</h3>
-		<p>The op-amp works as an inverting integrator with two feedback paths; the non-inverting input is grounded:</p>
-		<Tex display math={'H_{LP}(s)=\\frac{-1/(R_1R_3C_1C_2)}{s^2+\\frac{s}{C_1}\\left(\\frac{1}{R_1}+\\frac{1}{R_2}+\\frac{1}{R_3}\\right)+\\frac{1}{R_2R_3C_1C_2}},\\qquad H(0) = -\\frac{R_2}{R_1}'} />
-		<p>With gain G = R2/R1: choose C2, then <Tex math={'C_1 \\ge 4Q^2(1+G)\\,C_2'} /> and</p>
-		<Tex display math={'R_2 = \\frac{1}{2\\omega_0QC_2}\\left(1-\\sqrt{1-\\frac{4Q^2(1+G)C_2}{C_1}}\\right),\\quad R_1 = \\frac{R_2}{G},\\quad R_3 = \\frac{1}{\\omega_0^2C_1C_2R_2}'} />
-		<p>The high-pass swaps the roles of R and C (gain −C1/C2):</p>
-		<Tex display math={'H_{HP}(s)=\\frac{-(C_1/C_2)\\,s^2}{s^2+s\\frac{C_1+C_2+C_3}{R_2C_2C_3}+\\frac{1}{R_1R_2C_2C_3}}'} />
-		<Tex display math={'C_1=C_3=C,\\quad C_2=\\frac{C}{G},\\quad R_2=\\frac{Q(2G+1)}{\\omega_0C},\\quad R_1=\\frac{G}{\\omega_0CQ(2G+1)}'} />
-		<p>The band-pass has one capacitor in each feedback path and an optional shunt R3 that sets f₀ independently of the gain:</p>
-		<Tex display math={'H_{BP}(s)=\\frac{-s/(R_1C_2)}{s^2+s\\frac{C_1+C_2}{R_2C_1C_2}+\\frac{1/R_1+1/R_3}{R_2C_1C_2}}'} />
-		<Tex display math={'C_1=C_2=C:\\quad R_2=\\frac{2Q}{\\omega_0C},\\quad R_1=\\frac{Q}{|H_0|\\,\\omega_0C},\\quad R_3=\\frac{Q}{(2Q^2-|H_0|)\\,\\omega_0C}'} />
 		<p>
-			The band-pass centre gain can be at most 2Q² (then R3 is left out). Every formula above is checked in this site's unit tests against
-			a numerical nodal analysis of the circuit. With <em>Optimise standard values</em> on, the designer also tries neighbouring values for
-			the capacitor that the equations leave free (or for R3 of the equal-component Sallen–Key) and rounds each resistor up or down,
-			keeping the combination whose f₀ and Q land closest to the target.
+			The op-amp works as an inverting integrator with two feedback paths; the non-inverting input
+			is grounded:
+		</p>
+		<Tex
+			display
+			math={'H_{LP}(s)=\\frac{-1/(R_1R_3C_1C_2)}{s^2+\\frac{s}{C_1}\\left(\\frac{1}{R_1}+\\frac{1}{R_2}+\\frac{1}{R_3}\\right)+\\frac{1}{R_2R_3C_1C_2}},\\qquad H(0) = -\\frac{R_2}{R_1}'}
+		/>
+		<p>With gain G = R2/R1: choose C2, then <Tex math={'C_1 \\ge 4Q^2(1+G)\\,C_2'} /> and</p>
+		<Tex
+			display
+			math={'R_2 = \\frac{1}{2\\omega_0QC_2}\\left(1-\\sqrt{1-\\frac{4Q^2(1+G)C_2}{C_1}}\\right),\\quad R_1 = \\frac{R_2}{G},\\quad R_3 = \\frac{1}{\\omega_0^2C_1C_2R_2}'}
+		/>
+		<p>The high-pass swaps the roles of R and C (gain −C1/C2):</p>
+		<Tex
+			display
+			math={'H_{HP}(s)=\\frac{-(C_1/C_2)\\,s^2}{s^2+s\\frac{C_1+C_2+C_3}{R_2C_2C_3}+\\frac{1}{R_1R_2C_2C_3}}'}
+		/>
+		<Tex
+			display
+			math={'C_1=C_3=C,\\quad C_2=\\frac{C}{G},\\quad R_2=\\frac{Q(2G+1)}{\\omega_0C},\\quad R_1=\\frac{G}{\\omega_0CQ(2G+1)}'}
+		/>
+		<p>
+			The band-pass has one capacitor in each feedback path and an optional shunt R3 that sets f₀
+			independently of the gain:
+		</p>
+		<Tex
+			display
+			math={'H_{BP}(s)=\\frac{-s/(R_1C_2)}{s^2+s\\frac{C_1+C_2}{R_2C_1C_2}+\\frac{1/R_1+1/R_3}{R_2C_1C_2}}'}
+		/>
+		<Tex
+			display
+			math={'C_1=C_2=C:\\quad R_2=\\frac{2Q}{\\omega_0C},\\quad R_1=\\frac{Q}{|H_0|\\,\\omega_0C},\\quad R_3=\\frac{Q}{(2Q^2-|H_0|)\\,\\omega_0C}'}
+		/>
+		<p>
+			The band-pass centre gain can be at most 2Q² (then R3 is left out). Every formula above is
+			checked in this site's unit tests against a numerical nodal analysis of the circuit. With <em
+				>Optimise standard values</em
+			> on, the designer also tries neighbouring values for the capacitor that the equations leave free
+			(or for R3 of the equal-component Sallen–Key) and rounds each resistor up or down, keeping the combination
+			whose f₀ and Q land closest to the target.
 		</p>
 
 		<h3>Ordering, gain and op-amp limits</h3>
 		<ul>
 			<li>
-				<strong>Order stages by increasing Q.</strong> A high-Q stage peaks by roughly Q near f₀; putting it last means the earlier, gentler
-				stages have already removed out-of-band energy, so it is less likely to clip.
+				<strong>Order stages by increasing Q.</strong> A high-Q stage peaks by roughly Q near f₀; putting
+				it last means the earlier, gentler stages have already removed out-of-band energy, so it is less
+				likely to clip.
 			</li>
 			<li>
-				<strong>Gain distribution.</strong> Gain early improves noise (later stages' noise is divided by it), but internal peaking and the
-				output swing set an upper bound — leave headroom of about Q in the high-Q stages.
+				<strong>Gain distribution.</strong> Gain early improves noise (later stages' noise is divided
+				by it), but internal peaking and the output swing set an upper bound — leave headroom of about
+				Q in the high-Q stages.
 			</li>
 			<li>
-				<strong>Finite gain–bandwidth</strong> shifts f₀ down and inflates Q (Q enhancement), especially in Sallen–Key stages. Keep the
-				op-amp's loop gain at f₀ around 40 dB: the GBW rules in the stage table do that. Also check slew rate (≥ 2π·f·V<sub>peak</sub>) and,
-				for MFB, that the op-amp is stable at the stage's noise gain.
+				<strong>Finite gain–bandwidth</strong> shifts f₀ down and inflates Q (Q enhancement),
+				especially in Sallen–Key stages. Keep the op-amp's loop gain at f₀ around 40 dB: the GBW
+				rules in the stage table do that. Also check slew rate (≥ 2π·f·V<sub>peak</sub>) and, for
+				MFB, that the op-amp is stable at the stage's noise gain.
 			</li>
 			<li>
-				<strong>Impedance level.</strong> Resistors between ~1 kΩ and ~100 kΩ keep op-amp loading, noise and bias-current errors small; change
-				the base capacitor to move them into that window.
+				<strong>Impedance level.</strong> Resistors between ~1 kΩ and ~100 kΩ keep op-amp loading, noise
+				and bias-current errors small; change the base capacitor to move them into that window.
 			</li>
 		</ul>
 
 		<Callout kind="try">
 			<ul>
-				<li>Design a 6th-order Chebyshev (1 dB) low-pass and switch between unity-gain and equal-component Sallen–Key: watch the Monte-Carlo spread explode for the high-Q stage.</li>
-				<li>Set the capacitor series to E6 and the resistor series to E96: the resistors absorb the coarse capacitor values, so the f₀ and Q errors stay tiny.</li>
-				<li>Use <em>Single stage</em>, set Q = 10 and compare the GBW requirement of MFB and Sallen–Key.</li>
-				<li>Make a narrow band-pass (f₁ = 900 Hz, f₂ = 1.1 kHz) and raise the centre gain until the 2Q² limit kicks in.</li>
-				<li>Shrink the base capacitor to 100 pF and see the resistor values (and warnings) climb.</li>
+				<li>
+					Design a 6th-order Chebyshev (1 dB) low-pass and switch between unity-gain and
+					equal-component Sallen–Key: watch the Monte-Carlo spread explode for the high-Q stage.
+				</li>
+				<li>
+					Set the capacitor series to E6 and the resistor series to E96: the resistors absorb the
+					coarse capacitor values, so the f₀ and Q errors stay tiny.
+				</li>
+				<li>
+					Use <em>Single stage</em>, set Q = 10 and compare the GBW requirement of MFB and
+					Sallen–Key.
+				</li>
+				<li>
+					Make a narrow band-pass (f₁ = 900 Hz, f₂ = 1.1 kHz) and raise the centre gain until the
+					2Q² limit kicks in.
+				</li>
+				<li>
+					Shrink the base capacitor to 100 pF and see the resistor values (and warnings) climb.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

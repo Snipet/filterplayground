@@ -109,8 +109,7 @@ export function estimateFromSpecs(
 	const toW = (f: number) => (spec.fs ? prewarp(f, spec.fs) : 2 * Math.PI * f);
 	const fromW = (w: number) =>
 		spec.fs ? (spec.fs / Math.PI) * Math.atan(w / (2 * spec.fs)) : w / (2 * Math.PI);
-	const arr = (v: number | [number, number]): [number, number] =>
-		Array.isArray(v) ? v : [v, v];
+	const arr = (v: number | [number, number]): [number, number] => (Array.isArray(v) ? v : [v, v]);
 	let [p1, p2] = arr(spec.fp).map(toW);
 	const [s1, s2] = arr(spec.fstop).map(toW);
 	if (spec.band === 'bandstop' && p1 < s1 && s2 < p2) {
@@ -135,19 +134,13 @@ export function estimateFromSpecs(
 		case 'bandpass': {
 			const B = p2 - p1;
 			const w02 = p1 * p2;
-			nat = Math.min(
-				Math.abs((s1 * s1 - w02) / (B * s1)),
-				Math.abs((s2 * s2 - w02) / (B * s2))
-			);
+			nat = Math.min(Math.abs((s1 * s1 - w02) / (B * s1)), Math.abs((s2 * s2 - w02) / (B * s2)));
 			break;
 		}
 		case 'bandstop': {
 			const B = p2 - p1;
 			const w02 = p1 * p2;
-			nat = Math.min(
-				Math.abs((B * s1) / (w02 - s1 * s1)),
-				Math.abs((B * s2) / (w02 - s2 * s2))
-			);
+			nat = Math.min(Math.abs((B * s1) / (w02 - s1 * s1)), Math.abs((B * s2) / (w02 - s2 * s2)));
 			break;
 		}
 	}
@@ -158,7 +151,8 @@ export function estimateFromSpecs(
 			f2: isBand(spec.band) ? fromW(p2) : undefined,
 			selectivity: nat,
 			capped: false,
-			error: 'The stopband edge must lie beyond the passband edge (transition band is empty or inverted).'
+			error:
+				'The stopband edge must lie beyond the passband edge (transition band is empty or inverted).'
 		};
 	}
 	if (!(spec.rs > spec.rp)) {
@@ -170,7 +164,11 @@ export function estimateFromSpecs(
 			error: 'Stopband attenuation must exceed the passband ripple.'
 		};
 	}
-	const { N: order, wn, capped } = estimateOrder(family, nat, spec.rp, spec.rs, opts, familyInfo(family).maxOrder);
+	const {
+		N: order,
+		wn,
+		capped
+	} = estimateOrder(family, nat, spec.rp, spec.rs, opts, familyInfo(family).maxOrder);
 	// map the prototype natural frequency back to real frequencies
 	let f1: number;
 	let f2: number | undefined;

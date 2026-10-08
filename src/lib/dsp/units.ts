@@ -15,7 +15,8 @@ const PREFIXES: [number, string][] = [
 
 /** Format with an SI prefix, e.g. 4700 → "4.7 k", 1.5e-9 → "1.5 n". */
 export function formatSI(value: number, unit = '', digits = 3): string {
-	if (!Number.isFinite(value)) return `${value > 0 ? '∞' : value < 0 ? '−∞' : '—'}${unit ? ' ' + unit : ''}`;
+	if (!Number.isFinite(value))
+		return `${value > 0 ? '∞' : value < 0 ? '−∞' : '—'}${unit ? ' ' + unit : ''}`;
 	if (value === 0) return `0${unit ? ' ' + unit : ''}`;
 	const abs = Math.abs(value);
 	let [scale, prefix] = PREFIXES[PREFIXES.length - 1];
@@ -36,7 +37,8 @@ export function trimNumber(v: number, digits = 4): string {
 	if (!Number.isFinite(v)) return String(v);
 	if (v === 0) return '0';
 	const abs = Math.abs(v);
-	if (abs >= 1e6 || abs < 1e-4) return v.toExponential(Math.max(0, digits - 1)).replace(/\.?0+e/, 'e');
+	if (abs >= 1e6 || abs < 1e-4)
+		return v.toExponential(Math.max(0, digits - 1)).replace(/\.?0+e/, 'e');
 	// Number(...) drops trailing zeros and any exponent toPrecision may introduce (1.50e+3 → 1500)
 	return String(Number(v.toPrecision(digits)));
 }
@@ -97,8 +99,8 @@ export type ESeries = 'E6' | 'E12' | 'E24' | 'E48' | 'E96' | 'exact';
 const E6 = [1.0, 1.5, 2.2, 3.3, 4.7, 6.8];
 const E12 = [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2];
 const E24 = [
-	1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2,
-	6.8, 7.5, 8.2, 9.1
+	1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6,
+	6.2, 6.8, 7.5, 8.2, 9.1
 ];
 const eSeriesN = (n: number) =>
 	Array.from({ length: n }, (_, i) => Math.round(Math.pow(10, i / n) * 100) / 100);

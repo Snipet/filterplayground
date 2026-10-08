@@ -88,10 +88,14 @@
 	<path class="wire" d="M{XS} {MID - 15}V{RAIL}H{XS + 16}M{XS} {MID + 15}V{GND}" />
 	<circle class="wire" cx={XS} cy={MID} r="15" fill="none" />
 	<path class="wire" d="M{XS - 8} {MID}q4 -9 8 0t8 0" />
-	<text class="des" x={XS - 20} y={MID + 4} text-anchor="end">V<tspan class="sub" dy="3">S</tspan></text>
+	<text class="des" x={XS - 20} y={MID + 4} text-anchor="end"
+		>V<tspan class="sub" dy="3">S</tspan></text
+	>
 	<!-- source resistor -->
 	<path class="wire" d={resH(XS + 16, RAIL, 60)} />
-	<text class="des" x={XS + 46} y={DES_Y} text-anchor="middle">R<tspan class="sub" dy="3">S</tspan></text>
+	<text class="des" x={XS + 46} y={DES_Y} text-anchor="middle"
+		>R<tspan class="sub" dy="3">S</tspan></text
+	>
 	<text class="val" x={XS + 46} y={VAL_Y} text-anchor="middle">{fmtR(rs)}</text>
 
 	{#each layout.items as it, i (i)}
@@ -101,8 +105,12 @@
 				<path class="wire" d="{indH(it.x, RAIL, 72)}{capH(it.x + 72, RAIL, it.w - 72)}" />
 				<text class="des" x={it.x + 36} y={DES_Y} text-anchor="middle">L{it.br.index}</text>
 				<text class="val" x={it.x + 36} y={VAL_Y} text-anchor="middle">{fmtL(it.br.L)}</text>
-				<text class="des" x={it.x + 72 + (it.w - 72) / 2} y={DES_Y} text-anchor="middle">C{it.br.index}</text>
-				<text class="val" x={it.x + 72 + (it.w - 72) / 2} y={VAL_Y} text-anchor="middle">{fmtC(it.br.C)}</text>
+				<text class="des" x={it.x + 72 + (it.w - 72) / 2} y={DES_Y} text-anchor="middle"
+					>C{it.br.index}</text
+				>
+				<text class="val" x={it.x + 72 + (it.w - 72) / 2} y={VAL_Y} text-anchor="middle"
+					>{fmtC(it.br.C)}</text
+				>
 			{:else if it.br.L !== undefined}
 				<path class="wire" d={indH(it.x, RAIL, it.w)} />
 				<text class="des" x={cx} y={DES_Y} text-anchor="middle">L{it.br.index}</text>
@@ -120,18 +128,39 @@
 			{#if it.br.L !== undefined && it.br.C !== undefined}
 				{@const xl = it.node - 12}
 				{@const xc = it.node + 14}
-				<path class="wire" d="M{it.node} {RAIL}V{top - 8}M{xl} {top - 8}H{xc}M{xl} {top + EL + 8}H{xc}M{it.node} {top + EL + 8}V{GND}" />
-				<path class="wire" d="M{xl} {top - 8}V{top}{indV(xl, top, EL).slice(`M${xl} ${top}`.length)}V{top + EL + 8}" />
-				<path class="wire" d="M{xc} {top - 8}V{top}{capV(xc, top, EL).slice(`M${xc} ${top}`.length)}V{top + EL + 8}" />
+				<path
+					class="wire"
+					d="M{it.node} {RAIL}V{top - 8}M{xl} {top - 8}H{xc}M{xl} {top +
+						EL +
+						8}H{xc}M{it.node} {top + EL + 8}V{GND}"
+				/>
+				<path
+					class="wire"
+					d="M{xl} {top - 8}V{top}{indV(xl, top, EL).slice(`M${xl} ${top}`.length)}V{top + EL + 8}"
+				/>
+				<path
+					class="wire"
+					d="M{xc} {top - 8}V{top}{capV(xc, top, EL).slice(`M${xc} ${top}`.length)}V{top + EL + 8}"
+				/>
 				<text class="des" x={xc + 16} y={MID - 8}>L{it.br.index} ∥ C{it.br.index}</text>
 				<text class="val" x={xc + 16} y={MID + 6}>{fmtL(it.br.L)}</text>
 				<text class="val" x={xc + 16} y={MID + 20}>{fmtC(it.br.C)}</text>
 			{:else if it.br.C !== undefined}
-				<path class="wire" d="M{it.node} {RAIL}V{top}{capV(it.node, top, EL).slice(`M${it.node} ${top}`.length)}V{GND}" />
+				<path
+					class="wire"
+					d="M{it.node} {RAIL}V{top}{capV(it.node, top, EL).slice(
+						`M${it.node} ${top}`.length
+					)}V{GND}"
+				/>
 				<text class="des" x={it.node + 16} y={MID - 3}>C{it.br.index}</text>
 				<text class="val" x={it.node + 16} y={MID + 12}>{fmtC(it.br.C)}</text>
 			{:else if it.br.L !== undefined}
-				<path class="wire" d="M{it.node} {RAIL}V{top}{indV(it.node, top, EL).slice(`M${it.node} ${top}`.length)}V{GND}" />
+				<path
+					class="wire"
+					d="M{it.node} {RAIL}V{top}{indV(it.node, top, EL).slice(
+						`M${it.node} ${top}`.length
+					)}V{GND}"
+				/>
 				<text class="des" x={it.node + 18} y={MID - 3}>L{it.br.index}</text>
 				<text class="val" x={it.node + 18} y={MID + 12}>{fmtL(it.br.L)}</text>
 			{/if}
@@ -139,7 +168,12 @@
 	{/each}
 
 	<!-- load -->
-	<path class="wire" d="M{layout.loadX - 22} {RAIL}H{layout.loadX}V{TOP}{resV(layout.loadX, TOP, EL).slice(`M${layout.loadX} ${TOP}`.length)}V{GND}" />
+	<path
+		class="wire"
+		d="M{layout.loadX - 22} {RAIL}H{layout.loadX}V{TOP}{resV(layout.loadX, TOP, EL).slice(
+			`M${layout.loadX} ${TOP}`.length
+		)}V{GND}"
+	/>
 	<circle class="dot" cx={layout.loadX} cy={RAIL} r="3" />
 	<text class="des" x={layout.loadX + 16} y={MID - 3}>R<tspan class="sub" dy="3">L</tspan></text>
 	<text class="val" x={layout.loadX + 16} y={MID + 14}>{fmtR(rl)}</text>
@@ -147,7 +181,10 @@
 
 	<!-- ground rail + symbol -->
 	<path class="wire" d="M{XS} {GND}H{layout.loadX}" />
-	<path class="wire" d="M{XS} {GND}v10M{XS - 10} {GND + 10}h20M{XS - 6} {GND + 14}h12M{XS - 2} {GND + 18}h4" />
+	<path
+		class="wire"
+		d="M{XS} {GND}v10M{XS - 10} {GND + 10}h20M{XS - 6} {GND + 14}h12M{XS - 2} {GND + 18}h4"
+	/>
 </svg>
 
 <style>

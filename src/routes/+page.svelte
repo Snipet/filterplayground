@@ -33,7 +33,9 @@
 	<h2 id="start-title">Good places to start</h2>
 	<div class="start-grid">
 		{#each starts as s (s.slug)}
-			{@const t = toolsIn('playgrounds').concat(...CATEGORIES.map((c) => toolsIn(c.id))).find((x) => x.slug === s.slug)}
+			{@const t = toolsIn('playgrounds')
+				.concat(...CATEGORIES.map((c) => toolsIn(c.id)))
+				.find((x) => x.slug === s.slug)}
 			{#if t}
 				<a class="start" href={toolHref(t.slug)}>
 					<strong>{t.title}</strong>
@@ -126,7 +128,9 @@
 		box-shadow: var(--shadow);
 		text-decoration: none;
 		color: var(--text);
-		transition: border-color 0.12s, transform 0.12s;
+		transition:
+			border-color 0.12s,
+			transform 0.12s;
 	}
 	.card:hover {
 		border-color: var(--accent);

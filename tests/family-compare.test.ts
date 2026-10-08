@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { abs } from '../src/lib/dsp/complex';
 import { buttap, FAMILIES } from '../src/lib/dsp/analog';
 import { freqsZpk } from '../src/lib/dsp/response';
-import { designNormalised, edge3dB, familyMetrics, FAMILY_COLOR, passbandPeak, type CompareSettings } from '../src/lib/features/family-compare/compare';
+import {
+	designNormalised,
+	edge3dB,
+	familyMetrics,
+	FAMILY_COLOR,
+	passbandPeak,
+	type CompareSettings
+} from '../src/lib/features/family-compare/compare';
 
 const base: CompareSettings = { order: 4, rp: 1, rs: 40, mode: '3db', besselNative: 'phase' };
 
@@ -22,7 +29,10 @@ describe('family comparison helpers', () => {
 					const z = designNormalised(f.id, { ...base, order: N, rp });
 					const peak = passbandPeak(z, 1);
 					const at1 = abs(freqsZpk(z, [1])[0]) / peak;
-					expect(20 * Math.log10(at1), `${f.id} N=${N} Rp=${rp}`).toBeCloseTo(-10 * Math.log10(2), 8);
+					expect(20 * Math.log10(at1), `${f.id} N=${N} Rp=${rp}`).toBeCloseTo(
+						-10 * Math.log10(2),
+						8
+					);
 				}
 			}
 		}
@@ -46,14 +56,23 @@ describe('family comparison helpers', () => {
 		expect(b4.overshoot).toBeCloseTo(10.84, 1);
 		expect(b4.att2).toBeCloseTo(10 * Math.log10(1 + Math.pow(2, 8)), 6);
 		expect(b4.ripple).toBe(0);
-		expect(familyMetrics(designNormalised('bessel', { ...base, order: 2 })).overshoot).toBeCloseTo(0.43, 2);
-		expect(familyMetrics(designNormalised('critical', { ...base, order: 6 })).overshoot).toBeLessThan(1e-6);
+		expect(familyMetrics(designNormalised('bessel', { ...base, order: 2 })).overshoot).toBeCloseTo(
+			0.43,
+			2
+		);
+		expect(
+			familyMetrics(designNormalised('critical', { ...base, order: 6 })).overshoot
+		).toBeLessThan(1e-6);
 	});
 
 	it('measures the passband ripple of equiripple families as Rp', () => {
 		for (const N of [3, 4, 7]) {
-			expect(familyMetrics(designNormalised('cheby1', { ...base, order: N, rp: 0.5 })).ripple).toBeCloseTo(0.5, 3);
-			expect(familyMetrics(designNormalised('ellip', { ...base, order: N, rp: 1 })).ripple).toBeCloseTo(1, 3);
+			expect(
+				familyMetrics(designNormalised('cheby1', { ...base, order: N, rp: 0.5 })).ripple
+			).toBeCloseTo(0.5, 3);
+			expect(
+				familyMetrics(designNormalised('ellip', { ...base, order: N, rp: 1 })).ripple
+			).toBeCloseTo(1, 3);
 			expect(familyMetrics(designNormalised('cheby2', { ...base, order: N })).ripple).toBe(0);
 		}
 	});

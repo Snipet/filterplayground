@@ -43,7 +43,10 @@ class ThemeState {
 export const theme = new ThemeState();
 
 /** Read a CSS custom property as an [r, g, b] triple. */
-export function cssColorRgb(name: string, el: Element = document.documentElement): [number, number, number] {
+export function cssColorRgb(
+	name: string,
+	el: Element = document.documentElement
+): [number, number, number] {
 	const v = getComputedStyle(el).getPropertyValue(name).trim();
 	const m = v.match(/^#([0-9a-f]{6})$/i);
 	if (m) {

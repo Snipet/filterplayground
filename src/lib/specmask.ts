@@ -16,8 +16,22 @@ export function specRegions(
 ): Region[] {
 	const p = Array.isArray(fp) ? fp : [fp, fp];
 	const s = Array.isArray(fstop) ? fstop : [fstop, fstop];
-	const pass = (x0: number, x1: number): Region => ({ x0, x1, y0: -rp, y1: -BIG, kind: 'forbidden', label: `Passband: must stay above −${rp} dB` });
-	const stop = (x0: number, x1: number): Region => ({ x0, x1, y0: -rs, y1: BIG, kind: 'forbidden', label: `Stopband: must stay below −${rs} dB` });
+	const pass = (x0: number, x1: number): Region => ({
+		x0,
+		x1,
+		y0: -rp,
+		y1: -BIG,
+		kind: 'forbidden',
+		label: `Passband: must stay above −${rp} dB`
+	});
+	const stop = (x0: number, x1: number): Region => ({
+		x0,
+		x1,
+		y0: -rs,
+		y1: BIG,
+		kind: 'forbidden',
+		label: `Stopband: must stay below −${rs} dB`
+	});
 	switch (band) {
 		case 'lowpass':
 			return [pass(0, p[0]), stop(s[0], 1e12)];

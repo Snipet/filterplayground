@@ -1,13 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import ref from './fixtures/scipy_reference.json';
 import { type Complex, abs, c } from '../src/lib/dsp/complex';
-import { besselap, buttap, cheb1ap, cheb2ap, ellipap, legendreap, prototype, find3dB, gaussianap, criticalap } from '../src/lib/dsp/analog';
+import {
+	besselap,
+	buttap,
+	cheb1ap,
+	cheb2ap,
+	ellipap,
+	legendreap,
+	prototype,
+	find3dB,
+	gaussianap,
+	criticalap
+} from '../src/lib/dsp/analog';
 import { designAnalog, designDigital, estimateFromSpecs } from '../src/lib/dsp/design';
 import { evaluate, freqsZpk, groupDelayTf, toDb } from '../src/lib/dsp/response';
 import { zpk2sos, sos2tf, tf2zpk, zpk2tf, analogStages, sos2zpk } from '../src/lib/dsp/convert';
 import { analogTimeResponse, lfilter, sosfilt } from '../src/lib/dsp/time';
 import { windowValues, windowMetrics, type WindowType } from '../src/lib/dsp/windows';
-import { firwin, firls, firwin2, savitzkyGolay, hilbertFir, minimumPhase, differentiatorFir } from '../src/lib/dsp/fir';
+import {
+	firwin,
+	firls,
+	firwin2,
+	savitzkyGolay,
+	hilbertFir,
+	minimumPhase,
+	differentiatorFir
+} from '../src/lib/dsp/fir';
 import { remez } from '../src/lib/dsp/remez';
 import { roots, polyFromRoots } from '../src/lib/dsp/poly';
 import { biquad } from '../src/lib/dsp/biquad';
@@ -54,7 +73,9 @@ describe('polynomials', () => {
 		expectRootsClose(roots(p), rs, 1e-9);
 	});
 	it('handles roots at the origin and high degree', () => {
-		const rs = Array.from({ length: 40 }, (_, k) => c(Math.cos((2 * Math.PI * k) / 40) * 0.9, Math.sin((2 * Math.PI * k) / 40) * 0.9));
+		const rs = Array.from({ length: 40 }, (_, k) =>
+			c(Math.cos((2 * Math.PI * k) / 40) * 0.9, Math.sin((2 * Math.PI * k) / 40) * 0.9)
+		);
 		rs.push(c(0), c(0));
 		expectRootsClose(roots(polyFromRoots(rs)), rs, 1e-6);
 	});
@@ -66,11 +87,20 @@ describe('analog prototypes match SciPy', () => {
 		it(label, () => {
 			let zpk: ZPK;
 			switch (pr.family) {
-				case 'butter': zpk = buttap(pr.N); break;
-				case 'cheby1': zpk = cheb1ap(pr.N, pr.rp); break;
-				case 'cheby2': zpk = cheb2ap(pr.N, pr.rs); break;
-				case 'ellip': zpk = ellipap(pr.N, pr.rp, pr.rs); break;
-				default: zpk = besselap(pr.N, pr.norm);
+				case 'butter':
+					zpk = buttap(pr.N);
+					break;
+				case 'cheby1':
+					zpk = cheb1ap(pr.N, pr.rp);
+					break;
+				case 'cheby2':
+					zpk = cheb2ap(pr.N, pr.rs);
+					break;
+				case 'ellip':
+					zpk = ellipap(pr.N, pr.rp, pr.rs);
+					break;
+				default:
+					zpk = besselap(pr.N, pr.norm);
 			}
 			const tol = pr.family === 'bessel' && pr.N >= 12 ? 1e-5 : 1e-7;
 			expectRootsClose(zpk.p, toC(pr.p), tol);
@@ -93,7 +123,8 @@ describe('other prototypes', () => {
 			const B = buttap(N);
 			const w = Array.from({ length: 200 }, (_, i) => 0.01 + i * 0.02);
 			const mags = freqsZpk(L, w).map(abs);
-			for (let i = 1; i < mags.length; i++) expect(mags[i]).toBeLessThanOrEqual(mags[i - 1] + 1e-12);
+			for (let i = 1; i < mags.length; i++)
+				expect(mags[i]).toBeLessThanOrEqual(mags[i - 1] + 1e-12);
 			// N = 2 Legendre is identical to Butterworth
 			if (N > 2) expect(abs(freqsZpk(L, [2])[0])).toBeLessThan(abs(freqsZpk(B, [2])[0]));
 			expect(toDb(abs(freqsZpk(L, [1])[0]))).toBeCloseTo(-3.0103, 3);
@@ -108,7 +139,16 @@ describe('other prototypes', () => {
 		}
 	});
 	it('every family supports all orders up to its maximum', () => {
-		const fams: AnalogFamily[] = ['butter', 'cheby1', 'cheby2', 'ellip', 'bessel', 'legendre', 'gaussian', 'critical'];
+		const fams: AnalogFamily[] = [
+			'butter',
+			'cheby1',
+			'cheby2',
+			'ellip',
+			'bessel',
+			'legendre',
+			'gaussian',
+			'critical'
+		];
 		for (const f of fams) {
 			for (const N of [1, 2, 7, 10]) {
 				const zpk = prototype(f, N, { rp: 1, rs: 50 });
@@ -144,13 +184,40 @@ describe('order estimation matches SciPy', () => {
 		});
 	}
 	it('designs from estimated specs meet the specification (analog band-stop)', () => {
-		const bessel = estimateFromSpecs('bessel', { band: 'lowpass', fp: 1000, fstop: 1500, rp: 1, rs: 40 });
+		const bessel = estimateFromSpecs('bessel', {
+			band: 'lowpass',
+			fp: 1000,
+			fstop: 1500,
+			rp: 1,
+			rs: 40
+		});
 		expect(bessel.capped).toBe(true);
-		for (const family of ['butter', 'cheby1', 'cheby2', 'ellip', 'legendre', 'critical'] as AnalogFamily[]) {
-			const spec = { band: 'bandstop' as const, fp: [700, 3000] as [number, number], fstop: [1000, 2000] as [number, number], rp: 1, rs: 40 };
+		for (const family of [
+			'butter',
+			'cheby1',
+			'cheby2',
+			'ellip',
+			'legendre',
+			'critical'
+		] as AnalogFamily[]) {
+			const spec = {
+				band: 'bandstop' as const,
+				fp: [700, 3000] as [number, number],
+				fstop: [1000, 2000] as [number, number],
+				rp: 1,
+				rs: 40
+			};
 			const est = estimateFromSpecs(family, spec);
 			if (est.capped) continue;
-			const zpk = designAnalog({ family, band: 'bandstop', order: est.order, f1: est.f1, f2: est.f2, rp: 1, rs: 40 });
+			const zpk = designAnalog({
+				family,
+				band: 'bandstop',
+				order: est.order,
+				f1: est.f1,
+				f2: est.f2,
+				rp: 1,
+				rs: 40
+			});
 			const r = evaluate({ kind: 'analog', zpk }, [10, 700, 3000, 1000, 1500, 2000, 20000]);
 			// all families have a 0 dB passband maximum (even-order Chebyshev I / elliptic start at −Rp)
 			expect(r.magDb[1]).toBeGreaterThan(-1 - 1e-3);
@@ -188,7 +255,15 @@ describe('digital IIR designs match SciPy frequency responses', () => {
 describe('analog designs match SciPy', () => {
 	for (const d of ref.analog as any[]) {
 		it(`${d.family} ${d.band}`, () => {
-			const zpk = designAnalog({ family: d.family, band: d.band, order: d.N, f1: d.f1, f2: d.f2, rp: d.rp, rs: d.rs });
+			const zpk = designAnalog({
+				family: d.family,
+				band: d.band,
+				order: d.N,
+				f1: d.f1,
+				f2: d.f2,
+				rp: d.rp,
+				rs: d.rs
+			});
 			const r = evaluate({ kind: 'analog', zpk }, d.f);
 			for (let i = 0; i < d.f.length; i++) {
 				if (d.magDb[i] < -150) continue;
@@ -200,7 +275,16 @@ describe('analog designs match SciPy', () => {
 
 describe('conversions', () => {
 	it('zpk ↔ tf ↔ sos round trip preserves the response', () => {
-		const { zpk } = designDigital({ family: 'ellip', band: 'bandpass', order: 5, f1: 1000, f2: 3000, rp: 0.5, rs: 50, fs: 16000 });
+		const { zpk } = designDigital({
+			family: 'ellip',
+			band: 'bandpass',
+			order: 5,
+			f1: 1000,
+			f2: 3000,
+			rp: 0.5,
+			rs: 50,
+			fs: 16000
+		});
 		const sos = zpk2sos(zpk);
 		const tf = zpk2tf(zpk);
 		const f = [50, 500, 1000, 2000, 3000, 6000];
@@ -223,8 +307,12 @@ describe('conversions', () => {
 		const viaSos = evaluate({ kind: 'digital', fs: 1, sos: zpk2sos(zpk) }, f);
 		const viaTf = evaluate({ kind: 'digital', fs: 1, tf: zpk2tf(zpk) }, f);
 		for (let i = 0; i < f.length; i++) {
-			expect(abs({ re: viaSos.H[i].re - ref1.H[i].re, im: viaSos.H[i].im - ref1.H[i].im })).toBeLessThan(1e-10);
-			expect(abs({ re: viaTf.H[i].re - ref1.H[i].re, im: viaTf.H[i].im - ref1.H[i].im })).toBeLessThan(1e-10);
+			expect(
+				abs({ re: viaSos.H[i].re - ref1.H[i].re, im: viaSos.H[i].im - ref1.H[i].im })
+			).toBeLessThan(1e-10);
+			expect(
+				abs({ re: viaTf.H[i].re - ref1.H[i].re, im: viaTf.H[i].im - ref1.H[i].im })
+			).toBeLessThan(1e-10);
 		}
 	});
 	it('analog stages are ordered by Q and multiply back to the filter', () => {
@@ -242,7 +330,13 @@ describe('frequency response details', () => {
 		expectArrayClose(groupDelayTf({ b: g.b, a: g.a }, g.w), g.gd, 1e-7);
 	});
 	it('digital group delay is consistent across representations', () => {
-		const { zpk, sos } = designDigital({ family: 'butter', band: 'lowpass', order: 6, f1: 3000, fs: 48000 });
+		const { zpk, sos } = designDigital({
+			family: 'butter',
+			band: 'lowpass',
+			order: 6,
+			f1: 3000,
+			fs: 48000
+		});
 		const f = [100, 1000, 3000, 6000];
 		const a = evaluate({ kind: 'digital', fs: 48000, zpk }, f).groupDelay;
 		const b = evaluate({ kind: 'digital', fs: 48000, sos }, f).groupDelay;
@@ -264,13 +358,23 @@ describe('time responses', () => {
 		expectArrayClose(hpStep.y, hp.step, 1e-6);
 	});
 	it('sosfilt and lfilter agree', () => {
-		const { sos } = designDigital({ family: 'cheby1', band: 'lowpass', order: 4, f1: 1000, rp: 1, fs: 8000 });
+		const { sos } = designDigital({
+			family: 'cheby1',
+			band: 'lowpass',
+			order: 4,
+			f1: 1000,
+			rp: 1,
+			fs: 8000
+		});
 		const tf = sos2tf(sos);
 		const x = Array.from({ length: 200 }, (_, i) => Math.sin(i * 0.3) + (i % 7 === 0 ? 1 : 0));
 		expectArrayClose(sosfilt(sos, x), lfilter(tf.b, tf.a, x), 1e-9);
 	});
 	it('expm of a rotation generator', () => {
-		const E = expm([[0, -1], [1, 0]]);
+		const E = expm([
+			[0, -1],
+			[1, 0]
+		]);
 		expect(E[0][0]).toBeCloseTo(Math.cos(1), 12);
 		expect(E[1][0]).toBeCloseTo(Math.sin(1), 12);
 	});
@@ -285,7 +389,11 @@ describe('windows match SciPy', () => {
 			const periodic = parts.includes('periodic');
 			const type = parts[0] as WindowType;
 			const param = { kaiser: 6, tukey: 0.4, chebyshev: 80, dpss: 3 }[type as string];
-			expectArrayClose(windowValues(type, N, param, periodic), wins[key], type === 'dpss' ? 1e-6 : 1e-9);
+			expectArrayClose(
+				windowValues(type, N, param, periodic),
+				wins[key],
+				type === 'dpss' ? 1e-6 : 1e-9
+			);
 		});
 	}
 	it('metrics are sensible', () => {
@@ -301,42 +409,79 @@ describe('FIR designs match SciPy', () => {
 	const f = ref.fir as Record<string, number[]>;
 	it('firwin variants', () => {
 		expectArrayClose(firwin(31, [100], { type: 'hamming' }, true, 1000), f.firwin_lp, 1e-10);
-		expectArrayClose(firwin(31, [200], { type: 'kaiser', param: 5 }, false, 1000), f.firwin_hp, 1e-10);
+		expectArrayClose(
+			firwin(31, [200], { type: 'kaiser', param: 5 }, false, 1000),
+			f.firwin_hp,
+			1e-10
+		);
 		expectArrayClose(firwin(41, [100, 250], { type: 'blackman' }, false, 1000), f.firwin_bp, 1e-10);
 		expectArrayClose(firwin(41, [100, 250], { type: 'hann' }, true, 1000), f.firwin_bs, 1e-10);
 	});
 	it('firls', () => {
 		expectArrayClose(
-			firls(41, [{ f1: 0, f2: 100, d1: 1, d2: 1, weight: 1 }, { f1: 150, f2: 500, d1: 0, d2: 0, weight: 10 }], 1000),
+			firls(
+				41,
+				[
+					{ f1: 0, f2: 100, d1: 1, d2: 1, weight: 1 },
+					{ f1: 150, f2: 500, d1: 0, d2: 0, weight: 10 }
+				],
+				1000
+			),
 			f.firls,
 			1e-8
 		);
 		expectArrayClose(
-			firls(31, [{ f1: 0, f2: 200, d1: 0, d2: 1, weight: 1 }, { f1: 250, f2: 500, d1: 0, d2: 0, weight: 1 }], 1000),
+			firls(
+				31,
+				[
+					{ f1: 0, f2: 200, d1: 0, d2: 1, weight: 1 },
+					{ f1: 250, f2: 500, d1: 0, d2: 0, weight: 1 }
+				],
+				1000
+			),
 			f.firls_ramp,
 			1e-8
 		);
 	});
 	it('firwin2', () => {
-		expectArrayClose(firwin2(51, [0, 100, 150, 300, 350, 500], [1, 1, 0.2, 0.2, 1, 1], 1000), f.firwin2, 1e-9);
+		expectArrayClose(
+			firwin2(51, [0, 100, 150, 300, 350, 500], [1, 1, 0.2, 0.2, 1, 1], 1000),
+			f.firwin2,
+			1e-9
+		);
 	});
 	it('remez low-pass', () => {
-		const r = remez(41, [{ f1: 0, f2: 100, d1: 1, d2: 1, weight: 1 }, { f1: 150, f2: 500, d1: 0, d2: 0, weight: 10 }], 1000);
+		const r = remez(
+			41,
+			[
+				{ f1: 0, f2: 100, d1: 1, d2: 1, weight: 1 },
+				{ f1: 150, f2: 500, d1: 0, d2: 0, weight: 10 }
+			],
+			1000
+		);
 		expect(r.converged).toBe(true);
 		expectArrayClose(r.h, f.remez_lp, 2e-4);
 	});
 	it('remez even-length band-pass', () => {
-		const r = remez(52, [
-			{ f1: 0, f2: 80, d1: 0, d2: 0, weight: 1 },
-			{ f1: 120, f2: 250, d1: 1, d2: 1, weight: 1 },
-			{ f1: 300, f2: 500, d1: 0, d2: 0, weight: 1 }
-		], 1000);
+		const r = remez(
+			52,
+			[
+				{ f1: 0, f2: 80, d1: 0, d2: 0, weight: 1 },
+				{ f1: 120, f2: 250, d1: 1, d2: 1, weight: 1 },
+				{ f1: 300, f2: 500, d1: 0, d2: 0, weight: 1 }
+			],
+			1000
+		);
 		expectArrayClose(r.h, f.remez_bp, 2e-4);
 	});
 	it('remez Hilbert', () => {
 		const r = remez(31, [{ f1: 20, f2: 480, d1: 1, d2: 1, weight: 1 }], 1000, { symmetry: 'odd' });
 		// SciPy's remez returns the +j·sgn(ω) convention; we use the standard −j·sgn(ω).
-		expectArrayClose(r.h, f.remez_hilbert.map((v) => -v), 2e-4);
+		expectArrayClose(
+			r.h,
+			f.remez_hilbert.map((v) => -v),
+			2e-4
+		);
 	});
 	it('Savitzky–Golay', () => {
 		expectArrayClose(savitzkyGolay(5, 2), f.savgol_5_2, 1e-10);
@@ -362,7 +507,10 @@ describe('FIR designs match SciPy', () => {
 
 describe('discretisation', () => {
 	it('bilinear maps a stable analog filter inside the unit circle', () => {
-		const z = bilinear(designAnalog({ family: 'butter', band: 'lowpass', order: 5, f1: 1000 }), 8000);
+		const z = bilinear(
+			designAnalog({ family: 'butter', band: 'lowpass', order: 5, f1: 1000 }),
+			8000
+		);
 		expect(z.p.every((p) => abs(p) < 1)).toBe(true);
 	});
 	it('impulse invariance samples the impulse response', () => {
@@ -443,9 +591,22 @@ describe('capped order estimation', () => {
 	it('keeps the passband spec exact at the maximum order', () => {
 		// needs N > 30 for both families: design at 30 but with exactly 1 dB loss at the passband edge
 		for (const family of ['butter', 'cheby2'] as AnalogFamily[]) {
-			const est = estimateFromSpecs(family, { band: 'lowpass', fp: 1000, fstop: 1050, rp: 1, rs: 98 });
+			const est = estimateFromSpecs(family, {
+				band: 'lowpass',
+				fp: 1000,
+				fstop: 1050,
+				rp: 1,
+				rs: 98
+			});
 			expect(est.capped).toBe(true);
-			const zpk = designAnalog({ family, band: 'lowpass', order: est.order, f1: est.f1, rp: 1, rs: 98 });
+			const zpk = designAnalog({
+				family,
+				band: 'lowpass',
+				order: est.order,
+				f1: est.f1,
+				rp: 1,
+				rs: 98
+			});
 			const r = evaluate({ kind: 'analog', zpk }, [1000]);
 			expect(r.magDb[0]).toBeCloseTo(-1, 3);
 		}

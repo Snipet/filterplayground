@@ -16,7 +16,11 @@
 </script>
 
 <aside class="callout {kind}" role={kind === 'warning' || kind === 'danger' ? 'alert' : 'note'}>
-	<div class="head"><span class="icon" aria-hidden="true">{meta[kind].icon}</span><strong>{title ?? meta[kind].label}</strong></div>
+	<div class="head">
+		<span class="icon" aria-hidden="true">{meta[kind].icon}</span><strong
+			>{title ?? meta[kind].label}</strong
+		>
+	</div>
 	<div class="body">{@render children()}</div>
 </aside>
 

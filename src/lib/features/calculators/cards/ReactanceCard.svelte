@@ -43,7 +43,11 @@
 	const name = $derived(part === 'C' ? 'Capacitance C' : 'Inductance L');
 </script>
 
-<CalcCard {id} {title} blurb="Magnitude of the impedance of an ideal capacitor or inductor at one frequency.">
+<CalcCard
+	{id}
+	{title}
+	blurb="Magnitude of the impedance of an ideal capacitor or inductor at one frequency."
+>
 	{#snippet head()}
 		<Segmented
 			size="small"
@@ -68,7 +72,14 @@
 	{/snippet}
 
 	<div class="fields">
-		{#if solve !== 'f'}<NumberInput label="Frequency f" bind:value={f} unit="Hz" si min={1e-9} logStep={1.05} />{/if}
+		{#if solve !== 'f'}<NumberInput
+				label="Frequency f"
+				bind:value={f}
+				unit="Hz"
+				si
+				min={1e-9}
+				logStep={1.05}
+			/>{/if}
 		{#if solve !== 'val'}
 			{#if part === 'C'}
 				<NumberInput label={name} bind:value={C} unit="F" si min={1e-18} logStep={1.1} />
@@ -76,12 +87,27 @@
 				<NumberInput label={name} bind:value={L} unit="H" si min={1e-15} logStep={1.1} />
 			{/if}
 		{/if}
-		{#if solve !== 'X'}<NumberInput label="Reactance |X|" bind:value={X} unit="Ω" si min={1e-12} logStep={1.1} />{/if}
+		{#if solve !== 'X'}<NumberInput
+				label="Reactance |X|"
+				bind:value={X}
+				unit="Ω"
+				si
+				min={1e-12}
+				logStep={1.1}
+			/>{/if}
 	</div>
 	<Results
 		rows={[
-			solve === 'X' ? { label: part === 'C' ? 'Capacitive reactance' : 'Inductive reactance', value: formatSI(res.X, 'Ω', 4), primary: true } : null,
-			solve === 'f' ? { label: 'Frequency f', value: formatSI(res.f, 'Hz', 4), primary: true } : null,
+			solve === 'X'
+				? {
+						label: part === 'C' ? 'Capacitive reactance' : 'Inductive reactance',
+						value: formatSI(res.X, 'Ω', 4),
+						primary: true
+					}
+				: null,
+			solve === 'f'
+				? { label: 'Frequency f', value: formatSI(res.f, 'Hz', 4), primary: true }
+				: null,
 			solve === 'val' ? { label: name, value: formatSI(res.val, unit, 4), primary: true } : null,
 			{ label: 'Impedance Z', value: `${part === 'C' ? '−' : '+'}j ${formatSI(res.X, 'Ω', 4)}` },
 			{ label: 'Admittance |Y| = 1/|X|', value: formatSI(1 / res.X, 'S', 4) }
@@ -89,6 +115,9 @@
 	/>
 
 	{#snippet formula()}
-		<Tex display math={'\\begin{gathered}X_C=\\frac{1}{2\\pi f C},\\qquad Z_C=\\frac{1}{j\\omega C}=-jX_C\\\\[7pt] X_L=2\\pi f L,\\qquad Z_L=j\\omega L=jX_L\\end{gathered}'} />
+		<Tex
+			display
+			math={'\\begin{gathered}X_C=\\frac{1}{2\\pi f C},\\qquad Z_C=\\frac{1}{j\\omega C}=-jX_C\\\\[7pt] X_L=2\\pi f L,\\qquad Z_L=j\\omega L=jX_L\\end{gathered}'}
+		/>
 	{/snippet}
 </CalcCard>

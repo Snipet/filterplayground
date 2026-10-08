@@ -8,7 +8,10 @@
 	import Slider from '$lib/components/controls/Slider.svelte';
 	import NumberInput from '$lib/components/controls/NumberInput.svelte';
 	import Toggle from '$lib/components/controls/Toggle.svelte';
-	import PoleZeroPlot, { type PzContext, type PzHandle } from '$lib/components/plot/PoleZeroPlot.svelte';
+	import PoleZeroPlot, {
+		type PzContext,
+		type PzHandle
+	} from '$lib/components/plot/PoleZeroPlot.svelte';
 	import ResponseView from '$lib/components/plot/ResponseView.svelte';
 	import StatGrid, { type Stat } from '$lib/components/content/StatGrid.svelte';
 	import Callout from '$lib/components/content/Callout.svelte';
@@ -106,7 +109,9 @@
 	const K = $derived(gain.K);
 	const k = $derived(zpkGain(K, domain, nz, np));
 	const zpk = $derived(toZpk(roots, K, domain));
-	const filter = $derived<Filter>(domain === 'z' ? { kind: 'digital', fs, zpk } : { kind: 'analog', zpk });
+	const filter = $derived<Filter>(
+		domain === 'z' ? { kind: 'digital', fs, zpk } : { kind: 'analog', zpk }
+	);
 
 	// ---------------- frequency ranges & probe ----------------
 	const scale = $derived(scales[domain]);
@@ -114,7 +119,10 @@
 		if (domain === 'z') return scale === 'log' ? [fs / 4000, fs / 2] : [0, fs / 2];
 		if (scale === 'linear') return [0, extent];
 		const fc = characteristicMagnitude(roots, 1000);
-		return [Math.pow(10, Math.floor(Math.log10(fc)) - 2), Math.pow(10, Math.ceil(Math.log10(fc)) + 2)];
+		return [
+			Math.pow(10, Math.floor(Math.log10(fc)) - 2),
+			Math.pow(10, Math.ceil(Math.log10(fc)) + 2)
+		];
 	});
 	const range = $derived(domain === 's' && freeze ? freeze.range : autoRange);
 
@@ -126,9 +134,13 @@
 
 	// magnitude on the plotted grid: sets the dB axis so the probe marker always sits inside it
 	const displayGrid = $derived(
-		scale === 'log' ? logspace(Math.max(range[0], 1e-9), range[1], 700) : linspace(range[0], range[1], 700)
+		scale === 'log'
+			? logspace(Math.max(range[0], 1e-9), range[1], 700)
+			: linspace(range[0], range[1], 700)
 	);
-	const displayDb = $derived(displayGrid.map((f) => dbAt(roots.zeros, roots.poles, K, freqPoint(domain, f, fs))));
+	const displayDb = $derived(
+		displayGrid.map((f) => dbAt(roots.zeros, roots.poles, K, freqPoint(domain, f, fs)))
+	);
 	const dbDomain = $derived.by((): [number, number] => {
 		let hi = -Infinity;
 		let lo = Infinity;
@@ -154,9 +166,15 @@
 		let y: number;
 		if (magMode === 'db') {
 			const d = m > 0 ? 20 * Math.log10(m) : -Infinity;
-			y = Math.min(dbDomain[1], Math.max(dbDomain[0], Number.isFinite(d) ? d : d > 0 ? dbDomain[1] : dbDomain[0]));
+			y = Math.min(
+				dbDomain[1],
+				Math.max(dbDomain[0], Number.isFinite(d) ? d : d > 0 ? dbDomain[1] : dbDomain[0])
+			);
 		} else {
-			const top = Math.max(...displayDb.filter(Number.isFinite).map((v) => Math.pow(10, v / 20)), 1e-12);
+			const top = Math.max(
+				...displayDb.filter(Number.isFinite).map((v) => Math.pow(10, v / 20)),
+				1e-12
+			);
 			y = Number.isFinite(m) ? Math.min(m, top) : top;
 		}
 		return [{ id: 'probe', x, y, draggable: true, axis: 'x' as const, color: 'var(--text)' }];
@@ -172,7 +190,8 @@
 		return Math.abs(K) * Math.hypot(h.re, h.im);
 	};
 
-	const fmtDb = (m: number) => (m === 0 ? '−∞ dB' : !Number.isFinite(m) ? '∞' : `${trimNumber(20 * Math.log10(m), 4)} dB`);
+	const fmtDb = (m: number) =>
+		m === 0 ? '−∞ dB' : !Number.isFinite(m) ? '∞' : `${trimNumber(20 * Math.log10(m), 4)} dB`;
 	const fmtHz = (f: number) => formatSI(f, 'Hz', 4);
 
 	const stab = $derived(stability(roots.poles, domain, domain === 'z' ? 1 : extent));
@@ -190,11 +209,18 @@
 		out.push({
 			label: 'Poles / zeros',
 			value: `${np} / ${nz}${roots.implied ? ` (${roots.implied} at z = 0)` : ''}`,
-			hint: roots.implied ? 'Poles at the origin are added automatically so the filter is causal.' : undefined
+			hint: roots.implied
+				? 'Poles at the origin are added automatically so the filter is causal.'
+				: undefined
 		});
 		out.push({
 			label: 'Minimum phase',
-			value: minPh.status === 'yes' ? 'Yes' : minPh.status === 'boundary' ? `Boundary (${minPh.on} on ${domain === 'z' ? 'circle' : 'jω axis'})` : `No (${minPh.outside} zero${minPh.outside > 1 ? 's' : ''} outside)`,
+			value:
+				minPh.status === 'yes'
+					? 'Yes'
+					: minPh.status === 'boundary'
+						? `Boundary (${minPh.on} on ${domain === 'z' ? 'circle' : 'jω axis'})`
+						: `No (${minPh.outside} zero${minPh.outside > 1 ? 's' : ''} outside)`,
 			hint: `Minimum phase: all zeros strictly ${region}.`
 		});
 		const peak = findPeak(roots, domain, fs);
@@ -202,13 +228,29 @@
 		const pk = peak.mag * Math.abs(K);
 		const pkF = peak.f;
 		out.push({ label: 'DC gain', value: fmtDb(magAtF(0)) });
-		if (domain === 'z') out.push({ label: 'Nyquist gain', value: fmtDb(magAtF(fs / 2)), hint: 'Gain at fs/2 (z = −1)' });
+		if (domain === 'z')
+			out.push({
+				label: 'Nyquist gain',
+				value: fmtDb(magAtF(fs / 2)),
+				hint: 'Gain at fs/2 (z = −1)'
+			});
 		else {
 			const hf = nz < np ? 0 : nz === np ? Math.abs(K) : Infinity;
-			out.push({ label: 'Gain as f → ∞', value: fmtDb(hf), hint: 'Set by the relative degree: more poles than zeros → falls to zero.' });
+			out.push({
+				label: 'Gain as f → ∞',
+				value: fmtDb(hf),
+				hint: 'Set by the relative degree: more poles than zeros → falls to zero.'
+			});
 		}
-		out.push({ label: 'Peak', value: inf ? `∞ at ${fmtHz(pkF)}` : `${fmtDb(pk)} at ${fmtHz(pkF)}` });
-		out.push({ label: domain === 'z' ? 'Gain k' : 'Gain k (rad/s form)', value: trimNumber(k, 4), hint: 'H = k·Π(x − zᵢ)/Π(x − pᵢ)' });
+		out.push({
+			label: 'Peak',
+			value: inf ? `∞ at ${fmtHz(pkF)}` : `${fmtDb(pk)} at ${fmtHz(pkF)}`
+		});
+		out.push({
+			label: domain === 'z' ? 'Gain k' : 'Gain k (rad/s form)',
+			value: trimNumber(k, 4),
+			hint: 'H = k·Π(x − zᵢ)/Π(x − pᵢ)'
+		});
 		// slowest decay
 		if (domain === 'z') {
 			const rmax = Math.max(0, ...roots.poles.map((p) => Math.hypot(p.re, p.im)));
@@ -218,14 +260,22 @@
 				const n60 = Math.log(1e-3) / Math.log(rmax);
 				v = `${trimNumber(n60, 3)} samples (${formatSI(n60 / fs, 's', 3)})`;
 			} else v = 'never (grows)';
-			out.push({ label: 'Decay to −60 dB', value: v, hint: 'Set by the pole closest to the unit circle: n ≈ ln(10⁻³)/ln r' });
+			out.push({
+				label: 'Decay to −60 dB',
+				value: v,
+				hint: 'Set by the pole closest to the unit circle: n ≈ ln(10⁻³)/ln r'
+			});
 		} else {
 			const smax = Math.max(-Infinity, ...roots.poles.map((p) => p.re));
 			let v = '—';
 			if (np === 0) v = '—';
 			else if (smax < 0) v = formatSI(Math.log(1000) / (TWO_PI * -smax), 's', 3);
 			else v = 'never (grows)';
-			out.push({ label: 'Decay to −60 dB', value: v, hint: 'Set by the pole closest to the jω axis: t ≈ ln(1000)/|σ|' });
+			out.push({
+				label: 'Decay to −60 dB',
+				value: v,
+				hint: 'Set by the pole closest to the jω axis: t ≈ ln(1000)/|σ|'
+			});
 		}
 		return out;
 	});
@@ -241,7 +291,9 @@
 		}))
 	);
 
-	const quantum = $derived(domain === 'z' ? 1e-4 : Math.pow(10, Math.floor(Math.log10(extent)) - 3));
+	const quantum = $derived(
+		domain === 'z' ? 1e-4 : Math.pow(10, Math.floor(Math.log10(extent)) - 3)
+	);
 	const q = (v: number) => Number((Math.round(v / quantum) * quantum).toPrecision(10));
 
 	function markEdited() {
@@ -354,7 +406,10 @@
 		// park the probe on the most resonant pole pair
 		const pole = list.find((it) => it.kind === 'pole' && it.pair);
 		if (pole) {
-			probeF[domain] = domain === 'z' ? Number(((Math.atan2(pole.im, pole.re) / TWO_PI) * fs).toPrecision(5)) : Number(pole.im.toPrecision(5));
+			probeF[domain] =
+				domain === 'z'
+					? Number(((Math.atan2(pole.im, pole.re) / TWO_PI) * fs).toPrecision(5))
+					: Number(pole.im.toPrecision(5));
 		}
 	}
 
@@ -367,7 +422,14 @@
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== 'Delete' && e.key !== 'Backspace') return;
 			const t = e.target as HTMLElement | null;
-			if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+			if (
+				t &&
+				(t.tagName === 'INPUT' ||
+					t.tagName === 'TEXTAREA' ||
+					t.tagName === 'SELECT' ||
+					t.isContentEditable)
+			)
+				return;
 			if (selectedIds[domain] === null) return;
 			e.preventDefault();
 			deleteSelected();
@@ -395,7 +457,10 @@
 		const KK = K;
 		return (x: Complex) => dbAt(z, p, KK, x);
 	});
-	const heatRange = $derived<[number, number]>([Math.round(peakDisplayDb) - 40, Math.round(peakDisplayDb) + 20]);
+	const heatRange = $derived<[number, number]>([
+		Math.round(peakDisplayDb) - 40,
+		Math.round(peakDisplayDb) + 20
+	]);
 	const pzHeight = $derived(Math.round(Math.min(540, Math.max(300, pzWidth || 400))));
 
 	// ---------------- selected-root controls ----------------
@@ -458,7 +523,8 @@
 	const phaseTex = $derived.by(() => {
 		const parts = `\\textstyle\\sum\\theta_{z} - \\sum\\theta_{p}${K < 0 ? ' + 180^\\circ' : ''}`;
 		const nums = `${fmtDeg(geo.sumZ)} ${geo.sumP < 0 ? '+' : '-'} ${fmtDeg(Math.abs(geo.sumP))}${K < 0 ? ' + 180^\\circ' : ''}`;
-		if (!Number.isFinite(geo.phase)) return `\\angle H\\ \\text{is undefined: a root sits on the probe point}`;
+		if (!Number.isFinite(geo.phase))
+			return `\\angle H\\ \\text{is undefined: a root sits on the probe point}`;
 		return `\\begin{aligned}\\angle H &= ${parts}\\\\ &= ${nums}\\\\ &\\equiv ${fmtDeg(geo.phase)}\\end{aligned}`;
 	});
 
@@ -469,10 +535,17 @@
 	const fmtCoord = (v: number) => trimNumber(v, 4);
 	const rootLabel = (it: PzItem) => `${it.pair ? '' : 'real '}${it.kind}${it.pair ? ' pair' : ''}`;
 
-	const responseViews = $derived(improper ? (['phase', 'groupDelay'] as const) : (['phase', 'groupDelay', 'impulse', 'step'] as const));
+	const responseViews = $derived(
+		improper
+			? (['phase', 'groupDelay'] as const)
+			: (['phase', 'groupDelay', 'impulse', 'step'] as const)
+	);
 </script>
 
-<ToolLayout slug="pole-zero" related={['bode', 'biquad', 'iir-designer', 'tf-analyzer', 'discretization', 'convolution']}>
+<ToolLayout
+	slug="pole-zero"
+	related={['bode', 'biquad', 'iir-designer', 'tf-analyzer', 'discretization', 'convolution']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Plane">
 			<Segmented
@@ -486,16 +559,37 @@
 		</ControlGroup>
 
 		<ControlGroup title="Preset">
-			<Select label="Load a preset" value={presetIds[domain]} options={presetOptions} onchange={(v) => loadPreset(v)} />
+			<Select
+				label="Load a preset"
+				value={presetIds[domain]}
+				options={presetOptions}
+				onchange={(v) => loadPreset(v)}
+			/>
 			{#if presetInfo}<p class="small muted tight">{presetInfo.description}</p>{/if}
 		</ControlGroup>
 
 		<ControlGroup title="Selected root">
 			{#if sel && selPolar}
-				<p class="small sel-title"><span class="sym-wrap"><svg width="12" height="12" aria-hidden="true">{#if sel.kind === 'pole'}<path class="sym pole" d="M2,2l8,8M2,10l8,-8" />{:else}<circle class="sym zero" cx="6" cy="6" r="4" />{/if}</svg></span>{rootLabel(sel)}</p>
+				<p class="small sel-title">
+					<span class="sym-wrap"
+						><svg width="12" height="12" aria-hidden="true"
+							>{#if sel.kind === 'pole'}<path
+									class="sym pole"
+									d="M2,2l8,8M2,10l8,-8"
+								/>{:else}<circle class="sym zero" cx="6" cy="6" r="4" />{/if}</svg
+						></span
+					>{rootLabel(sel)}
+				</p>
 				{#if domain === 'z'}
 					{#if sel.pair}
-						<Slider label="Radius r" value={selPolar.r} min={0} max={1.5} step={0.001} onchange={(v) => setZPolar(v, selPolar.theta)} />
+						<Slider
+							label="Radius r"
+							value={selPolar.r}
+							min={0}
+							max={1.5}
+							step={0.001}
+							onchange={(v) => setZPolar(v, selPolar.theta)}
+						/>
 						<Slider
 							label="Angle as frequency"
 							value={(selPolar.theta / TWO_PI) * fs}
@@ -506,19 +600,53 @@
 						/>
 						<p class="small muted tight">θ = {trimNumber(deg(selPolar.theta), 4)}°</p>
 						{#if sel.kind === 'pole' && selPolar.r < 1 && selPolar.r > 0.5}
-							<p class="small muted tight">−3 dB bandwidth ≈ (1 − r)·fs/π = {formatSI(((1 - selPolar.r) * fs) / Math.PI, 'Hz', 3)}</p>
+							<p class="small muted tight">
+								−3 dB bandwidth ≈ (1 − r)·fs/π = {formatSI(
+									((1 - selPolar.r) * fs) / Math.PI,
+									'Hz',
+									3
+								)}
+							</p>
 						{/if}
 					{:else}
-						<Slider label="Position on real axis" value={sel.re} min={-1.5} max={1.5} step={0.001} onchange={(v) => updateItem(sel.id, { re: q(v) })} />
+						<Slider
+							label="Position on real axis"
+							value={sel.re}
+							min={-1.5}
+							max={1.5}
+							step={0.001}
+							onchange={(v) => updateItem(sel.id, { re: q(v) })}
+						/>
 					{/if}
 				{:else if sel.pair}
 					{@const f0 = selPolar.r}
 					{@const zeta = f0 > 0 ? -sel.re / f0 : 0}
-					<Slider label="Natural frequency f₀" value={Math.max(f0, 1)} min={1} max={1e6} log unit="Hz" onchange={(v) => setSPair(v, zeta)} />
-					<Slider label="Damping ζ" value={zeta} min={-1} max={1} step={0.001} onchange={(v) => setSPair(f0, v)} />
-					<p class="small muted tight">Q = 1/(2ζ) = {Math.abs(zeta) > 1e-9 ? trimNumber(1 / (2 * zeta), 4) : '∞'}{zeta < 0 ? ' (right half-plane)' : ''}</p>
+					<Slider
+						label="Natural frequency f₀"
+						value={Math.max(f0, 1)}
+						min={1}
+						max={1e6}
+						log
+						unit="Hz"
+						onchange={(v) => setSPair(v, zeta)}
+					/>
+					<Slider
+						label="Damping ζ"
+						value={zeta}
+						min={-1}
+						max={1}
+						step={0.001}
+						onchange={(v) => setSPair(f0, v)}
+					/>
+					<p class="small muted tight">
+						Q = 1/(2ζ) = {Math.abs(zeta) > 1e-9 ? trimNumber(1 / (2 * zeta), 4) : '∞'}{zeta < 0
+							? ' (right half-plane)'
+							: ''}
+					</p>
 					{#if sel.kind === 'pole' && zeta > 0 && zeta < 0.5}
-						<p class="small muted tight">−3 dB bandwidth ≈ 2ζf₀ = {formatSI(2 * zeta * f0, 'Hz', 3)}</p>
+						<p class="small muted tight">
+							−3 dB bandwidth ≈ 2ζf₀ = {formatSI(2 * zeta * f0, 'Hz', 3)}
+						</p>
 					{/if}
 				{:else}
 					<Slider
@@ -542,7 +670,10 @@
 					/>
 				{/if}
 			{:else}
-				<p class="small muted tight">Click a pole (×) or zero (○) handle on the plane — or a row of the table — to edit it here.</p>
+				<p class="small muted tight">
+					Click a pole (×) or zero (○) handle on the plane — or a row of the table — to edit it
+					here.
+				</p>
 			{/if}
 		</ControlGroup>
 
@@ -558,34 +689,74 @@
 				onchange={(v) => setGainMode(v)}
 			/>
 			{#if gainMode === 'manual'}
-				<NumberInput label={domain === 'z' ? 'k' : 'k (H(s) in rad/s)'} bind:value={manualK[domain]} />
+				<NumberInput
+					label={domain === 'z' ? 'k' : 'k (H(s) in rad/s)'}
+					bind:value={manualK[domain]}
+				/>
 			{/if}
 			{#if gain.note}<p class="small note-text">{gain.note}</p>{/if}
 		</ControlGroup>
 
 		<ControlGroup title="Display">
-			<Toggle bind:checked={showProbe} label="Geometric evaluation vectors" help="Lines from every root to the probe point on the frequency axis" />
-			<Toggle bind:checked={showHeat} label="|H| heatmap over the plane" help="The frequency response is the slice along the {domain === 'z' ? 'unit circle' : 'jω axis'}" />
+			<Toggle
+				bind:checked={showProbe}
+				label="Geometric evaluation vectors"
+				help="Lines from every root to the probe point on the frequency axis"
+			/>
+			<Toggle
+				bind:checked={showHeat}
+				label="|H| heatmap over the plane"
+				help="The frequency response is the slice along the {domain === 'z'
+					? 'unit circle'
+					: 'jω axis'}"
+			/>
 			<Toggle bind:checked={snapOn} label="Snap to grid" />
 		</ControlGroup>
 
 		{#if domain === 'z'}
 			<ControlGroup title="Sampling">
-				<NumberInput label="Sample rate fs" bind:value={fs} unit="Hz" si min={1} logStep={2} help="Angles on the unit circle map to frequencies f = θ·fs/2π." />
+				<NumberInput
+					label="Sample rate fs"
+					bind:value={fs}
+					unit="Hz"
+					si
+					min={1}
+					logStep={2}
+					help="Angles on the unit circle map to frequencies f = θ·fs/2π."
+				/>
 			</ControlGroup>
 		{/if}
 	{/snippet}
 
 	<StatGrid {stats} />
 
-	<Card title={domain === 'z' ? 'z-plane' : 's-plane (in Hz: σ/2π, ω/2π)'} subtitle="Drag the handles. Poles ×, zeros ○; conjugate partners follow automatically.">
+	<Card
+		title={domain === 'z' ? 'z-plane' : 's-plane (in Hz: σ/2π, ω/2π)'}
+		subtitle="Drag the handles. Poles ×, zeros ○; conjugate partners follow automatically."
+	>
 		<div class="toolbar" role="toolbar" aria-label="Edit poles and zeros">
-			<button class="btn small" type="button" onclick={() => addDefault('pole', true)}>+ Pole pair</button>
-			<button class="btn small" type="button" onclick={() => addDefault('zero', true)}>+ Zero pair</button>
-			<button class="btn small" type="button" onclick={() => addDefault('pole', false)}>+ Real pole</button>
-			<button class="btn small" type="button" onclick={() => addDefault('zero', false)}>+ Real zero</button>
-			<button class="btn small" type="button" disabled={selectedId === null} onclick={deleteSelected} title="Delete the selected root (Delete / Backspace)">Delete</button>
-			<button class="btn small" type="button" disabled={!items.length} onclick={clearAll}>Clear</button>
+			<button class="btn small" type="button" onclick={() => addDefault('pole', true)}
+				>+ Pole pair</button
+			>
+			<button class="btn small" type="button" onclick={() => addDefault('zero', true)}
+				>+ Zero pair</button
+			>
+			<button class="btn small" type="button" onclick={() => addDefault('pole', false)}
+				>+ Real pole</button
+			>
+			<button class="btn small" type="button" onclick={() => addDefault('zero', false)}
+				>+ Real zero</button
+			>
+			<button
+				class="btn small"
+				type="button"
+				disabled={selectedId === null}
+				onclick={deleteSelected}
+				title="Delete the selected root (Delete / Backspace)">Delete</button
+			>
+			<button class="btn small" type="button" disabled={!items.length} onclick={clearAll}
+				>Clear</button
+			>
 			<span class="spacer"></span>
 			<Segmented
 				size="small"
@@ -627,7 +798,9 @@
 						</div>
 					{/if}
 					{#if clickMode !== 'select'}
-						<p class="small muted tight">Click to place a {clickMode} pair; click on the real axis for a single real {clickMode}.</p>
+						<p class="small muted tight">
+							Click to place a {clickMode} pair; click on the real axis for a single real {clickMode}.
+						</p>
 					{/if}
 				</div>
 
@@ -636,7 +809,9 @@
 					<Slider
 						label="Probe frequency f"
 						value={probe}
-						min={domain === 'z' || scale === 'linear' ? probeRange[0] : Math.max(probeRange[0], 1e-6)}
+						min={domain === 'z' || scale === 'linear'
+							? probeRange[0]
+							: Math.max(probeRange[0], 1e-6)}
 						max={probeRange[1]}
 						log={domain === 's' && scale === 'log'}
 						unit="Hz"
@@ -644,9 +819,13 @@
 					/>
 					<p class="small muted tight">
 						{#if domain === 'z'}
-							The probe sits at e<sup>jω</sup> with ω = 2πf/fs = {trimNumber(deg((TWO_PI * probe) / fs), 4)}°.
+							The probe sits at e<sup>jω</sup> with ω = 2πf/fs = {trimNumber(
+								deg((TWO_PI * probe) / fs),
+								4
+							)}°.
 						{:else}
-							The probe sits at s = j2πf on the jω axis{#if probeOutOfView}&nbsp;— above the visible plane{/if}.
+							The probe sits at s = j2πf on the jω axis{#if probeOutOfView}&nbsp;— above the visible
+								plane{/if}.
 						{/if}
 						Each line is a factor of H.
 					</p>
@@ -657,8 +836,10 @@
 					<div class="geo-tex"><Tex display math={phaseTex} /></div>
 					{#if domain === 's' && nz !== np}
 						<p class="small muted tight">
-							Lengths are measured in Hz on this plane, so K = k·(2π)<sup>{nz - np}</sup> = {trimNumber(K, 4)}, where k is the
-							gain of H(s) written in rad/s.
+							Lengths are measured in Hz on this plane, so K = k·(2π)<sup>{nz - np}</sup> = {trimNumber(
+								K,
+								4
+							)}, where k is the gain of H(s) written in rad/s.
 						</p>
 					{/if}
 					<div class="vec-wrap">
@@ -671,40 +852,54 @@
 									<tr>
 										<td>
 											<svg width="11" height="11" aria-hidden="true"
-												>{#if v.kind === 'pole'}<path class="sym pole" d="M1.5,1.5l8,8M1.5,9.5l8,-8" />{:else}<circle class="sym zero" cx="5.5" cy="5.5" r="4" />{/if}</svg
+												>{#if v.kind === 'pole'}<path
+														class="sym pole"
+														d="M1.5,1.5l8,8M1.5,9.5l8,-8"
+													/>{:else}<circle class="sym zero" cx="5.5" cy="5.5" r="4" />{/if}</svg
 											>
-											<span class="mono">{fmtCoord(v.root.re)}{v.root.im !== 0 ? ` ${v.root.im < 0 ? '−' : '+'} ${fmtCoord(Math.abs(v.root.im))}j` : ''}</span>
+											<span class="mono"
+												>{fmtCoord(v.root.re)}{v.root.im !== 0
+													? ` ${v.root.im < 0 ? '−' : '+'} ${fmtCoord(Math.abs(v.root.im))}j`
+													: ''}</span
+											>
 											{#if v.implied}<span class="muted">(causal)</span>{/if}
 										</td>
 										<td class="num">{trimNumber(v.len, 4)}</td>
-										<td class="num">{Number.isFinite(v.angle) ? `${trimNumber(deg(v.angle), 4)}°` : '—'}</td>
+										<td class="num"
+											>{Number.isFinite(v.angle) ? `${trimNumber(deg(v.angle), 4)}°` : '—'}</td
+										>
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					</div>
-					<p class="small muted tight">Drag the dot on the magnitude plot (or click it) to move the probe.</p>
+					<p class="small muted tight">
+						Drag the dot on the magnitude plot (or click it) to move the probe.
+					</p>
 				</div>
 			</div>
 		</div>
 
 		{#if roots.implied > 0}
 			<p class="small muted note-line">
-				ⓘ {roots.implied} more zero{roots.implied > 1 ? 's' : ''} than poles: a causal H(z) needs {roots.implied} pole{roots.implied > 1 ? 's' : ''} at z = 0 (drawn at the origin). They
-				leave |H| on the unit circle unchanged and only add delay.
+				ⓘ {roots.implied} more zero{roots.implied > 1 ? 's' : ''} than poles: a causal H(z) needs {roots.implied}
+				pole{roots.implied > 1 ? 's' : ''} at z = 0 (drawn at the origin). They leave |H| on the unit
+				circle unchanged and only add delay.
 			</p>
 		{:else if domain === 'z' && np > nz}
 			<p class="small muted note-line">
-				ⓘ {np - nz} more pole{np - nz > 1 ? 's' : ''} than zeros: the impulse response starts {np - nz} sample{np - nz > 1 ? 's' : ''} late (a pure delay
-				z<sup>−{np - nz}</sup>). Zeros at z = 0 would remove the delay without changing |H|.
+				ⓘ {np - nz} more pole{np - nz > 1 ? 's' : ''} than zeros: the impulse response starts {np -
+					nz} sample{np - nz > 1 ? 's' : ''} late (a pure delay z<sup>−{np - nz}</sup>). Zeros at z
+				= 0 would remove the delay without changing |H|.
 			</p>
 		{/if}
 	</Card>
 
 	{#if improper}
 		<Callout kind="warning" title="Improper transfer function">
-			There are more zeros ({nz}) than poles ({np}): |H| grows without bound as f → ∞ and H(s) cannot be built from a finite
-			circuit. Time responses are not defined — add poles to make it proper.
+			There are more zeros ({nz}) than poles ({np}): |H| grows without bound as f → ∞ and H(s)
+			cannot be built from a finite circuit. Time responses are not defined — add poles to make it
+			proper.
 		</Callout>
 	{/if}
 
@@ -722,7 +917,12 @@
 		title={domain === 'z' ? 'Magnitude along the unit circle' : 'Magnitude along the jω axis'}
 	/>
 
-	<Card title="Poles and zeros" subtitle={domain === 'z' ? 'Type exact values. Pairs are entered by their upper root (Im ≥ 0).' : 'Coordinates in Hz (σ/2π, ω/2π). Pairs are entered by their upper root.'}>
+	<Card
+		title="Poles and zeros"
+		subtitle={domain === 'z'
+			? 'Type exact values. Pairs are entered by their upper root (Im ≥ 0).'
+			: 'Coordinates in Hz (σ/2π, ω/2π). Pairs are entered by their upper root.'}
+	>
 		<div class="table-wrap">
 			<table class="roots">
 				<thead>
@@ -741,21 +941,42 @@
 						{@const r = Math.hypot(it.re, it.pair ? it.im : 0)}
 						<tr class:selected={it.id === selectedId}>
 							<td>
-								<button class="root-btn" type="button" onclick={() => (selectedIds[domain] = it.id)} aria-pressed={it.id === selectedId}>
+								<button
+									class="root-btn"
+									type="button"
+									onclick={() => (selectedIds[domain] = it.id)}
+									aria-pressed={it.id === selectedId}
+								>
 									<svg width="11" height="11" aria-hidden="true"
-										>{#if it.kind === 'pole'}<path class="sym pole" d="M1.5,1.5l8,8M1.5,9.5l8,-8" />{:else}<circle class="sym zero" cx="5.5" cy="5.5" r="4" />{/if}</svg
+										>{#if it.kind === 'pole'}<path
+												class="sym pole"
+												d="M1.5,1.5l8,8M1.5,9.5l8,-8"
+											/>{:else}<circle class="sym zero" cx="5.5" cy="5.5" r="4" />{/if}</svg
 									>
 									{rootLabel(it)}
 								</button>
 							</td>
 							<td>
 								<label class="visually-hidden" for="re-{it.id}">Real part of root {i + 1}</label>
-								<NumberInput id="re-{it.id}" value={it.re} digits={6} onchange={(v) => updateItem(it.id, { re: v })} />
+								<NumberInput
+									id="re-{it.id}"
+									value={it.re}
+									digits={6}
+									onchange={(v) => updateItem(it.id, { re: v })}
+								/>
 							</td>
 							<td>
 								{#if it.pair}
-									<label class="visually-hidden" for="im-{it.id}">Imaginary part of root {i + 1}</label>
-									<NumberInput id="im-{it.id}" value={it.im} digits={6} min={0} onchange={(v) => updateItem(it.id, { im: Math.abs(v) })} />
+									<label class="visually-hidden" for="im-{it.id}"
+										>Imaginary part of root {i + 1}</label
+									>
+									<NumberInput
+										id="im-{it.id}"
+										value={it.im}
+										digits={6}
+										min={0}
+										onchange={(v) => updateItem(it.id, { im: Math.abs(v) })}
+									/>
 								{:else}<span class="muted">0</span>{/if}
 							</td>
 							{#if domain === 'z'}
@@ -768,27 +989,40 @@
 										min={0}
 										onchange={(v) => {
 											const th = Math.atan2(it.pair ? it.im : 0, it.re);
-											updateItem(it.id, it.pair ? { re: v * Math.cos(th), im: v * Math.sin(th) } : { re: (it.re < 0 ? -1 : 1) * v });
+											updateItem(
+												it.id,
+												it.pair
+													? { re: v * Math.cos(th), im: v * Math.sin(th) }
+													: { re: (it.re < 0 ? -1 : 1) * v }
+											);
 										}}
 									/>
 								</td>
 								<td>
 									{#if it.pair}
-										<label class="visually-hidden" for="th-{it.id}">Angle of root {i + 1} in degrees</label>
+										<label class="visually-hidden" for="th-{it.id}"
+											>Angle of root {i + 1} in degrees</label
+										>
 										<NumberInput
 											id="th-{it.id}"
 											value={deg(Math.atan2(it.im, it.re))}
 											digits={5}
 											min={0}
 											max={180}
-											onchange={(v) => updateItem(it.id, { re: r * Math.cos((v * Math.PI) / 180), im: r * Math.sin((v * Math.PI) / 180) })}
+											onchange={(v) =>
+												updateItem(it.id, {
+													re: r * Math.cos((v * Math.PI) / 180),
+													im: r * Math.sin((v * Math.PI) / 180)
+												})}
 										/>
 									{:else}<span class="muted">{it.re < 0 ? 180 : 0}</span>{/if}
 								</td>
 							{:else}
 								<td>
 									{#if it.pair}
-										<label class="visually-hidden" for="f0-{it.id}">Natural frequency of root {i + 1}</label>
+										<label class="visually-hidden" for="f0-{it.id}"
+											>Natural frequency of root {i + 1}</label
+										>
 										<NumberInput
 											id="f0-{it.id}"
 											value={r}
@@ -803,7 +1037,8 @@
 								</td>
 								<td>
 									{#if it.pair}
-										<label class="visually-hidden" for="zeta-{it.id}">Damping of root {i + 1}</label>
+										<label class="visually-hidden" for="zeta-{it.id}">Damping of root {i + 1}</label
+										>
 										<NumberInput
 											id="zeta-{it.id}"
 											value={r > 0 ? -it.re / r : 0}
@@ -820,38 +1055,63 @@
 								</td>
 							{/if}
 							<td>
-								<button class="btn ghost small" type="button" aria-label="Delete {rootLabel(it)} {i + 1}" onclick={() => removeItem(it.id)}>✕</button>
+								<button
+									class="btn ghost small"
+									type="button"
+									aria-label="Delete {rootLabel(it)} {i + 1}"
+									onclick={() => removeItem(it.id)}>✕</button
+								>
 							</td>
 						</tr>
 					{:else}
-						<tr><td colspan="6" class="muted">No poles or zeros — H is just the constant k. Add some with the buttons above.</td></tr>
+						<tr
+							><td colspan="6" class="muted"
+								>No poles or zeros — H is just the constant k. Add some with the buttons above.</td
+							></tr
+						>
 					{/each}
 				</tbody>
 			</table>
 		</div>
 	</Card>
 
-	<Card title="Transfer function" subtitle={domain === 'z' ? 'Factored, in positive powers of z.' : 'Factored, with s in rad/s (the plane above shows s/2π).'}>
+	<Card
+		title="Transfer function"
+		subtitle={domain === 'z'
+			? 'Factored, in positive powers of z.'
+			: 'Factored, with s in rad/s (the plane above shows s/2π).'}
+	>
 		<Tex display math={tfTex} />
 		{#if exportData.error}
 			<Callout kind="danger">{exportData.error}</Callout>
 		{:else}
-			<ExportPanel kind={domain === 'z' ? 'digital' : 'analog'} {zpk} sos={exportData.sos} tf={exportData.tf} {fs} name="pole_zero" />
+			<ExportPanel
+				kind={domain === 'z' ? 'digital' : 'analog'}
+				{zpk}
+				sos={exportData.sos}
+				tf={exportData.tf}
+				{fs}
+				name="pole_zero"
+			/>
 		{/if}
 	</Card>
 
 	{#snippet theory()}
 		<h2>Poles, zeros and the frequency response</h2>
 		<p>
-			Any rational transfer function can be factored into its roots. In the s-domain (continuous time) and the z-domain
-			(discrete time):
+			Any rational transfer function can be factored into its roots. In the s-domain (continuous
+			time) and the z-domain (discrete time):
 		</p>
-		<Tex display math={'H(s) = k\\,\\frac{\\prod_i (s - z_i)}{\\prod_i (s - p_i)}\\qquad\\qquad H(z) = k\\,\\frac{\\prod_i (z - z_i)}{\\prod_i (z - p_i)}'} />
+		<Tex
+			display
+			math={'H(s) = k\\,\\frac{\\prod_i (s - z_i)}{\\prod_i (s - p_i)}\\qquad\\qquad H(z) = k\\,\\frac{\\prod_i (z - z_i)}{\\prod_i (z - p_i)}'}
+		/>
 		<p>
-			The <strong>zeros</strong> <Tex math="z_i" /> are where H vanishes; the <strong>poles</strong> <Tex math="p_i" /> are
-			where it blows up. Apart from the scalar gain k, the poles and zeros determine the filter completely. For a real filter
-			(real coefficients) every complex root comes with its complex conjugate, which is why this editor moves roots in pairs
-			mirrored about the real axis.
+			The <strong>zeros</strong>
+			<Tex math="z_i" /> are where H vanishes; the <strong>poles</strong>
+			<Tex math="p_i" /> are where it blows up. Apart from the scalar gain k, the poles and zeros determine
+			the filter completely. For a real filter (real coefficients) every complex root comes with its complex
+			conjugate, which is why this editor moves roots in pairs mirrored about the real axis.
 		</p>
 
 		<h3>Stability</h3>
@@ -859,80 +1119,115 @@
 			Each pole contributes a mode to the impulse response: <Tex math={'e^{p t}'} /> in continuous time,
 			<Tex math={'p^n'} /> in discrete time. The mode decays only if
 		</p>
-		<Tex display math={'\\operatorname{Re}(p) < 0 \\;\\;\\text{(left half-plane)}\\qquad\\qquad |p| < 1 \\;\\;\\text{(inside the unit circle)}'} />
+		<Tex
+			display
+			math={'\\operatorname{Re}(p) < 0 \\;\\;\\text{(left half-plane)}\\qquad\\qquad |p| < 1 \\;\\;\\text{(inside the unit circle)}'}
+		/>
 		<p>
-			A pole on the boundary (jω axis or unit circle) gives a sustained oscillation — marginal stability — and a pole beyond it
-			gives a response that grows without limit. Zeros can sit anywhere without affecting stability.
+			A pole on the boundary (jω axis or unit circle) gives a sustained oscillation — marginal
+			stability — and a pole beyond it gives a response that grows without limit. Zeros can sit
+			anywhere without affecting stability.
 		</p>
 
 		<h3>Geometric evaluation</h3>
 		<p>
-			The frequency response is H evaluated along the frequency axis: <Tex math={'s = j\\omega'} /> for analog filters,
-			<Tex math={'z = e^{j\\omega}'} /> (the unit circle, with <Tex math={'\\omega = 2\\pi f/f_s'} />) for digital ones. Each factor
+			The frequency response is H evaluated along the frequency axis: <Tex math={'s = j\\omega'} /> for
+			analog filters,
+			<Tex math={'z = e^{j\\omega}'} /> (the unit circle, with <Tex
+				math={'\\omega = 2\\pi f/f_s'}
+			/>) for digital ones. Each factor
 			<Tex math={'(e^{j\\omega}-q)'} /> is a vector from the root q to the point on the axis, so
 		</p>
-		<Tex display math={'|H(e^{j\\omega})| = |k|\\,\\frac{\\prod_i \\big|e^{j\\omega}-z_i\\big|}{\\prod_i \\big|e^{j\\omega}-p_i\\big|}\\qquad \\angle H(e^{j\\omega}) = \\sum_i \\angle\\big(e^{j\\omega}-z_i\\big) - \\sum_i \\angle\\big(e^{j\\omega}-p_i\\big)'} />
+		<Tex
+			display
+			math={'|H(e^{j\\omega})| = |k|\\,\\frac{\\prod_i \\big|e^{j\\omega}-z_i\\big|}{\\prod_i \\big|e^{j\\omega}-p_i\\big|}\\qquad \\angle H(e^{j\\omega}) = \\sum_i \\angle\\big(e^{j\\omega}-z_i\\big) - \\sum_i \\angle\\big(e^{j\\omega}-p_i\\big)'}
+		/>
 		<p>
-			When the probe passes close to a pole, its vector becomes short and the magnitude peaks; close to a zero, the magnitude
-			dips — exactly to zero if the zero lies on the axis. The heatmap shows <Tex math={'20\\log_{10}|H|'} /> over the whole
-			plane: the magnitude response is the slice of that landscape along the unit circle or the jω axis.
+			When the probe passes close to a pole, its vector becomes short and the magnitude peaks; close
+			to a zero, the magnitude dips — exactly to zero if the zero lies on the axis. The heatmap
+			shows <Tex math={'20\\log_{10}|H|'} /> over the whole plane: the magnitude response is the slice
+			of that landscape along the unit circle or the jω axis.
 		</p>
 
 		<h3>s-plane and z-plane: z = e<sup>sT</sup></h3>
 		<p>
-			Sampling a mode <Tex math={'e^{p t}'} /> every <Tex math={'T = 1/f_s'} /> seconds gives <Tex math={'(e^{pT})^n'} />, so an
-			analog pole <Tex math={'p = \\sigma + j\\omega'} /> corresponds to the digital pole
+			Sampling a mode <Tex math={'e^{p t}'} /> every <Tex math={'T = 1/f_s'} /> seconds gives <Tex
+				math={'(e^{pT})^n'}
+			/>, so an analog pole <Tex math={'p = \\sigma + j\\omega'} /> corresponds to the digital pole
 		</p>
-		<Tex display math={'z = e^{pT} = e^{\\sigma T}\\,e^{j\\omega T}\\qquad\\Rightarrow\\qquad r = |z| = e^{\\sigma T},\\quad \\theta = \\omega T = 2\\pi f/f_s'} />
+		<Tex
+			display
+			math={'z = e^{pT} = e^{\\sigma T}\\,e^{j\\omega T}\\qquad\\Rightarrow\\qquad r = |z| = e^{\\sigma T},\\quad \\theta = \\omega T = 2\\pi f/f_s'}
+		/>
 		<p>
-			The left half-plane maps inside the unit circle, the jω axis onto the circle itself (DC at z = 1, Nyquist at z = −1),
-			and lines of constant damping become spirals. Impulse invariance and the matched-z transform place digital poles exactly
-			this way; the bilinear transform maps the same regions onto each other but warps the frequency axis.
+			The left half-plane maps inside the unit circle, the jω axis onto the circle itself (DC at z =
+			1, Nyquist at z = −1), and lines of constant damping become spirals. Impulse invariance and
+			the matched-z transform place digital poles exactly this way; the bilinear transform maps the
+			same regions onto each other but warps the frequency axis.
 		</p>
 
 		<h3>Resonance: pole radius and damping</h3>
 		<p>
-			A pole pair close to the axis makes a resonant peak at its angle (or its imaginary part in the s-plane). Its sharpness is
-			set by the distance to the axis. In the s-plane a pair at <Tex math={'-\\zeta\\omega_0 \\pm j\\omega_0\\sqrt{1-\\zeta^2}'} />
-			has <Tex math={'Q = 1/(2\\zeta)'} /> and a −3 dB bandwidth of about <Tex math={'2\\zeta\\omega_0 = 2|\\sigma|'} />. In the
-			z-plane, for r close to 1,
+			A pole pair close to the axis makes a resonant peak at its angle (or its imaginary part in the
+			s-plane). Its sharpness is set by the distance to the axis. In the s-plane a pair at <Tex
+				math={'-\\zeta\\omega_0 \\pm j\\omega_0\\sqrt{1-\\zeta^2}'}
+			/>
+			has <Tex math={'Q = 1/(2\\zeta)'} /> and a −3 dB bandwidth of about <Tex
+				math={'2\\zeta\\omega_0 = 2|\\sigma|'}
+			/>. In the z-plane, for r close to 1,
 		</p>
-		<Tex display math={'B_{-3\\,\\text{dB}} \\approx \\frac{(1-r)\\,f_s}{\\pi}\\ \\text{Hz},\\qquad \\text{decay to } -60\\text{ dB after } n \\approx \\frac{\\ln 10^{-3}}{\\ln r}\\ \\text{samples}.'} />
-		<p>Sharp peaks and long ringing are two views of the same thing: a pole close to the boundary.</p>
+		<Tex
+			display
+			math={'B_{-3\\,\\text{dB}} \\approx \\frac{(1-r)\\,f_s}{\\pi}\\ \\text{Hz},\\qquad \\text{decay to } -60\\text{ dB after } n \\approx \\frac{\\ln 10^{-3}}{\\ln r}\\ \\text{samples}.'}
+		/>
+		<p>
+			Sharp peaks and long ringing are two views of the same thing: a pole close to the boundary.
+		</p>
 
 		<h3>Minimum phase and all-pass filters</h3>
 		<p>
-			Reflecting a zero across the boundary — <Tex math={'z_i \\to 1/z_i^*'} /> in the z-plane, <Tex math={'z_i \\to -z_i^*'} /> in
-			the s-plane — leaves the shape of |H| unchanged (only a constant gain factor changes) but changes the phase. Of all filters
-			with the same magnitude, the one with every zero inside the stable region has the least phase lag and the shortest
-			delay: it is <strong>minimum phase</strong>, and only minimum-phase filters have a stable, causal inverse.
+			Reflecting a zero across the boundary — <Tex math={'z_i \\to 1/z_i^*'} /> in the z-plane, <Tex
+				math={'z_i \\to -z_i^*'}
+			/> in the s-plane — leaves the shape of |H| unchanged (only a constant gain factor changes) but
+			changes the phase. Of all filters with the same magnitude, the one with every zero inside the stable
+			region has the least phase lag and the shortest delay: it is <strong>minimum phase</strong>,
+			and only minimum-phase filters have a stable, causal inverse.
 		</p>
 		<p>
-			Placing a zero exactly at the reflection of each pole gives an <strong>all-pass</strong> filter: for every point on the
-			axis the ratio of the zero and pole vector lengths is the same constant, so |H| is flat while the phase still turns —
-			the basis of phase equalisers and fractional delays.
+			Placing a zero exactly at the reflection of each pole gives an <strong>all-pass</strong> filter:
+			for every point on the axis the ratio of the zero and pole vector lengths is the same constant,
+			so |H| is flat while the phase still turns — the basis of phase equalisers and fractional delays.
 		</p>
-		<Tex display math={'H_{ap}(z) = \\frac{z - 1/p^*}{z - p}\\cdot|p| \\qquad\\qquad H_{ap}(s) = \\frac{s + p^*}{s - p}'} />
+		<Tex
+			display
+			math={'H_{ap}(z) = \\frac{z - 1/p^*}{z - p}\\cdot|p| \\qquad\\qquad H_{ap}(s) = \\frac{s + p^*}{s - p}'}
+		/>
 
 		<Callout kind="try">
 			<ul>
 				<li>
-					Load <em>Two-pole resonator</em> and drag the radius slider from 0.5 towards 1: the peak narrows, the impulse response rings
-					longer, and the bandwidth estimate (1 − r)·fs/π shrinks.
+					Load <em>Two-pole resonator</em> and drag the radius slider from 0.5 towards 1: the peak narrows,
+					the impulse response rings longer, and the bandwidth estimate (1 − r)·fs/π shrinks.
 				</li>
 				<li>
-					Move the probe across the resonance and watch the pole vector shrink — that one short vector is the whole peak. Then turn on
-					the heatmap and see the response as a slice through the “tent” raised by the pole.
+					Move the probe across the resonance and watch the pole vector shrink — that one short
+					vector is the whole peak. Then turn on the heatmap and see the response as a slice through
+					the “tent” raised by the pole.
 				</li>
 				<li>
-					Load <em>All-pass pair</em> and drag the zero inside the unit circle to the pole’s angle: the magnitude stays the same shape,
-					but the phase and group delay change — that is the minimum-phase version.
+					Load <em>All-pass pair</em> and drag the zero inside the unit circle to the pole’s angle: the
+					magnitude stays the same shape, but the phase and group delay change — that is the minimum-phase
+					version.
 				</li>
 				<li>
-					In the s-plane <em>Resonant pair</em>, sweep ζ from 0.7 to 0 and on to negative values: the step response goes from no overshoot
-					to sustained ringing to exponential growth as the poles cross the jω axis.
+					In the s-plane <em>Resonant pair</em>, sweep ζ from 0.7 to 0 and on to negative values:
+					the step response goes from no overshoot to sustained ringing to exponential growth as the
+					poles cross the jω axis.
 				</li>
-				<li>Load <em>Moving average</em> and delete one zero: the comb notch disappears and the causal poles at the origin rebalance.</li>
+				<li>
+					Load <em>Moving average</em> and delete one zero: the comb notch disappears and the causal poles
+					at the origin rebalance.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}
@@ -951,15 +1246,30 @@
 			{#if domain === 'z'}
 				{#if probe > 0}<path class="slice" d={arcPath(ctx, P)} />{/if}
 			{:else}
-				<line class="slice" x1={ctx.X(0)} y1={ctx.Y(0)} x2={ctx.X(0)} y2={ctx.Y(Math.min(P.im, ctx.R * 1.01))} />
+				<line
+					class="slice"
+					x1={ctx.X(0)}
+					y1={ctx.Y(0)}
+					x2={ctx.X(0)}
+					y2={ctx.Y(Math.min(P.im, ctx.R * 1.01))}
+				/>
 			{/if}
 			{#each geo.vectors as v, i (i)}
-				<line class="vec {v.kind}" x1={ctx.X(v.root.re)} y1={ctx.Y(v.root.im)} x2={ctx.X(P.re)} y2={ctx.Y(P.im)} />
+				<line
+					class="vec {v.kind}"
+					x1={ctx.X(v.root.re)}
+					y1={ctx.Y(v.root.im)}
+					x2={ctx.X(P.re)}
+					y2={ctx.Y(P.im)}
+				/>
 			{/each}
 			<circle class="probe-pt" cx={ctx.X(P.re)} cy={ctx.Y(P.im)} r="5" />
 			{#if !probeOutOfView}
-				<text class="probe-label" x={ctx.X(P.re) + (P.re < -0.3 * ctx.R ? -9 : 9)} y={ctx.Y(P.im) - 8} text-anchor={P.re < -0.3 * ctx.R ? 'end' : 'start'}
-					>{formatSI(probe, 'Hz', 3)}</text
+				<text
+					class="probe-label"
+					x={ctx.X(P.re) + (P.re < -0.3 * ctx.R ? -9 : 9)}
+					y={ctx.Y(P.im) - 8}
+					text-anchor={P.re < -0.3 * ctx.R ? 'end' : 'start'}>{formatSI(probe, 'Hz', 3)}</text
 				>
 			{/if}
 		</g>
@@ -1039,7 +1349,15 @@
 		height: 8px;
 		border-radius: 4px;
 		border: 1px solid var(--border);
-		background: linear-gradient(90deg, var(--seq-0), var(--seq-1), var(--seq-2), var(--seq-3), var(--seq-4), var(--seq-5));
+		background: linear-gradient(
+			90deg,
+			var(--seq-0),
+			var(--seq-1),
+			var(--seq-2),
+			var(--seq-3),
+			var(--seq-4),
+			var(--seq-5)
+		);
 	}
 	.geo {
 		display: flex;

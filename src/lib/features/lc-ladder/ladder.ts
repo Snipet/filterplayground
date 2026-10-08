@@ -132,7 +132,8 @@ export interface LadderSynthesis {
 export function synthesizeLadder(proto: ZPK): LadderSynthesis {
 	const n = proto.p.length;
 	if (n < 1) throw new Error('The prototype has no poles.');
-	if (proto.z.length > 0) throw new Error('Ladder synthesis here supports all-pole (no finite zeros) prototypes only.');
+	if (proto.z.length > 0)
+		throw new Error('Ladder synthesis here supports all-pole (no finite zeros) prototypes only.');
 	const D = polyFromRoots(proto.p);
 	const rl = seriesLoad(proto, D);
 	const N = reflectionNumerator(proto, D);
@@ -152,13 +153,18 @@ export function synthesizeLadder(proto: ZPK): LadderSynthesis {
 	const g: number[] = [];
 	for (let k = 1; k <= n; k++) {
 		const fromBack = back[n - k];
-		const backVal = fromBack === undefined ? undefined : k % 2 === 1 ? fromBack * rl : fromBack / rl;
+		const backVal =
+			fromBack === undefined ? undefined : k % 2 === 1 ? fromBack * rl : fromBack / rl;
 		const v = k <= half ? (front[k - 1] ?? backVal) : (backVal ?? front[k - 1]);
-		if (v === undefined) throw new Error('Continued-fraction expansion broke down for this prototype.');
+		if (v === undefined)
+			throw new Error('Continued-fraction expansion broke down for this prototype.');
 		g.push(v);
 	}
 	const pol = polishLadder(g, rl, D);
-	if (!pol) throw new Error('Ladder synthesis did not converge for this prototype (order too high for double precision).');
+	if (!pol)
+		throw new Error(
+			'Ladder synthesis did not converge for this prototype (order too high for double precision).'
+		);
 	return finish(pol.g, rl, pol.iterations > 0 ? 'cauer+newton' : 'cauer');
 }
 
@@ -364,7 +370,9 @@ export function polishLadder(
 		const JtJ: number[][] = Array.from({ length: n }, (_, i) =>
 			Array.from({ length: n }, (_, j) => J.reduce((acc, row) => acc + row[i] * row[j], 0))
 		);
-		const Jtr = Array.from({ length: n }, (_, i) => J.reduce((acc, row, k) => acc + row[i] * r[k], 0));
+		const Jtr = Array.from({ length: n }, (_, i) =>
+			J.reduce((acc, row, k) => acc + row[i] * r[k], 0)
+		);
 		const scale = Math.max(...JtJ.map((row, i) => row[i]), 1e-300);
 		let accepted = false;
 		for (let tries = 0; tries < 30; tries++) {
@@ -398,8 +406,6 @@ export function polishLadder(
 	}
 	return nr < 1e-9 ? { g, iterations } : null;
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Closed-form g-values (for validation and display)
@@ -539,9 +545,19 @@ export function simulateLadder(net: LadderNetwork, fHz: readonly number[]): SimR
 }
 
 /** SPICE netlist of the ladder (AC 2 V source, so the load voltage reads 2·V_L/V_S). */
-export function spiceNetlist(net: LadderNetwork, title: string, fStart: number, fStop: number): string {
+export function spiceNetlist(
+	net: LadderNetwork,
+	title: string,
+	fStart: number,
+	fStop: number
+): string {
 	const num = (v: number) => Number(v.toPrecision(6)).toExponential().replace('e+', 'e');
-	const lines: string[] = [`* ${title}`, '* AC magnitude 2 V: the voltage across RL reads 2·VL/VS (0 dB in a matched passband)', 'V1 in 0 AC 2', `RS in n1 ${num(net.rs)}`];
+	const lines: string[] = [
+		`* ${title}`,
+		'* AC magnitude 2 V: the voltage across RL reads 2·VL/VS (0 dB in a matched passband)',
+		'V1 in 0 AC 2',
+		`RS in n1 ${num(net.rs)}`
+	];
 	let node = 1;
 	let mid = 0;
 	for (const br of net.branches) {
@@ -550,7 +566,10 @@ export function spiceNetlist(net: LadderNetwork, title: string, fStart: number, 
 			const next = `n${node + 1}`;
 			if (br.L !== undefined && br.C !== undefined) {
 				const m = `m${++mid}`;
-				lines.push(`L${br.index} ${cur} ${m} ${num(br.L)}`, `C${br.index} ${m} ${next} ${num(br.C)}`);
+				lines.push(
+					`L${br.index} ${cur} ${m} ${num(br.L)}`,
+					`C${br.index} ${m} ${next} ${num(br.C)}`
+				);
 			} else if (br.L !== undefined) lines.push(`L${br.index} ${cur} ${next} ${num(br.L)}`);
 			else if (br.C !== undefined) lines.push(`C${br.index} ${cur} ${next} ${num(br.C)}`);
 			node++;
@@ -559,6 +578,11 @@ export function spiceNetlist(net: LadderNetwork, title: string, fStart: number, 
 			if (br.C !== undefined) lines.push(`C${br.index} ${cur} 0 ${num(br.C)}`);
 		}
 	}
-	lines.push(`RL n${node} 0 ${num(net.rl)}`, `.ac dec 200 ${num(fStart)} ${num(fStop)}`, '.print ac vdb(n' + node + ')', '.end');
+	lines.push(
+		`RL n${node} 0 ${num(net.rl)}`,
+		`.ac dec 200 ${num(fStart)} ${num(fStop)}`,
+		'.print ac vdb(n' + node + ')',
+		'.end'
+	);
 	return lines.join('\n');
 }

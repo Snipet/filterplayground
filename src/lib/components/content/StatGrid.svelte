@@ -13,7 +13,10 @@
 	const icon = { good: '✓', warning: '!', critical: '✕' };
 </script>
 
-<dl class="stats" style:grid-template-columns={columns ? `repeat(${columns}, minmax(0, 1fr))` : undefined}>
+<dl
+	class="stats"
+	style:grid-template-columns={columns ? `repeat(${columns}, minmax(0, 1fr))` : undefined}
+>
 	{#each stats as s (s.label)}
 		<div class="stat" title={s.hint}>
 			<dt>{s.label}</dt>

@@ -21,7 +21,11 @@
 	const hz = (v: number) => formatSI(v, 'Hz', 5);
 </script>
 
-<CalcCard {id} {title} blurb="Musical and acoustic intervals between two frequencies, and fractional-octave analysis bands.">
+<CalcCard
+	{id}
+	{title}
+	blurb="Musical and acoustic intervals between two frequencies, and fractional-octave analysis bands."
+>
 	<div class="fields">
 		<NumberInput label="Frequency f₁" bind:value={f1} unit="Hz" si min={1e-9} logStep={1.05} />
 		<NumberInput label="Frequency f₂" bind:value={f2} unit="Hz" si min={1e-9} logStep={1.05} />
@@ -60,19 +64,33 @@
 			]}
 		/>
 	</div>
-	<NumberInput label="Find the band containing f" bind:value={f} unit="Hz" si min={1e-6} logStep={1.05} />
+	<NumberInput
+		label="Find the band containing f"
+		bind:value={f}
+		unit="Hz"
+		si
+		min={1e-6}
+		logStep={1.05}
+	/>
 	<Results
 		rows={[
 			{ label: 'Lower edge', value: hz(band.lower) },
 			{ label: 'Exact mid-band', value: hz(band.centre), primary: true },
 			{ label: 'Upper edge', value: hz(band.upper) },
-			{ label: 'Nominal mid-band', value: band.nominal ? formatSI(band.nominal, 'Hz', 4) : '— (1/1, 1/3 only)' }
+			{
+				label: 'Nominal mid-band',
+				value: band.nominal ? formatSI(band.nominal, 'Hz', 4) : '— (1/1, 1/3 only)'
+			}
 		]}
 	/>
 	<div class="bands" role="region" aria-label="Band table" tabindex="-1">
 		<table>
 			<thead>
-				<tr><th class="num">x</th><th class="num">Lower</th><th class="num">Mid-band</th><th class="num">Upper</th>{#if b <= 3}<th class="num">Nominal</th>{/if}</tr>
+				<tr
+					><th class="num">x</th><th class="num">Lower</th><th class="num">Mid-band</th><th
+						class="num">Upper</th
+					>{#if b <= 3}<th class="num">Nominal</th>{/if}</tr
+				>
 			</thead>
 			<tbody>
 				{#each bands as bd (bd.x)}
@@ -88,13 +106,21 @@
 		</table>
 	</div>
 	<p class="note">
-		Bands from 20 Hz to 20 kHz in Hz. Base 10 (G = 10<sup>0.3</sup> ≈ 1.99526) is the IEC 61260-1:2014 / ANSI S1.11 preferred convention;
-		base 2 (G = 2) is the musical one. Reference frequency f<sub>r</sub> = 1 kHz; band x = 0 is centred on (odd fractions) or starts at (even fractions) 1 kHz.
+		Bands from 20 Hz to 20 kHz in Hz. Base 10 (G = 10<sup>0.3</sup> ≈ 1.99526) is the IEC
+		61260-1:2014 / ANSI S1.11 preferred convention; base 2 (G = 2) is the musical one. Reference
+		frequency f<sub>r</sub> = 1 kHz; band x = 0 is centred on (odd fractions) or starts at (even fractions)
+		1 kHz.
 	</p>
 
 	{#snippet formula()}
-		<Tex display math={'\\begin{gathered}N_\\text{oct}=\\log_2\\frac{f_2}{f_1},\\qquad N_\\text{dec}=\\log_{10}\\frac{f_2}{f_1}\\\\[7pt] \\text{cents}=1200\\log_2\\frac{f_2}{f_1}\\end{gathered}'} />
-		<Tex display math={'\\begin{gathered}f_m=f_r\\,G^{x/b}\\quad(b\\text{ odd})\\\\[7pt] f_m=f_r\\,G^{(2x+1)/(2b)}\\quad(b\\text{ even})\\\\[7pt] f_{1,2}=f_m\\,G^{\\mp 1/(2b)}\\end{gathered}'} />
+		<Tex
+			display
+			math={'\\begin{gathered}N_\\text{oct}=\\log_2\\frac{f_2}{f_1},\\qquad N_\\text{dec}=\\log_{10}\\frac{f_2}{f_1}\\\\[7pt] \\text{cents}=1200\\log_2\\frac{f_2}{f_1}\\end{gathered}'}
+		/>
+		<Tex
+			display
+			math={'\\begin{gathered}f_m=f_r\\,G^{x/b}\\quad(b\\text{ odd})\\\\[7pt] f_m=f_r\\,G^{(2x+1)/(2b)}\\quad(b\\text{ even})\\\\[7pt] f_{1,2}=f_m\\,G^{\\mp 1/(2b)}\\end{gathered}'}
+		/>
 	{/snippet}
 </CalcCard>
 

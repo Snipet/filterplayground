@@ -30,7 +30,10 @@ describe('folding', () => {
 				const a = aliasWave(f, fs, phi);
 				for (let n = 0; n < 50; n++) {
 					const t = n / fs;
-					expect(Math.cos(2 * Math.PI * a.fa * t + a.phase)).toBeCloseTo(Math.cos(2 * Math.PI * f * t + phi), 8);
+					expect(Math.cos(2 * Math.PI * a.fa * t + a.phase)).toBeCloseTo(
+						Math.cos(2 * Math.PI * f * t + phi),
+						8
+					);
 				}
 				expect(a.fa).toBeLessThanOrEqual(fs / 2 + 1e-9);
 			}
@@ -66,13 +69,18 @@ describe('anti-alias order requirements', () => {
 				const osr = family === 'bessel' ? [1.1, 2, 16] : [1.1, 1.3, 2, 3.7, 8, 16];
 				const orders = orderVsOsr(family, rp, rs, osr);
 				osr.forEach((r, i) => {
-					const est = estimateFromSpecs(family, { band: 'lowpass', fp: fb, fstop: 2 * r * fb - fb, rp, rs }, { besselNorm: 'mag' });
+					const est = estimateFromSpecs(
+						family,
+						{ band: 'lowpass', fp: fb, fstop: 2 * r * fb - fb, rp, rs },
+						{ besselNorm: 'mag' }
+					);
 					if (Number.isNaN(orders[i])) expect(est.capped).toBe(true);
 					else if (!est.capped) expect(orders[i]).toBe(est.order);
 					else expect(orders[i]).toBeGreaterThan(est.order);
 				});
 				// more oversampling never needs a higher order
-				for (let i = 1; i < orders.length; i++) if (!Number.isNaN(orders[i - 1])) expect(orders[i]).toBeLessThanOrEqual(orders[i - 1]);
+				for (let i = 1; i < orders.length; i++)
+					if (!Number.isNaN(orders[i - 1])) expect(orders[i]).toBeLessThanOrEqual(orders[i - 1]);
 			}
 		}
 	});
@@ -88,15 +96,26 @@ describe('monotonic families via characteristic functions', () => {
 				[1, 30, 1.8]
 			]) {
 				const m = minOrderMonotonic(family, ws, rp, rs);
-				const est = estimateFromSpecs(family, { band: 'lowpass', fp: fb, fstop: ws * fb, rp, rs }, { besselNorm: 'mag' });
+				const est = estimateFromSpecs(
+					family,
+					{ band: 'lowpass', fp: fb, fstop: ws * fb, rp, rs },
+					{ besselNorm: 'mag' }
+				);
 				expect(m.capped).toBe(est.capped);
 				expect(m.order).toBe(est.order);
 				if (!m.capped) {
 					// the estimator's natural frequency is the −3 dB frequency for these families
 					expect((m.f3 * fb) / est.f1).toBeCloseTo(1, 6);
 					// and the designed filter meets the spec exactly at the passband edge
-					const zpk = designAnalog({ family, band: 'lowpass', order: m.order, f1: m.f3 * fb, besselNorm: 'mag' });
-					const att = (f: number) => -20 * Math.log10(abs(freqsZpk(zpk, [2 * Math.PI * f])[0]) / abs(freqsZpk(zpk, [0])[0]));
+					const zpk = designAnalog({
+						family,
+						band: 'lowpass',
+						order: m.order,
+						f1: m.f3 * fb,
+						besselNorm: 'mag'
+					});
+					const att = (f: number) =>
+						-20 * Math.log10(abs(freqsZpk(zpk, [2 * Math.PI * f])[0]) / abs(freqsZpk(zpk, [0])[0]));
 					expect(att(fb)).toBeCloseTo(rp, 6);
 					expect(att(ws * fb)).toBeGreaterThanOrEqual(rs - 1e-6);
 					expect(monotonicAttenuation(family, m.order, rp, ws)).toBeCloseTo(att(ws * fb), 6);

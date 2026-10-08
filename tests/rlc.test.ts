@@ -58,12 +58,15 @@ describe('RLC circuits', () => {
 		it(`${info.id}: ZPK matches the impedance divider`, () => {
 			for (const [R, L, C] of cases) {
 				const zpk = circuitZpk(info.id, R, L, C);
-				const w0 = info.order === 2 ? 1 / Math.sqrt(L * C) : info.family === 'rl' ? R / L : 1 / (R * C);
+				const w0 =
+					info.order === 2 ? 1 / Math.sqrt(L * C) : info.family === 'rl' ? R / L : 1 / (R * C);
 				for (const m of [0.013, 0.31, 0.97, 1.0001, 3.3, 77]) {
 					const w = w0 * m;
 					const h = freqsZpk(zpk, [w])[0];
 					const ref = divider(info.id, R, L, C, w);
-					expect(abs({ re: h.re - ref.re, im: h.im - ref.im })).toBeLessThan(1e-9 * Math.max(1, abs(ref)));
+					expect(abs({ re: h.re - ref.re, im: h.im - ref.im })).toBeLessThan(
+						1e-9 * Math.max(1, abs(ref))
+					);
 				}
 			}
 		});
@@ -122,7 +125,8 @@ describe('RLC circuits', () => {
 		const il = analogTimeResponse(z.iL, 'step', 0.02, 4001);
 		expect(vc.y[vc.y.length - 1]).toBeCloseTo(1, 6);
 		let eR = 0;
-		for (let k = 1; k < il.y.length; k++) eR += 0.5 * R * (il.y[k] ** 2 + il.y[k - 1] ** 2) * (il.t[k] - il.t[k - 1]);
+		for (let k = 1; k < il.y.length; k++)
+			eR += 0.5 * R * (il.y[k] ** 2 + il.y[k - 1] ** 2) * (il.t[k] - il.t[k - 1]);
 		expect(eR / (0.5 * C)).toBeCloseTo(1, 3);
 		// i = C dv/dt
 		const k = 300;
@@ -132,11 +136,19 @@ describe('RLC circuits', () => {
 
 	it('solvers reproduce their targets', () => {
 		for (const known of ['R', 'C'] as const) {
-			const v = solveFirstOrder('rc', 1590, known, known === 'R' ? 4700 : 22e-9, { R: 1, L: 1, C: 1 });
+			const v = solveFirstOrder('rc', 1590, known, known === 'R' ? 4700 : 22e-9, {
+				R: 1,
+				L: 1,
+				C: 1
+			});
 			expect(1 / (2 * Math.PI * v.R * v.C)).toBeCloseTo(1590, 8);
 		}
 		for (const known of ['R', 'L'] as const) {
-			const v = solveFirstOrder('rl', 1590, known, known === 'R' ? 4700 : 0.01, { R: 1, L: 1, C: 1 });
+			const v = solveFirstOrder('rl', 1590, known, known === 'R' ? 4700 : 0.01, {
+				R: 1,
+				L: 1,
+				C: 1
+			});
 			expect(v.R / (2 * Math.PI * v.L)).toBeCloseTo(1590, 8);
 		}
 		for (const fam of ['series', 'parallel'] as const) {

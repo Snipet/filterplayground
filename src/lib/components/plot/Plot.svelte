@@ -148,7 +148,10 @@
 	const innerW = $derived(Math.max(10, width - margin.left - margin.right));
 	const innerH = $derived(Math.max(10, height - margin.top - margin.bottom));
 
-	function finiteExtent(arrays: ArrayLike<number>[], positiveOnly: boolean): [number, number] | null {
+	function finiteExtent(
+		arrays: ArrayLike<number>[],
+		positiveOnly: boolean
+	): [number, number] | null {
 		let lo = Infinity;
 		let hi = -Infinity;
 		for (const a of arrays) {
@@ -262,7 +265,12 @@
 		for (let i = 0; i < n; i++) {
 			const xv = s.x[i];
 			const yv = s.y[i];
-			if (!Number.isFinite(xv) || !Number.isFinite(yv) || (xScale === 'log' && xv <= 0) || (yScale === 'log' && yv <= 0)) {
+			if (
+				!Number.isFinite(xv) ||
+				!Number.isFinite(yv) ||
+				(xScale === 'log' && xv <= 0) ||
+				(yScale === 'log' && yv <= 0)
+			) {
 				pen = false;
 				continue;
 			}
@@ -337,7 +345,8 @@
 
 	function nearestLinear(xsArr: ArrayLike<number>, v: number): number {
 		let best = 0;
-		for (let i = 1; i < xsArr.length; i++) if (Math.abs(xsArr[i] - v) < Math.abs(xsArr[best] - v)) best = i;
+		for (let i = 1; i < xsArr.length; i++)
+			if (Math.abs(xsArr[i] - v) < Math.abs(xsArr[best] - v)) best = i;
 		return best;
 	}
 
@@ -364,7 +373,12 @@
 			onmarkerdrag?.(dragging, nx, ny);
 			return;
 		}
-		if (px >= margin.left && px <= margin.left + innerW && py >= margin.top && py <= margin.top + innerH) {
+		if (
+			px >= margin.left &&
+			px <= margin.left + innerW &&
+			py >= margin.top &&
+			py <= margin.top + innerH
+		) {
 			hoverPx = px;
 			hoverPy = py;
 		} else {
@@ -411,7 +425,13 @@
 		}
 		if (!onplotclick || !svgEl) return;
 		const { px, py } = localPoint(ev);
-		if (px < margin.left || px > margin.left + innerW || py < margin.top || py > margin.top + innerH) return;
+		if (
+			px < margin.left ||
+			px > margin.left + innerW ||
+			py < margin.top ||
+			py > margin.top + innerH
+		)
+			return;
 		onplotclick(xs.invert(px), ys.invert(py), ev);
 	}
 
@@ -427,14 +447,18 @@
 		ev.preventDefault();
 		const step = innerW / 100;
 		const cur = hoverPx ?? margin.left + innerW / 2;
-		hoverPx = Math.max(margin.left, Math.min(margin.left + innerW, cur + (ev.key === 'ArrowLeft' ? -step : step)));
+		hoverPx = Math.max(
+			margin.left,
+			Math.min(margin.left + innerW, cur + (ev.key === 'ArrowLeft' ? -step : step))
+		);
 	}
 
 	function downloadCsv() {
 		const lines = ['series,x,y'];
 		series.forEach((s, i) => {
 			const name = (s.label ?? `series${i + 1}`).replace(/[",\n]/g, ' ');
-			for (let k = 0; k < Math.min(s.x.length, s.y.length); k++) lines.push(`${name},${s.x[k]},${s.y[k]}`);
+			for (let k = 0; k < Math.min(s.x.length, s.y.length); k++)
+				lines.push(`${name},${s.x[k]},${s.y[k]}`);
 		});
 		const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
 		const a = document.createElement('a');
@@ -492,7 +516,12 @@
 			<span class="spacer"></span>
 			{#if toolbar}{@render toolbar()}{/if}
 			{#if exportName}
-				<button class="btn ghost small" type="button" onclick={downloadCsv} title="Download plotted data as CSV">CSV</button>
+				<button
+					class="btn ghost small"
+					type="button"
+					onclick={downloadCsv}
+					title="Download plotted data as CSV">CSV</button
+				>
 			{/if}
 		</figcaption>
 	{/if}
@@ -565,7 +594,12 @@
 							stroke-dasharray={h.dash ?? '4 4'}
 						/>
 						{#if h.label}
-							<text class="reflabel" x={margin.left + innerW - 4} y={ys(h.value) - 4} text-anchor="end">{h.label}</text>
+							<text
+								class="reflabel"
+								x={margin.left + innerW - 4}
+								y={ys(h.value) - 4}
+								text-anchor="end">{h.label}</text
+							>
 						{/if}
 					{/each}
 					{#each vlines as v, i (i)}
@@ -589,20 +623,49 @@
 						{@const color = s.color ?? seriesColor(i)}
 						{#if s.kind === 'area'}
 							<path d={areaPath(s)} fill={color} fill-opacity="0.1" stroke="none" />
-							<path d={linePath(s)} fill="none" stroke={color} stroke-width={s.width ?? 2} stroke-linejoin="round" stroke-linecap="round" opacity={s.opacity ?? 1} />
+							<path
+								d={linePath(s)}
+								fill="none"
+								stroke={color}
+								stroke-width={s.width ?? 2}
+								stroke-linejoin="round"
+								stroke-linecap="round"
+								opacity={s.opacity ?? 1}
+							/>
 						{:else if s.kind === 'stem'}
-							<path d={stemPath(s)} stroke={color} stroke-width={s.width ?? 1.5} opacity={s.opacity ?? 1} />
+							<path
+								d={stemPath(s)}
+								stroke={color}
+								stroke-width={s.width ?? 1.5}
+								opacity={s.opacity ?? 1}
+							/>
 							{#if s.x.length <= 160}
 								{#each Array.from(s.y) as yv, k (k)}
 									{#if Number.isFinite(yv)}
-										<circle cx={xs(s.x[k])} cy={clampPx(ys(yv))} r="3" fill={color} stroke="var(--chart-surface)" stroke-width="1.5" opacity={s.opacity ?? 1} />
+										<circle
+											cx={xs(s.x[k])}
+											cy={clampPx(ys(yv))}
+											r="3"
+											fill={color}
+											stroke="var(--chart-surface)"
+											stroke-width="1.5"
+											opacity={s.opacity ?? 1}
+										/>
 									{/if}
 								{/each}
 							{/if}
 						{:else if s.kind === 'points'}
 							{#each Array.from(s.y) as yv, k (k)}
 								{#if Number.isFinite(yv)}
-									<circle cx={xs(s.x[k])} cy={ys(yv)} r="4" fill={color} stroke="var(--chart-surface)" stroke-width="2" opacity={s.opacity ?? 1} />
+									<circle
+										cx={xs(s.x[k])}
+										cy={ys(yv)}
+										r="4"
+										fill={color}
+										stroke="var(--chart-surface)"
+										stroke-width="2"
+										opacity={s.opacity ?? 1}
+									/>
 								{/if}
 							{/each}
 						{:else}
@@ -624,7 +687,12 @@
 
 				<!-- axes -->
 				<g class="axis">
-					<line x1={margin.left} x2={margin.left + innerW} y1={margin.top + innerH} y2={margin.top + innerH} />
+					<line
+						x1={margin.left}
+						x2={margin.left + innerW}
+						y1={margin.top + innerH}
+						y2={margin.top + innerH}
+					/>
 					<line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + innerH} />
 					{#each xTicks.labelled as t (t)}
 						<text x={xs(t)} y={margin.top + innerH + 16} text-anchor="middle">{xFormat(t)}</text>
@@ -633,7 +701,9 @@
 						<text x={margin.left - 6} y={ys(t) + 4} text-anchor="end">{yFormat(t)}</text>
 					{/each}
 					{#if xLabel}
-						<text class="label" x={margin.left + innerW / 2} y={height - 6} text-anchor="middle">{xLabel}</text>
+						<text class="label" x={margin.left + innerW / 2} y={height - 6} text-anchor="middle"
+							>{xLabel}</text
+						>
 					{/if}
 					{#if yLabel}
 						<text
@@ -649,7 +719,14 @@
 						<line x1={xs(snapX)} x2={xs(snapX)} y1={margin.top} y2={margin.top + innerH} />
 						{#each hoverRows as r, i (i)}
 							{#if Number.isFinite(r.y) && r.y >= domains.yd[0] && r.y <= domains.yd[1]}
-								<circle cx={xs(r.x)} cy={ys(r.y)} r="4" fill={r.color} stroke="var(--chart-surface)" stroke-width="2" />
+								<circle
+									cx={xs(r.x)}
+									cy={ys(r.y)}
+									r="4"
+									fill={r.color}
+									stroke="var(--chart-surface)"
+									stroke-width="2"
+								/>
 							{/if}
 						{/each}
 					</g>
@@ -669,7 +746,14 @@
 							onwheel={(e) => onMarkerWheel(e, m)}
 						>
 							<circle class="hit" cx={mx} cy={my} r="14" />
-							<circle cx={mx} cy={my} r={m.selected ? 8 : 6.5} fill={m.color ?? 'var(--s1)'} stroke="var(--chart-surface)" stroke-width="2" />
+							<circle
+								cx={mx}
+								cy={my}
+								r={m.selected ? 8 : 6.5}
+								fill={m.color ?? 'var(--s1)'}
+								stroke="var(--chart-surface)"
+								stroke-width="2"
+							/>
 							{#if m.label}
 								<text x={mx} y={my + 3.5} text-anchor="middle" class="marker-label">{m.label}</text>
 							{/if}
@@ -682,13 +766,25 @@
 					class="tooltip"
 					style:left={tooltipLeft ? 'auto' : `${hoverPx + 14}px`}
 					style:right={tooltipLeft ? `${width - hoverPx + 14}px` : 'auto'}
-					style:top="{Math.max(4, Math.min((hoverPy ?? 0) - 20, height - 30 - hoverRows.length * 22))}px"
+					style:top="{Math.max(
+						4,
+						Math.min((hoverPy ?? 0) - 20, height - 30 - hoverRows.length * 22)
+					)}px"
 				>
 					<div class="tt-x">{(xTooltipFormat ?? xFormat)(snapX)}{xLabel ? '' : ''}</div>
 					{#each hoverRows as r, i (i)}
 						<div class="tt-row">
 							<svg width="14" height="6" aria-hidden="true"
-								><line x1="1" y1="3" x2="13" y2="3" stroke={r.color} stroke-width="2.5" stroke-dasharray={r.dash} stroke-linecap="round" /></svg
+								><line
+									x1="1"
+									y1="3"
+									x2="13"
+									y2="3"
+									stroke={r.color}
+									stroke-width="2.5"
+									stroke-dasharray={r.dash}
+									stroke-linecap="round"
+								/></svg
 							>
 							<strong>{Number.isFinite(r.y) ? r.fmt(r.y) : '—'}</strong>
 							{#if hoverRows.length > 1}<span class="tt-label">{r.label}</span>{/if}

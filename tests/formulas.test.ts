@@ -56,7 +56,10 @@ describe('analog prototypes', () => {
 		const table = [1.0, 1.3617, 1.7557, 2.1139, 2.4274, 2.7034];
 		const fact = (n: number): number => (n <= 1 ? 1 : n * fact(n - 1));
 		for (let N = 1; N <= 6; N++) {
-			const a = Array.from({ length: N + 1 }, (_, k) => fact(2 * N - k) / (Math.pow(2, N - k) * fact(k) * fact(N - k)));
+			const a = Array.from(
+				{ length: N + 1 },
+				(_, k) => fact(2 * N - k) / (Math.pow(2, N - k) * fact(k) * fact(N - k))
+			);
 			// recurrence θN = (2N−1)θN−1 + s²θN−2 reproduces the closed form
 			const mag = (w: number) => {
 				let re = 0;
@@ -103,7 +106,7 @@ describe('analog prototypes', () => {
 		const p: Complex[] = [];
 		for (let k = 1; k <= N; k++) p.push(exp(c(0, (Math.PI * (2 * k + N - 1)) / (2 * N))));
 		matchRoots(p, buttap(N).p, 1e-12);
-		const th = (2 * 1 - 1) * Math.PI / (2 * N);
+		const th = ((2 * 1 - 1) * Math.PI) / (2 * N);
 		expect(1 / (2 * Math.sin(th))).toBeCloseTo(1.618, 3); // N=5 highest Q pair
 	});
 
@@ -168,7 +171,11 @@ describe('analog prototypes', () => {
 				return out;
 			};
 			const minZero = Math.min(...proto.z.map((z) => Math.abs(z.im)));
-			const k = bisect((kk) => Math.min(...zerosFor(kk).map((z) => Math.abs(z.im))) - minZero, 0.01, 0.999999);
+			const k = bisect(
+				(kk) => Math.min(...zerosFor(kk).map((z) => Math.abs(z.im))) - minZero,
+				0.01,
+				0.999999
+			);
 			matchRoots(zerosFor(k), proto.z, 1e-6);
 			const poles: Complex[] = [];
 			for (let i = 1; i <= Math.floor(N / 2); i++) {
@@ -262,9 +269,15 @@ describe('digital formulas', () => {
 			const den = add(add(c(sec[3]), mul(c(sec[4]), zi)), mul(c(sec[5]), z2));
 			return abs(div(num, den));
 		};
-		expect(20 * Math.log10(ev(biquad({ type: 'peaking', f0: 1000, fs, q: 2, gainDb: 9 }), 1000))).toBeCloseTo(9, 9);
-		expect(20 * Math.log10(ev(biquad({ type: 'lowshelf', f0: 1000, fs, q: 0.7, gainDb: 6 }), 0))).toBeCloseTo(6, 9);
-		expect(20 * Math.log10(ev(biquad({ type: 'highshelf', f0: 1000, fs, q: 0.7, gainDb: -6 }), fs / 2))).toBeCloseTo(-6, 9);
+		expect(
+			20 * Math.log10(ev(biquad({ type: 'peaking', f0: 1000, fs, q: 2, gainDb: 9 }), 1000))
+		).toBeCloseTo(9, 9);
+		expect(
+			20 * Math.log10(ev(biquad({ type: 'lowshelf', f0: 1000, fs, q: 0.7, gainDb: 6 }), 0))
+		).toBeCloseTo(6, 9);
+		expect(
+			20 * Math.log10(ev(biquad({ type: 'highshelf', f0: 1000, fs, q: 0.7, gainDb: -6 }), fs / 2))
+		).toBeCloseTo(-6, 9);
 		expect(ev(biquad({ type: 'bandpass-peak', f0: 1000, fs, q: 4 }), 1000)).toBeCloseTo(4, 9);
 	});
 });
@@ -272,7 +285,9 @@ describe('digital formulas', () => {
 describe('misc', () => {
 	it('Butterworth noise bandwidth', () => {
 		for (const N of [1, 2, 3, 4]) {
-			const integral = simpson((x) => 1 / (1 + Math.pow(x, 2 * N)), 0, 2000, 400000) + 1 / ((2 * N - 1) * Math.pow(2000, 2 * N - 1));
+			const integral =
+				simpson((x) => 1 / (1 + Math.pow(x, 2 * N)), 0, 2000, 400000) +
+				1 / ((2 * N - 1) * Math.pow(2000, 2 * N - 1));
 			expect(integral).toBeCloseTo(Math.PI / (2 * N) / Math.sin(Math.PI / (2 * N)), 4);
 		}
 	});

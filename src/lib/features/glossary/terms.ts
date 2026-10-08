@@ -118,7 +118,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Blackman window',
-		def: 'Three-term cosine window (0.42, 0.5, 0.08) with −58 dB sidelobes falling at 18 dB/octave; its main lobe is three times as wide as the rectangular window\'s.',
+		def: "Three-term cosine window (0.42, 0.5, 0.08) with −58 dB sidelobes falling at 18 dB/octave; its main lobe is three times as wide as the rectangular window's.",
 		see: ['Window function', 'Hann window', 'Hamming window'],
 		tools: ['windows']
 	},
@@ -510,13 +510,13 @@ const TERMS_UNSORTED: Term[] = [
 	{
 		term: 'Intersymbol interference',
 		aka: ['ISI'],
-		def: 'In digital communications, the overlap of one symbol\'s pulse with its neighbours at the sampling instants, caused by band-limiting. Nyquist pulses such as the raised cosine avoid it.',
+		def: "In digital communications, the overlap of one symbol's pulse with its neighbours at the sampling instants, caused by band-limiting. Nyquist pulses such as the raised cosine avoid it.",
 		see: ['Raised-cosine filter', 'Matched filter'],
 		tools: ['special-fir']
 	},
 	{
 		term: 'Kaiser window',
-		def: 'Near-optimal window with a single parameter β that trades main-lobe width for sidelobe level. Kaiser\'s empirical formulas give β and the filter length directly from the required attenuation and transition width.',
+		def: "Near-optimal window with a single parameter β that trades main-lobe width for sidelobe level. Kaiser's empirical formulas give β and the filter length directly from the required attenuation and transition width.",
 		tex: t`w[n]=\frac{I_0\big(\beta\sqrt{1-(2n/M-1)^2}\big)}{I_0(\beta)}`,
 		see: ['Window function', 'FIR filter', 'Main lobe'],
 		tools: ['windows', 'fir-designer', 'order-calculator']
@@ -543,7 +543,7 @@ const TERMS_UNSORTED: Term[] = [
 	{
 		term: 'Leakage',
 		aka: ['spectral leakage'],
-		def: 'When a signal is not periodic within the DFT block, its energy spreads into other bins through the window\'s sidelobes. Tapered windows reduce leakage at the cost of frequency resolution.',
+		def: "When a signal is not periodic within the DFT block, its energy spreads into other bins through the window's sidelobes. Tapered windows reduce leakage at the cost of frequency resolution.",
 		see: ['Window function', 'Sidelobe', 'DFT', 'Scalloping loss'],
 		tools: ['windows']
 	},
@@ -587,7 +587,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Main lobe',
-		def: 'The central peak of a window\'s or filter\'s spectrum. Its width sets the frequency resolution of a spectrum analyser and the transition width of a window-designed FIR filter.',
+		def: "The central peak of a window's or filter's spectrum. Its width sets the frequency resolution of a spectrum analyser and the transition width of a window-designed FIR filter.",
 		see: ['Sidelobe', 'Window function', 'Frequency resolution'],
 		tools: ['windows']
 	},
@@ -645,7 +645,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Normalized frequency',
-		def: 'A frequency divided by a reference so that it no longer depends on the sample rate. Conventions differ: cycles/sample (f/fs), rad/sample (ω = 2πf/fs, Nyquist = π) or MATLAB\'s fraction of Nyquist (f/(fs/2)).',
+		def: "A frequency divided by a reference so that it no longer depends on the sample rate. Conventions differ: cycles/sample (f/fs), rad/sample (ω = 2πf/fs, Nyquist = π) or MATLAB's fraction of Nyquist (f/(fs/2)).",
 		see: ['Nyquist frequency', 'Sample rate'],
 		tools: ['calculators']
 	},
@@ -682,7 +682,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Overflow',
-		def: 'Exceeding the largest representable value in fixed-point arithmetic. Two\'s-complement wrap-around produces large errors (and can trigger limit cycles); saturation clips instead.',
+		def: "Exceeding the largest representable value in fixed-point arithmetic. Two's-complement wrap-around produces large errors (and can trigger limit cycles); saturation clips instead.",
 		see: ['Fixed point', 'Limit cycle'],
 		tools: ['quantization']
 	},
@@ -747,7 +747,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Pole–zero plot',
-		def: 'A map of a transfer function\'s poles (×) and zeros (○) in the s- or z-plane. The frequency response can be read from distances: the gain at a frequency is the product of distances to the zeros divided by that to the poles.',
+		def: "A map of a transfer function's poles (×) and zeros (○) in the s- or z-plane. The frequency response can be read from distances: the gain at a frequency is the product of distances to the zeros divided by that to the poles.",
 		see: ['Pole', 'Zero', 'S-plane', 'Z-plane'],
 		tools: ['pole-zero']
 	},
@@ -812,7 +812,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Resonance',
-		def: 'A strong response at a system\'s natural frequency, produced by complex poles close to the jω axis or unit circle. The peak height of a second-order resonance is about Q.',
+		def: "A strong response at a system's natural frequency, produced by complex poles close to the jω axis or unit circle. The peak height of a second-order resonance is about Q.",
 		see: ['Q factor', 'Natural frequency', 'Resonator'],
 		tools: ['rlc', 'pole-zero']
 	},
@@ -904,7 +904,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Sensitivity',
-		def: 'How much a filter\'s response changes for a small change in a component value or coefficient, often S = (∂H/H)/(∂x/x). High-Q sections and high-order direct forms are the most sensitive.',
+		def: "How much a filter's response changes for a small change in a component value or coefficient, often S = (∂H/H)/(∂x/x). High-Q sections and high-order direct forms are the most sensitive.",
 		see: ['Coefficient quantization', 'E-series', 'Ladder network'],
 		tools: ['active-filters', 'quantization']
 	},
@@ -923,7 +923,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Sidelobe',
-		def: 'Any secondary peak outside the main lobe of a window\'s or filter\'s spectrum. The highest sidelobe sets leakage in spectral analysis and the stopband attenuation of a window-designed FIR filter.',
+		def: "Any secondary peak outside the main lobe of a window's or filter's spectrum. The highest sidelobe sets leakage in spectral analysis and the stopband attenuation of a window-designed FIR filter.",
 		see: ['Main lobe', 'Leakage', 'Window function'],
 		tools: ['windows']
 	},
@@ -1054,7 +1054,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Frequency resolution',
-		def: 'The ability to separate two close tones in a spectrum. It is set by the observation time: tones closer than a few bins (each fs/N wide, depending on the window\'s main-lobe width) merge, so longer blocks resolve finer detail.',
+		def: "The ability to separate two close tones in a spectrum. It is set by the observation time: tones closer than a few bins (each fs/N wide, depending on the window's main-lobe width) merge, so longer blocks resolve finer detail.",
 		see: ['Main lobe', 'Zero padding', 'DFT'],
 		tools: ['windows']
 	}
@@ -1066,11 +1066,7 @@ export const TERMS: Term[] = [...TERMS_UNSORTED].sort((a, b) =>
 
 /** First letter used for the A–Z index ('#' for anything that is not a letter). */
 export function letterOf(term: string): string {
-	const ch = term
-		.normalize('NFKD')
-		.replace(/[̀-ͯ]/g, '')
-		.charAt(0)
-		.toUpperCase();
+	const ch = term.normalize('NFKD').replace(/[̀-ͯ]/g, '').charAt(0).toUpperCase();
 	return /[A-Z]/.test(ch) ? ch : '#';
 }
 

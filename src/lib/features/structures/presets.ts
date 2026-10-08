@@ -9,11 +9,35 @@ import { normalizeTf } from './realize';
 export type PresetId = 'biquad' | 'butter4' | 'ellip3' | 'fir7' | 'firmin';
 
 export const PRESETS: { id: PresetId; label: string; description: string }[] = [
-	{ id: 'biquad', label: 'RBJ biquad (adjustable)', description: 'A single second-order section from the Audio EQ Cookbook — change its type, frequency and Q below.' },
-	{ id: 'butter4', label: '4th-order Butterworth low-pass', description: 'fc = 2 kHz at fs = 48 kHz: four poles, four zeros at z = −1, two sections.' },
-	{ id: 'ellip3', label: '3rd-order elliptic low-pass', description: 'fc = 3 kHz, 1 dB ripple, 40 dB stopband: an odd order, so one section is first order.' },
-	{ id: 'fir7', label: '7-tap linear-phase FIR low-pass', description: 'Hamming-windowed sinc, fc = 6 kHz. Symmetric taps — note what that does to the lattice.' },
-	{ id: 'firmin', label: '8-tap minimum-phase FIR', description: 'A causal half-Gaussian smoother. Its taps decrease monotonically, which puts every zero inside the unit circle: minimum phase, and a lattice with every |k| < 1.' }
+	{
+		id: 'biquad',
+		label: 'RBJ biquad (adjustable)',
+		description:
+			'A single second-order section from the Audio EQ Cookbook — change its type, frequency and Q below.'
+	},
+	{
+		id: 'butter4',
+		label: '4th-order Butterworth low-pass',
+		description: 'fc = 2 kHz at fs = 48 kHz: four poles, four zeros at z = −1, two sections.'
+	},
+	{
+		id: 'ellip3',
+		label: '3rd-order elliptic low-pass',
+		description:
+			'fc = 3 kHz, 1 dB ripple, 40 dB stopband: an odd order, so one section is first order.'
+	},
+	{
+		id: 'fir7',
+		label: '7-tap linear-phase FIR low-pass',
+		description:
+			'Hamming-windowed sinc, fc = 6 kHz. Symmetric taps — note what that does to the lattice.'
+	},
+	{
+		id: 'firmin',
+		label: '8-tap minimum-phase FIR',
+		description:
+			'A causal half-Gaussian smoother. Its taps decrease monotonically, which puts every zero inside the unit circle: minimum phase, and a lattice with every |k| < 1.'
+	}
 ];
 
 export interface BiquadSettings {
@@ -44,7 +68,15 @@ export function presetFilter(id: PresetId, bq: BiquadSettings): PresetFilter {
 			const { sos } =
 				id === 'butter4'
 					? designDigital({ family: 'butter', band: 'lowpass', order: 4, f1: 2000, fs: FS })
-					: designDigital({ family: 'ellip', band: 'lowpass', order: 3, f1: 3000, rp: 1, rs: 40, fs: FS });
+					: designDigital({
+							family: 'ellip',
+							band: 'lowpass',
+							order: 3,
+							f1: 3000,
+							rp: 1,
+							rs: 40,
+							fs: FS
+						});
 			const tf = sos2tf(sos);
 			const { b, a } = normalizeTf(tf.b, tf.a);
 			return { b, a, sos, fs: FS };

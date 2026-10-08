@@ -18,7 +18,8 @@ export interface ParseError {
 	col?: number;
 }
 
-export type ParseResult<T> = { ok: true; value: T; notes: string[] } | { ok: false; error: ParseError };
+export type ParseResult<T> =
+	{ ok: true; value: T; notes: string[] } | { ok: false; error: ParseError };
 
 /** Format an error for display: "Line 2, col 5: …". */
 export function formatError(e: ParseError): string {
@@ -49,7 +50,10 @@ function clean(text: string): string {
 			.replace(/\b(?:as)?array\b/gi, blank)
 			.replace(/\bdtype\s*=\s*[\w.]+/gi, blank)
 			// `name =` assignments (not ==); also C declarations like `double b[3] =`
-			.replace(/(?:\b(?:static|const|float|double|int|let|var)\s+)*[A-Za-z_][\w.]*\s*(?:\[[^\]\n]*\]\s*)*=(?!=)/g, blank)
+			.replace(
+				/(?:\b(?:static|const|float|double|int|let|var)\s+)*[A-Za-z_][\w.]*\s*(?:\[[^\]\n]*\]\s*)*=(?!=)/g,
+				blank
+			)
 	);
 }
 
@@ -142,7 +146,8 @@ function parseRealWord(text: string, w: Word): number {
 		return Number(fr[1]) / den;
 	}
 	if (/^[+-]?(inf|infinity|nan)$/i.test(s)) fail(text, w, `“${s}” is not a finite number.`);
-	if (/[ij]$/.test(s) && /\d/.test(s)) fail(text, w, `“${s}” looks complex — coefficients must be real.`);
+	if (/[ij]$/.test(s) && /\d/.test(s))
+		fail(text, w, `“${s}” looks complex — coefficients must be real.`);
 	fail(text, w, `“${s}” is not a number.`);
 }
 
@@ -179,8 +184,10 @@ export function parseNumbers(input: string, what = 'coefficients'): ParseResult<
 		const text = clean(input);
 		const { rows } = scan(text);
 		const values: number[] = [];
-		for (const row of rows) for (const item of row) for (const w of joinSigns(item)) values.push(parseRealWord(text, w));
-		if (values.length === 0) throw new ParseFailure({ message: `Enter at least one number for the ${what}.` });
+		for (const row of rows)
+			for (const item of row) for (const w of joinSigns(item)) values.push(parseRealWord(text, w));
+		if (values.length === 0)
+			throw new ParseFailure({ message: `Enter at least one number for the ${what}.` });
 		return { value: values };
 	});
 }
@@ -189,7 +196,11 @@ export function parseNumbers(input: string, what = 'coefficients'): ParseResult<
 export function parseScalar(input: string, what = 'value'): ParseResult<number> {
 	const r = parseNumbers(input, what);
 	if (!r.ok) return r;
-	if (r.value.length !== 1) return { ok: false, error: { message: `Expected a single number for the ${what}, found ${r.value.length}.` } };
+	if (r.value.length !== 1)
+		return {
+			ok: false,
+			error: { message: `Expected a single number for the ${what}, found ${r.value.length}.` }
+		};
 	return { ok: true, value: r.value[0], notes: r.notes };
 }
 
@@ -217,7 +228,11 @@ export function parseSos(input: string): ParseResult<number[][]> {
 	const r = parseRows(input);
 	if (!r.ok) return r;
 	const rows = r.value;
-	if (rows.length === 0) return { ok: false, error: { message: 'Enter at least one section: six numbers b0 b1 b2 a0 a1 a2.' } };
+	if (rows.length === 0)
+		return {
+			ok: false,
+			error: { message: 'Enter at least one section: six numbers b0 b1 b2 a0 a1 a2.' }
+		};
 	const notes: string[] = [];
 	let out = rows;
 	if (rows.length === 1 && rows[0].length > 6 && rows[0].length % 6 === 0) {
@@ -319,7 +334,11 @@ function parseComplexWord(text: string, w: Word): Complex[] {
 		return [mk(m[2] === '-' ? -1 : 1)];
 	}
 	if (/^[+-]?(inf|infinity|nan)$/i.test(s)) fail(text, w, `“${s}” is not a finite number.`);
-	fail(text, w, `“${s}” is not a number. Write complex values like 0.5+0.3j, 1-2i, 2j, 0.5±0.3j or 0.9∠30°.`);
+	fail(
+		text,
+		w,
+		`“${s}” is not a number. Write complex values like 0.5+0.3j, 1-2i, 2j, 0.5±0.3j or 0.9∠30°.`
+	);
 }
 
 /** Parse a list of complex numbers (one per line or comma-separated). An empty input is an empty list. */
@@ -328,7 +347,9 @@ export function parseComplexList(input: string): ParseResult<Complex[]> {
 		const text = clean(input);
 		const { rows } = scan(text);
 		const out: Complex[] = [];
-		for (const row of rows) for (const item of row) for (const w of joinComplexWords(item)) out.push(...parseComplexWord(text, w));
+		for (const row of rows)
+			for (const item of row)
+				for (const w of joinComplexWords(item)) out.push(...parseComplexWord(text, w));
 		return { value: out };
 	});
 }
@@ -337,7 +358,10 @@ export function parseComplexList(input: string): ParseResult<Complex[]> {
  * Make a root list closed under conjugation (so that the polynomial has real
  * coefficients). Returns the completed list and the roots that were added.
  */
-export function completeConjugates(rs: readonly Complex[], tol = 1e-9): { roots: Complex[]; added: Complex[] } {
+export function completeConjugates(
+	rs: readonly Complex[],
+	tol = 1e-9
+): { roots: Complex[]; added: Complex[] } {
 	const out = rs.map((r) => ({ ...r }));
 	const used = new Array(out.length).fill(false);
 	const added: Complex[] = [];
@@ -353,7 +377,10 @@ export function completeConjugates(rs: readonly Complex[], tol = 1e-9): { roots:
 		let partner = -1;
 		for (let j = 0; j < out.length; j++) {
 			if (used[j]) continue;
-			if (Math.abs(out[j].re - r.re) <= tol * scale * 1e3 && Math.abs(out[j].im + r.im) <= tol * scale * 1e3) {
+			if (
+				Math.abs(out[j].re - r.re) <= tol * scale * 1e3 &&
+				Math.abs(out[j].im + r.im) <= tol * scale * 1e3
+			) {
 				partner = j;
 				break;
 			}

@@ -28,10 +28,20 @@
 	const M = $derived((n - 1) / 2);
 	const hw = $derived(hilbertFir(n, win));
 	const eq = $derived.by(() => {
-		if (!(edge > 0 && edge < fs / 4)) return { h: null, error: `The band edge must lie between 0 and fs/4 = ${formatSI(fs / 4, 'Hz', 4)}.` };
+		if (!(edge > 0 && edge < fs / 4))
+			return {
+				h: null,
+				error: `The band edge must lie between 0 and fs/4 = ${formatSI(fs / 4, 'Hz', 4)}.`
+			};
 		try {
-			const r = remez(n, [{ f1: edge, f2: fs / 2 - edge, d1: 1, d2: 1, weight: 1 }], fs, { symmetry: 'odd' });
-			return { h: r.h, error: r.converged ? null : 'Remez did not converge; the equiripple taps are not optimal.', r };
+			const r = remez(n, [{ f1: edge, f2: fs / 2 - edge, d1: 1, d2: 1, weight: 1 }], fs, {
+				symmetry: 'odd'
+			});
+			return {
+				h: r.h,
+				error: r.converged ? null : 'Remez did not converge; the equiripple taps are not optimal.',
+				r
+			};
 		} catch (e) {
 			return { h: null, error: e instanceof Error ? e.message : String(e) };
 		}
@@ -41,15 +51,39 @@
 	const COLOR = { window: 'var(--s1)', equiripple: 'var(--s2)' };
 
 	const filters = $derived([
-		{ filter: { kind: 'digital' as const, fs, fir: hw }, label: 'Window method', color: COLOR.window },
-		...(eq.h ? [{ filter: { kind: 'digital' as const, fs, fir: he }, label: 'Equiripple (Remez)', color: COLOR.equiripple }] : [])
+		{
+			filter: { kind: 'digital' as const, fs, fir: hw },
+			label: 'Window method',
+			color: COLOR.window
+		},
+		...(eq.h
+			? [
+					{
+						filter: { kind: 'digital' as const, fs, fir: he },
+						label: 'Equiripple (Remez)',
+						color: COLOR.equiripple
+					}
+				]
+			: [])
 	]);
 
 	// spectrum of the analytic signal: negative frequencies suppressed
 	const spectra = $derived(analyticSpectra(h, 1 / 8, 1 / 160, depth));
 	const specSeries = $derived<Series[]>([
-		{ x: spectra.f.map((f) => f * fs), y: spectra.real, label: 'Real signal x', color: 'var(--s3)', format: (v: number) => `${trimNumber(v, 3)} dB` },
-		{ x: spectra.f.map((f) => f * fs), y: spectra.analytic, label: 'Analytic x + j·H{x}', color: COLOR[method], format: (v: number) => `${trimNumber(v, 3)} dB` }
+		{
+			x: spectra.f.map((f) => f * fs),
+			y: spectra.real,
+			label: 'Real signal x',
+			color: 'var(--s3)',
+			format: (v: number) => `${trimNumber(v, 3)} dB`
+		},
+		{
+			x: spectra.f.map((f) => f * fs),
+			y: spectra.analytic,
+			label: 'Analytic x + j·H{x}',
+			color: COLOR[method],
+			format: (v: number) => `${trimNumber(v, 3)} dB`
+		}
 	]);
 	const suppression = $derived.by(() => {
 		// image level near −fc relative to the peak
@@ -61,7 +95,14 @@
 	});
 
 	const tapSeries = $derived<Series[]>([
-		{ x: h.map((_, i) => i), y: h, label: 'h[n]', color: COLOR[method], kind: 'stem', format: (v: number) => trimNumber(v, 5) }
+		{
+			x: h.map((_, i) => i),
+			y: h,
+			label: 'h[n]',
+			color: COLOR[method],
+			kind: 'stem',
+			format: (v: number) => trimNumber(v, 5)
+		}
 	]);
 
 	// demo
@@ -76,17 +117,34 @@
 
 	const ripple = (hh: number[]) => {
 		let worst = 0;
-		for (const f of linspace(edge, fs / 2 - edge, 400)) worst = Math.max(worst, Math.abs(amplitude(hh, f / fs, true) - 1));
+		for (const f of linspace(edge, fs / 2 - edge, 400))
+			worst = Math.max(worst, Math.abs(amplitude(hh, f / fs, true) - 1));
 		return worst;
 	};
 	const stats = $derived.by((): Stat[] => {
 		const fm2 = foldedMultiplies(h);
 		return [
-			{ label: 'Taps N', value: `${n} (type III)`, hint: 'Odd length, antisymmetric: zeros at DC and fs/2. With the delay removed the phase is exactly −90° wherever A(f) > 0.' },
-			{ label: 'Delay M', value: `${M} samples · ${formatSI(M / fs, 's', 3)}`, hint: 'The real path must be delayed by the same M samples' },
-			{ label: 'Ripple, window', value: `±${trimNumber(ripple(hw), 3)}`, hint: `Max |A − 1| between ${formatSI(edge, 'Hz', 3)} and fs/2 − ${formatSI(edge, 'Hz', 3)}` },
+			{
+				label: 'Taps N',
+				value: `${n} (type III)`,
+				hint: 'Odd length, antisymmetric: zeros at DC and fs/2. With the delay removed the phase is exactly −90° wherever A(f) > 0.'
+			},
+			{
+				label: 'Delay M',
+				value: `${M} samples · ${formatSI(M / fs, 's', 3)}`,
+				hint: 'The real path must be delayed by the same M samples'
+			},
+			{
+				label: 'Ripple, window',
+				value: `±${trimNumber(ripple(hw), 3)}`,
+				hint: `Max |A − 1| between ${formatSI(edge, 'Hz', 3)} and fs/2 − ${formatSI(edge, 'Hz', 3)}`
+			},
 			...(eq.h ? [{ label: 'Ripple, equiripple', value: `±${trimNumber(ripple(he), 3)}` }] : []),
-			{ label: 'Multiplies / sample', value: `${fm2.folded} (folded)`, hint: `Every other tap is zero: ${fm2.nonzero} non-zero taps, antisymmetric pairs share a multiplier` },
+			{
+				label: 'Multiplies / sample',
+				value: `${fm2.folded} (folded)`,
+				hint: `Every other tap is zero: ${fm2.nonzero} non-zero taps, antisymmetric pairs share a multiplier`
+			},
 			{
 				label: 'Envelope error (demo)',
 				value: trimNumber(demo.maxErr, 3),
@@ -107,26 +165,70 @@
 {#if eq.error}<Callout kind={eq.h ? 'warning' : 'danger'}>{eq.error}</Callout>{/if}
 <StatGrid {stats} />
 
-<ResponseView {filters} views={[]} magMode="linear" title="Magnitude (ideal: 1 everywhere except DC and fs/2)" />
+<ResponseView
+	{filters}
+	views={[]}
+	magMode="linear"
+	title="Magnitude (ideal: 1 everywhere except DC and fs/2)"
+/>
 
 <div class="two">
-	<Card title="Spectrum of the analytic signal" subtitle={`Two-sided, from the AM demo. The analytic signal keeps only positive frequencies: the image at −fs/8 is ${trimNumber(suppression, 3)} dB down.`}>
-		<Plot series={specSeries} xDomain={[-fs / 2, fs / 2]} yDomain={[-100, 5]} xLabel="Frequency (Hz)" yLabel="dB" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={220} />
+	<Card
+		title="Spectrum of the analytic signal"
+		subtitle={`Two-sided, from the AM demo. The analytic signal keeps only positive frequencies: the image at −fs/8 is ${trimNumber(suppression, 3)} dB down.`}
+	>
+		<Plot
+			series={specSeries}
+			xDomain={[-fs / 2, fs / 2]}
+			yDomain={[-100, 5]}
+			xLabel="Frequency (Hz)"
+			yLabel="dB"
+			xFormat={freqFormat}
+			xTooltipFormat={(v) => formatSI(v, 'Hz', 4)}
+			height={220}
+		/>
 	</Card>
-	<Card title="Taps ({method === 'window' ? 'window method' : 'equiripple'})" subtitle="Antisymmetric about the centre; every even offset is zero.">
-		<Plot series={tapSeries} vlines={[{ value: M, label: 'centre' }]} xLabel="n" height={220} exportName="hilbert-taps" />
+	<Card
+		title="Taps ({method === 'window' ? 'window method' : 'equiripple'})"
+		subtitle="Antisymmetric about the centre; every even offset is zero."
+	>
+		<Plot
+			series={tapSeries}
+			vlines={[{ value: M, label: 'centre' }]}
+			xLabel="n"
+			height={220}
+			exportName="hilbert-taps"
+		/>
 	</Card>
 </div>
 
-<Card title="Demo: envelope of an AM signal" subtitle={'x[n] = (1 + m·cos 2π·fm·n)·cos 2π·fc·n with fc = fs/8 and fm = fs/160. The magnitude of the analytic signal x + j·H{x} is the envelope.'}>
-	<Plot series={demoSeries} xLabel="Sample n (input time)" yLabel="Amplitude" height={260} exportName="hilbert-envelope" />
+<Card
+	title="Demo: envelope of an AM signal"
+	subtitle={'x[n] = (1 + m·cos 2π·fm·n)·cos 2π·fc·n with fc = fs/8 and fm = fs/160. The magnitude of the analytic signal x + j·H{x} is the envelope.'}
+>
+	<Plot
+		series={demoSeries}
+		xLabel="Sample n (input time)"
+		yLabel="Amplitude"
+		height={260}
+		exportName="hilbert-envelope"
+	/>
 	{#if !compensate}
-		<p class="small muted note">Without delaying the real path by M = {M} samples, x and H{'{'}x{'}'} no longer form a quadrature pair: the “envelope” ripples at 2·f_c.</p>
+		<p class="small muted note">
+			Without delaying the real path by M = {M} samples, x and H{'{'}x{'}'} no longer form a quadrature
+			pair: the “envelope” ripples at 2·f_c.
+		</p>
 	{/if}
 </Card>
 
 <Card title="Export">
-	<ExportPanel kind="digital" fir={h} {fs} recipes={[{ label: 'SciPy', code: scipy }]} name="hilbert" />
+	<ExportPanel
+		kind="digital"
+		fir={h}
+		{fs}
+		recipes={[{ label: 'SciPy', code: scipy }]}
+		name="hilbert"
+	/>
 </Card>
 
 <style>

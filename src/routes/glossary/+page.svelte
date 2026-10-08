@@ -53,11 +53,28 @@
 	}
 </script>
 
-<ToolLayout slug="glossary" related={['formulas', 'calculators', 'analog-designer', 'fir-designer']}>
+<ToolLayout
+	slug="glossary"
+	related={['formulas', 'calculators', 'analog-designer', 'fir-designer']}
+>
 	<div class="finder">
 		<label class="search">
 			<span class="visually-hidden">Search the glossary</span>
-			<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+			<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"
+				><circle
+					cx="8.5"
+					cy="8.5"
+					r="5.5"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.8"
+				/><path
+					d="M13 13l4.5 4.5"
+					stroke="currentColor"
+					stroke-width="1.8"
+					stroke-linecap="round"
+				/></svg
+			>
 			<input
 				type="search"
 				placeholder="Search terms and definitions — e.g. “ripple”, “Q”, “delay”"
@@ -80,40 +97,62 @@
 			{#if query.trim()}
 				{filtered.length} of {TERMS.length} terms match “{query.trim()}”.
 			{:else}
-				{TERMS.length} terms. Each has a stable link — click a term's name to copy it from the address bar.
+				{TERMS.length} terms. Each has a stable link — click a term's name to copy it from the address
+				bar.
 			{/if}
 		</p>
 	</div>
 
 	{#if filtered.length === 0}
 		<p class="muted empty">
-			Nothing matches “{query}”. Try a shorter word, or look in the <a href={toolHref('formulas')}>formula reference</a>.
+			Nothing matches “{query}”. Try a shorter word, or look in the
+			<a href={toolHref('formulas')}>formula reference</a>.
 		</p>
 	{/if}
 
 	{#each groups as g (g.letter)}
-		<section class="letter" id="letter-{g.letter.toLowerCase()}" aria-labelledby="letter-{g.letter.toLowerCase()}-h">
+		<section
+			class="letter"
+			id="letter-{g.letter.toLowerCase()}"
+			aria-labelledby="letter-{g.letter.toLowerCase()}-h"
+		>
 			<h2 id="letter-{g.letter.toLowerCase()}-h">{g.letter}</h2>
 			<dl>
 				{#each g.terms as t (t.term)}
 					{@const id = slugify(t.term)}
 					<div class="entry" {id} tabindex="-1">
 						<dt>
-							<a class="name" href="#{id}">{#each highlight(t.term) as part, i (i)}{#if part.hit}<mark>{part.s}</mark>{:else}{part.s}{/if}{/each}</a>
-							{#if t.aka?.length}<span class="aka">also {#each highlight(t.aka.join(', ')) as part, i (i)}{#if part.hit}<mark>{part.s}</mark>{:else}{part.s}{/if}{/each}</span>{/if}
+							<a class="name" href="#{id}"
+								>{#each highlight(t.term) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
+										>{:else}{part.s}{/if}{/each}</a
+							>
+							{#if t.aka?.length}<span class="aka"
+									>also {#each highlight(t.aka.join(', ')) as part, i (i)}{#if part.hit}<mark
+												>{part.s}</mark
+											>{:else}{part.s}{/if}{/each}</span
+								>{/if}
 						</dt>
 						<dd>
-							<p class="def">{#each highlight(t.def) as part, i (i)}{#if part.hit}<mark>{part.s}</mark>{:else}{part.s}{/if}{/each}</p>
+							<p class="def">
+								{#each highlight(t.def) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
+										>{:else}{part.s}{/if}{/each}
+							</p>
 							{#if t.tex}<div class="tex"><Tex math={`\\displaystyle ${t.tex}`} /></div>{/if}
 							{#if t.see?.length || t.tools?.length}
 								<p class="links small">
 									{#if t.see?.length}
 										<span class="lbl">See also</span>
-										{#each t.see as s, i (s)}{#if i > 0}{', '}{/if}<a href="#{slugify(s)}" onclick={(e) => goTo(e, slugify(s))}>{s}</a>{/each}
+										{#each t.see as s, i (s)}{#if i > 0}{', '}{/if}<a
+												href="#{slugify(s)}"
+												onclick={(e) => goTo(e, slugify(s))}>{s}</a
+											>{/each}
 									{/if}
 									{#if t.tools?.length}
 										<span class="lbl tools-lbl">Try</span>
-										{#each t.tools as slug, i (slug)}{#if i > 0}{', '}{/if}<a class="tool" href={toolHref(slug)}>{toolBySlug(slug)?.nav ?? slug}</a>{/each}
+										{#each t.tools as slug, i (slug)}{#if i > 0}{', '}{/if}<a
+												class="tool"
+												href={toolHref(slug)}>{toolBySlug(slug)?.nav ?? slug}</a
+											>{/each}
 									{/if}
 								</p>
 							{/if}

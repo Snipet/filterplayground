@@ -30,8 +30,12 @@
 	<div class="bar">
 		<span class="lang">{language}</span>
 		<span class="actions">
-			{#if filename}<button class="btn ghost small" type="button" onclick={download}>Download</button>{/if}
-			<button class="btn ghost small" type="button" onclick={copy} aria-live="polite">{copied ? 'Copied ✓' : 'Copy'}</button>
+			{#if filename}<button class="btn ghost small" type="button" onclick={download}
+					>Download</button
+				>{/if}
+			<button class="btn ghost small" type="button" onclick={copy} aria-live="polite"
+				>{copied ? 'Copied ✓' : 'Copy'}</button
+			>
 		</span>
 	</div>
 	<pre style:max-height={maxHeight}><code>{code}</code></pre>

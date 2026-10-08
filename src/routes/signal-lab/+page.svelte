@@ -72,7 +72,9 @@
 	let firFc = $state(2000);
 	let firWin = $state<'hann' | 'hamming' | 'blackman' | 'kaiser'>('hamming');
 	let pasteKind = $state<'sos' | 'fir'>('sos');
-	let pasteText = $state('# 2nd-order Butterworth high-pass at 300 Hz (fs = 48 kHz)\n0.9726136, -1.9452273, 0.9726136, 1, -1.9444777, 0.9459768');
+	let pasteText = $state(
+		'# 2nd-order Butterworth high-pass at 300 Hz (fs = 48 kHz)\n0.9726136, -1.9452273, 0.9726136, 1, -1.9444777, 0.9459768'
+	);
 
 	let winLen = $state<number>(20);
 	let winStart = $state(0);
@@ -95,48 +97,101 @@
 
 	// ---------------- filter ----------------
 	let lastPasted: DigitalFilter | null = null;
-	const filterResult = $derived.by((): { filter: DigitalFilter | null; error: string | null; label: string } => {
-		try {
-			switch (source) {
-				case 'design': {
-					const lo = Math.min(f1, nyq * 0.95);
-					const hi = Math.min(Math.max(f2, lo * 1.05), nyq * 0.98);
-					const d = designDigital({ family, band, order, f1: lo, f2: hi, rp, rs, fs });
-					const name = { butter: 'Butterworth', cheby1: 'Chebyshev I', cheby2: 'Chebyshev II', ellip: 'Elliptic', bessel: 'Bessel' }[family];
-					const bname = { lowpass: 'low-pass', highpass: 'high-pass', bandpass: 'band-pass', bandstop: 'band-stop' }[band];
-					return { filter: { kind: 'digital', fs, sos: d.sos }, error: null, label: `${name} ${bname}, order ${isBand ? 2 * order : order}` };
-				}
-				case 'biquad':
-					return { filter: { kind: 'digital', fs, sos: [biquad({ type: bqType, f0: Math.min(bqF0, nyq * 0.98), fs, q: bqQ, gainDb: bqGain })] }, error: null, label: `RBJ ${bqInfo.name}` };
-				case 'fir': {
-					const n = firTaps % 2 === 0 ? firTaps + 1 : firTaps;
-					const h = firwin(n, [Math.min(firFc, nyq * 0.98)], { type: firWin, param: firWin === 'kaiser' ? 8 : undefined }, true, fs);
-					return { filter: { kind: 'digital', fs, fir: h }, error: null, label: `${n}-tap FIR low-pass` };
-				}
-				case 'paste': {
-					if (pasteKind === 'sos') {
-						const r = parseSos(pasteText);
-						if (!r.ok) throw new Error(formatError(r.error));
-						r.value.forEach((row, i) => {
-							if (row[3] === 0) throw new Error(`Section ${i + 1}: a₀ must be non-zero.`);
-						});
-						lastPasted = { kind: 'digital', fs, sos: r.value };
-					} else {
-						const r = parseNumbers(pasteText, 'FIR taps');
-						if (!r.ok) throw new Error(formatError(r.error));
-						if (r.value.length > 4096) throw new Error('At most 4096 taps, please.');
-						lastPasted = { kind: 'digital', fs, fir: r.value };
+	const filterResult = $derived.by(
+		(): { filter: DigitalFilter | null; error: string | null; label: string } => {
+			try {
+				switch (source) {
+					case 'design': {
+						const lo = Math.min(f1, nyq * 0.95);
+						const hi = Math.min(Math.max(f2, lo * 1.05), nyq * 0.98);
+						const d = designDigital({ family, band, order, f1: lo, f2: hi, rp, rs, fs });
+						const name = {
+							butter: 'Butterworth',
+							cheby1: 'Chebyshev I',
+							cheby2: 'Chebyshev II',
+							ellip: 'Elliptic',
+							bessel: 'Bessel'
+						}[family];
+						const bname = {
+							lowpass: 'low-pass',
+							highpass: 'high-pass',
+							bandpass: 'band-pass',
+							bandstop: 'band-stop'
+						}[band];
+						return {
+							filter: { kind: 'digital', fs, sos: d.sos },
+							error: null,
+							label: `${name} ${bname}, order ${isBand ? 2 * order : order}`
+						};
 					}
-					return { filter: lastPasted, error: null, label: pasteKind === 'sos' ? 'Pasted SOS' : 'Pasted FIR' };
+					case 'biquad':
+						return {
+							filter: {
+								kind: 'digital',
+								fs,
+								sos: [
+									biquad({
+										type: bqType,
+										f0: Math.min(bqF0, nyq * 0.98),
+										fs,
+										q: bqQ,
+										gainDb: bqGain
+									})
+								]
+							},
+							error: null,
+							label: `RBJ ${bqInfo.name}`
+						};
+					case 'fir': {
+						const n = firTaps % 2 === 0 ? firTaps + 1 : firTaps;
+						const h = firwin(
+							n,
+							[Math.min(firFc, nyq * 0.98)],
+							{ type: firWin, param: firWin === 'kaiser' ? 8 : undefined },
+							true,
+							fs
+						);
+						return {
+							filter: { kind: 'digital', fs, fir: h },
+							error: null,
+							label: `${n}-tap FIR low-pass`
+						};
+					}
+					case 'paste': {
+						if (pasteKind === 'sos') {
+							const r = parseSos(pasteText);
+							if (!r.ok) throw new Error(formatError(r.error));
+							r.value.forEach((row, i) => {
+								if (row[3] === 0) throw new Error(`Section ${i + 1}: a₀ must be non-zero.`);
+							});
+							lastPasted = { kind: 'digital', fs, sos: r.value };
+						} else {
+							const r = parseNumbers(pasteText, 'FIR taps');
+							if (!r.ok) throw new Error(formatError(r.error));
+							if (r.value.length > 4096) throw new Error('At most 4096 taps, please.');
+							lastPasted = { kind: 'digital', fs, fir: r.value };
+						}
+						return {
+							filter: lastPasted,
+							error: null,
+							label: pasteKind === 'sos' ? 'Pasted SOS' : 'Pasted FIR'
+						};
+					}
 				}
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				return {
+					filter: source === 'paste' && lastPasted ? { ...lastPasted, fs } : null,
+					error: msg,
+					label: 'Last valid filter'
+				};
 			}
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			return { filter: source === 'paste' && lastPasted ? { ...lastPasted, fs } : null, error: msg, label: 'Last valid filter' };
 		}
-	});
+	);
 	const filter = $derived(filterResult.filter);
-	const unstable = $derived(filter && !filter.fir ? !isStable(digitalZpk(filter), 'digital') : false);
+	const unstable = $derived(
+		filter && !filter.fir ? !isStable(digitalZpk(filter), 'digital') : false
+	);
 
 	// ---------------- signal generation + processing (debounced) ----------------
 	interface Processed {
@@ -149,7 +204,14 @@
 	let busy = $state(false);
 	let inputCache: { key: string; x: Float64Array } | null = null;
 
-	const sigSpec = $derived({ type: sigType, toneF, toneF2, rate, fs, file: sigType === 'file' ? fileAudio : null });
+	const sigSpec = $derived({
+		type: sigType,
+		toneF,
+		toneF2,
+		rate,
+		fs,
+		file: sigType === 'file' ? fileAudio : null
+	});
 
 	function generate(spec: typeof sigSpec): Float64Array {
 		const n = Math.round(DURATION * spec.fs);
@@ -224,23 +286,42 @@
 		const { pin, pout, rin, rout, g, match } = levels;
 		const out: Stat[] = [
 			{ label: 'Input RMS', value: `${trimNumber(dbfs(rin), 3)} dBFS` },
-			{ label: 'Input peak', value: `${trimNumber(dbfs(pin), 3)} dBFS`, hint: `Crest factor ${trimNumber(dbfs(pin) - dbfs(rin), 3)} dB` },
+			{
+				label: 'Input peak',
+				value: `${trimNumber(dbfs(pin), 3)} dBFS`,
+				hint: `Crest factor ${trimNumber(dbfs(pin) - dbfs(rin), 3)} dB`
+			},
 			{ label: 'Output RMS', value: processed.blewUp ? '∞' : `${trimNumber(dbfs(rout), 3)} dBFS` },
 			{
 				label: 'Output peak',
 				value: processed.blewUp ? '∞' : `${trimNumber(dbfs(pout), 3)} dBFS`,
 				status: processed.blewUp || pout > 1 ? 'critical' : undefined,
-				hint: pout > 1 ? 'Above 0 dBFS: this would clip in a real fixed-point system' : `Crest factor ${trimNumber(dbfs(pout) - dbfs(rout), 3)} dB`
+				hint:
+					pout > 1
+						? 'Above 0 dBFS: this would clip in a real fixed-point system'
+						: `Crest factor ${trimNumber(dbfs(pout) - dbfs(rout), 3)} dB`
 			},
-			{ label: 'Level change (RMS)', value: processed.blewUp ? '—' : `${dbfs(rout) - dbfs(rin) >= 0 ? '+' : ''}${trimNumber(dbfs(rout) - dbfs(rin), 3)} dB` },
+			{
+				label: 'Level change (RMS)',
+				value: processed.blewUp
+					? '—'
+					: `${dbfs(rout) - dbfs(rin) >= 0 ? '+' : ''}${trimNumber(dbfs(rout) - dbfs(rin), 3)} dB`
+			},
 			{
 				label: 'Playback gain',
 				value: g < 1 ? `${trimNumber(dbfs(g), 3)} dB` : '0 dB',
 				status: g < 1 ? 'warning' : 'good',
-				hint: g < 1 ? 'Both signals are turned down by the same amount so that no peak exceeds −6 dBFS' : 'No limiting needed: every peak is at or below −6 dBFS'
+				hint:
+					g < 1
+						? 'Both signals are turned down by the same amount so that no peak exceeds −6 dBFS'
+						: 'No limiting needed: every peak is at or below −6 dBFS'
 			}
 		];
-		if (matchLoudness) out.push({ label: 'Loudness match', value: `${match >= 1 ? '+' : ''}${trimNumber(dbfs(match), 3)} dB on output` });
+		if (matchLoudness)
+			out.push({
+				label: 'Loudness match',
+				value: `${match >= 1 ? '+' : ''}${trimNumber(dbfs(match), 3)} dB on output`
+			});
 		return out;
 	});
 
@@ -255,7 +336,8 @@
 		const a = new Float32Array(processed.x.length);
 		const b = new Float32Array(processed.y.length);
 		for (let i = 0; i < a.length; i++) a[i] = processed.x[i] * gA;
-		for (let i = 0; i < b.length; i++) b[i] = processed.blewUp ? 0 : Math.max(-1, Math.min(1, processed.y[i] * gB));
+		for (let i = 0; i < b.length; i++)
+			b[i] = processed.blewUp ? 0 : Math.max(-1, Math.min(1, processed.y[i] * gB));
 		return { a, b };
 	}
 
@@ -296,7 +378,8 @@
 
 	function onKey(e: KeyboardEvent) {
 		const tgt = e.target as HTMLElement;
-		if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT')) return;
+		if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT'))
+			return;
 		if (e.key === 'b' || e.key === 'B') abToggle();
 	}
 
@@ -382,12 +465,23 @@
 			{ x: spectra.f, y: spectra.pin, label: 'Input', color: 'var(--s1)', format: fmt },
 			{ x: spectra.f, y: spectra.pout, label: 'Output', color: 'var(--s2)', format: fmt }
 		];
-		if (hOverlay) s.push({ x: spectra.f, y: hOverlay.y, label: '|H(f)|, shifted', color: 'var(--s3)', dash: '6 4', format: (v) => `${trimNumber(v - hOverlay!.offset, 4)} dB (|H|)` });
+		if (hOverlay)
+			s.push({
+				x: spectra.f,
+				y: hOverlay.y,
+				label: '|H(f)|, shifted',
+				color: 'var(--s3)',
+				dash: '6 4',
+				format: (v) => `${trimNumber(v - hOverlay!.offset, 4)} dB (|H|)`
+			});
 		return s;
 	});
 	const specDomain = $derived.by((): [number, number] => {
 		if (!spectra) return [-100, 0];
-		const top = Math.max(...spectra.pin.filter(Number.isFinite), ...spectra.pout.filter(Number.isFinite));
+		const top = Math.max(
+			...spectra.pin.filter(Number.isFinite),
+			...spectra.pout.filter(Number.isFinite)
+		);
 		const t = Math.ceil((top + 6) / 10) * 10;
 		return [t - 110, t];
 	});
@@ -400,22 +494,43 @@
 		{ value: 'ellip' as const, label: 'Elliptic' },
 		{ value: 'bessel' as const, label: 'Bessel' }
 	];
-	const typeOptions = BIQUAD_TYPES.map((t) => ({ value: t.id, label: t.name, group: t.firstOrder ? 'First order' : 'Second order' }));
+	const typeOptions = BIQUAD_TYPES.map((t) => ({
+		value: t.id,
+		label: t.name,
+		group: t.firstOrder ? 'First order' : 'Second order'
+	}));
 	const hzTip = (v: number) => formatSI(v, 'Hz', 4);
 	const msFmt = (v: number) => `${trimNumber(v, 4)} ms`;
 </script>
 
 <svelte:window onkeydown={onKey} />
 
-<ToolLayout slug="signal-lab" related={['biquad', 'iir-designer', 'fir-designer', 'parametric-eq', 'windows']}>
+<ToolLayout
+	slug="signal-lab"
+	related={['biquad', 'iir-designer', 'fir-designer', 'parametric-eq', 'windows']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Test signal">
 			<Select label="Signal" bind:value={sigType} options={signalOptions} />
 			<p class="small muted desc">{sigInfo.description}</p>
 			{#if sigInfo.freq === 'tone'}
-				<Slider label={sigType === 'twotone' ? 'Low tone' : 'Frequency'} bind:value={toneF} min={sigType === 'saw' || sigType === 'square' ? 55 : 20} max={sigType === 'twotone' ? 2000 : 5000} log unit="Hz" />
+				<Slider
+					label={sigType === 'twotone' ? 'Low tone' : 'Frequency'}
+					bind:value={toneF}
+					min={sigType === 'saw' || sigType === 'square' ? 55 : 20}
+					max={sigType === 'twotone' ? 2000 : 5000}
+					log
+					unit="Hz"
+				/>
 				{#if sigType === 'twotone'}
-					<Slider label="High tone" bind:value={toneF2} min={1000} max={Math.min(20000, nyq * 0.95)} log unit="Hz" />
+					<Slider
+						label="High tone"
+						bind:value={toneF2}
+						min={1000}
+						max={Math.min(20000, nyq * 0.95)}
+						log
+						unit="Hz"
+					/>
 				{/if}
 			{:else if sigInfo.freq === 'rate'}
 				<Slider label="Clicks per second" bind:value={rate} min={1} max={100} log unit="Hz" />
@@ -426,7 +541,10 @@
 					<input type="file" accept="audio/*" onchange={onFile} />
 				</label>
 				{#if fileBusy}<p class="small muted">Decoding…</p>{/if}
-				{#if fileName && fileAudio}<p class="small muted">{fileName}: {trimNumber(fileAudio.data.length / fileAudio.fs, 3)} s (first 10 s at most), mono.</p>{/if}
+				{#if fileName && fileAudio}<p class="small muted">
+						{fileName}: {trimNumber(fileAudio.data.length / fileAudio.fs, 3)} s (first 10 s at most),
+						mono.
+					</p>{/if}
 				{#if fileError}<p class="small err" role="alert">✕ {fileError}</p>{/if}
 			{/if}
 			<Segmented
@@ -463,15 +581,50 @@
 					]}
 				/>
 				<Slider label="Order" bind:value={order} min={1} max={isBand ? 6 : 12} integer />
-				<Slider label={isBand ? 'Lower edge f₁' : 'Cutoff fc'} bind:value={f1} min={20} max={nyq * 0.95} log unit="Hz" />
-				{#if isBand}<Slider label="Upper edge f₂" bind:value={f2} min={20} max={nyq * 0.98} log unit="Hz" />{/if}
-				{#if family === 'cheby1' || family === 'ellip'}<Slider label="Passband ripple" bind:value={rp} min={0.1} max={6} log unit="dB" />{/if}
-				{#if family === 'cheby2' || family === 'ellip'}<Slider label="Stopband attenuation" bind:value={rs} min={20} max={100} step={1} unit="dB" />{/if}
+				<Slider
+					label={isBand ? 'Lower edge f₁' : 'Cutoff fc'}
+					bind:value={f1}
+					min={20}
+					max={nyq * 0.95}
+					log
+					unit="Hz"
+				/>
+				{#if isBand}<Slider
+						label="Upper edge f₂"
+						bind:value={f2}
+						min={20}
+						max={nyq * 0.98}
+						log
+						unit="Hz"
+					/>{/if}
+				{#if family === 'cheby1' || family === 'ellip'}<Slider
+						label="Passband ripple"
+						bind:value={rp}
+						min={0.1}
+						max={6}
+						log
+						unit="dB"
+					/>{/if}
+				{#if family === 'cheby2' || family === 'ellip'}<Slider
+						label="Stopband attenuation"
+						bind:value={rs}
+						min={20}
+						max={100}
+						step={1}
+						unit="dB"
+					/>{/if}
 			{:else if source === 'biquad'}
 				<Select label="Type" bind:value={bqType} options={typeOptions} />
 				<Slider label="Frequency f₀" bind:value={bqF0} min={20} max={nyq * 0.95} log unit="Hz" />
 				{#if bqInfo.usesQ}<Slider label="Q" bind:value={bqQ} min={0.1} max={50} log />{/if}
-				{#if bqInfo.usesGain}<Slider label="Gain" bind:value={bqGain} min={-24} max={24} step={0.5} unit="dB" />{/if}
+				{#if bqInfo.usesGain}<Slider
+						label="Gain"
+						bind:value={bqGain}
+						min={-24}
+						max={24}
+						step={0.5}
+						unit="dB"
+					/>{/if}
 			{:else if source === 'fir'}
 				<Slider label="Taps" bind:value={firTaps} min={11} max={501} integer />
 				<Slider label="Cutoff" bind:value={firFc} min={20} max={nyq * 0.95} log unit="Hz" />
@@ -485,7 +638,13 @@
 						{ value: 'kaiser', label: 'Kaiser (β = 8)' }
 					]}
 				/>
-				<p class="small muted desc">Linear phase: a delay of {trimNumber((firTaps - 1) / 2, 4)} samples = {formatSI((firTaps - 1) / 2 / fs, 's', 3)}.</p>
+				<p class="small muted desc">
+					Linear phase: a delay of {trimNumber((firTaps - 1) / 2, 4)} samples = {formatSI(
+						(firTaps - 1) / 2 / fs,
+						's',
+						3
+					)}.
+				</p>
 			{:else}
 				<Segmented
 					size="small"
@@ -496,10 +655,18 @@
 					]}
 				/>
 				<label class="paste">
-					<span>{pasteKind === 'sos' ? 'Sections: b0 b1 b2 a0 a1 a2 per row' : 'Taps h[0], h[1], …'}</span>
+					<span
+						>{pasteKind === 'sos'
+							? 'Sections: b0 b1 b2 a0 a1 a2 per row'
+							: 'Taps h[0], h[1], …'}</span
+					>
 					<textarea rows="6" spellcheck="false" bind:value={pasteText}></textarea>
 				</label>
-				<p class="small muted desc">Coefficients are used at the sample rate above. Brackets, commas, <span class="mono">np.array</span> and comments are fine.</p>
+				<p class="small muted desc">
+					Coefficients are used at the sample rate above. Brackets, commas, <span class="mono"
+						>np.array</span
+					> and comments are fine.
+				</p>
 			{/if}
 		</ControlGroup>
 	{/snippet}
@@ -511,32 +678,78 @@
 		</Callout>
 	{/if}
 	{#if unstable}
-		<Callout kind="danger" title="Unstable filter">This filter has poles on or outside the unit circle; its output grows without bound. Output playback is muted.</Callout>
+		<Callout kind="danger" title="Unstable filter"
+			>This filter has poles on or outside the unit circle; its output grows without bound. Output
+			playback is muted.</Callout
+		>
 	{/if}
 
-	<Card title="Listen" subtitle={filter ? `${filterResult.label} · ${sigInfo.name} · ${trimNumber(nSamples / fs, 3)} s loop` : "No filter"}>
+	<Card
+		title="Listen"
+		subtitle={filter
+			? `${filterResult.label} · ${sigInfo.name} · ${trimNumber(nSamples / fs, 3)} s loop`
+			: 'No filter'}
+	>
 		{#if !audioOk}
-			<Callout kind="warning">This browser does not support the Web Audio API, so playback is unavailable. The plots still work.</Callout>
+			<Callout kind="warning"
+				>This browser does not support the Web Audio API, so playback is unavailable. The plots
+				still work.</Callout
+			>
 		{/if}
 		<div class="transport">
-			<button class="btn" class:primary={playing === 'input'} type="button" onclick={() => start('input')} disabled={!processed || !audioOk} aria-pressed={playing === 'input'}>▶ Input</button>
-			<button class="btn" class:primary={playing === 'output'} type="button" onclick={() => start('output')} disabled={!processed || !audioOk || !!processed?.blewUp} aria-pressed={playing === 'output'}>▶ Output</button>
-			<button class="btn" type="button" onclick={abToggle} disabled={playing === 'none' || !!processed?.blewUp} title="Switch between input and output without stopping (key B)">⇄ A / B</button>
+			<button
+				class="btn"
+				class:primary={playing === 'input'}
+				type="button"
+				onclick={() => start('input')}
+				disabled={!processed || !audioOk}
+				aria-pressed={playing === 'input'}>▶ Input</button
+			>
+			<button
+				class="btn"
+				class:primary={playing === 'output'}
+				type="button"
+				onclick={() => start('output')}
+				disabled={!processed || !audioOk || !!processed?.blewUp}
+				aria-pressed={playing === 'output'}>▶ Output</button
+			>
+			<button
+				class="btn"
+				type="button"
+				onclick={abToggle}
+				disabled={playing === 'none' || !!processed?.blewUp}
+				title="Switch between input and output without stopping (key B)">⇄ A / B</button
+			>
 			<button class="btn" type="button" onclick={stop} disabled={playing === 'none'}>■ Stop</button>
 			<span class="now-playing" aria-live="polite">
-				{#if busy}Processing…{:else if playing === 'none'}Stopped{:else}Playing: <strong>{playing === 'input' ? 'A — input' : 'B — output'}</strong>{/if}
+				{#if busy}Processing…{:else if playing === 'none'}Stopped{:else}Playing: <strong
+						>{playing === 'input' ? 'A — input' : 'B — output'}</strong
+					>{/if}
 			</span>
 		</div>
 		<div class="audio-opts">
-			<div class="vol"><Slider label="Volume" bind:value={volume} min={0} max={1} step={0.01} /></div>
-			<Toggle label="Match loudness (RMS) of output to input" bind:checked={matchLoudness} help="Removes the ‘louder sounds better’ bias when comparing" />
+			<div class="vol">
+				<Slider label="Volume" bind:value={volume} min={0} max={1} step={0.01} />
+			</div>
+			<Toggle
+				label="Match loudness (RMS) of output to input"
+				bind:checked={matchLoudness}
+				help="Removes the ‘louder sounds better’ bias when comparing"
+			/>
 		</div>
-		<p class="small muted">Start quietly — headphones recommended. Both signals are limited to −6 dBFS peak by one common gain, so the A/B level difference is real (unless loudness matching is on). Press <kbd>B</kbd> to switch while playing.</p>
+		<p class="small muted">
+			Start quietly — headphones recommended. Both signals are limited to −6 dBFS peak by one common
+			gain, so the A/B level difference is real (unless loudness matching is on). Press <kbd>B</kbd> to
+			switch while playing.
+		</p>
 	</Card>
 
 	{#if stats.length}<StatGrid {stats} />{/if}
 
-	<Card title="Waveforms" subtitle="Input and output on the same scale. Long windows are drawn as a min/max envelope.">
+	<Card
+		title="Waveforms"
+		subtitle="Input and output on the same scale. Long windows are drawn as a min/max envelope."
+	>
 		{#snippet actions()}
 			<Segmented
 				size="small"
@@ -551,49 +764,132 @@
 			/>
 		{/snippet}
 		<div class="win-ctl">
-			<div class="start"><Slider label="Window start" bind:value={winStart} min={0} max={Math.max(1, totalMs - lenMs)} step={0.1} unit="ms" /></div>
-			<button class="btn small" type="button" onclick={jumpToTransient} disabled={!processed}>Jump to transient</button>
+			<div class="start">
+				<Slider
+					label="Window start"
+					bind:value={winStart}
+					min={0}
+					max={Math.max(1, totalMs - lenMs)}
+					step={0.1}
+					unit="ms"
+				/>
+			</div>
+			<button class="btn small" type="button" onclick={jumpToTransient} disabled={!processed}
+				>Jump to transient</button
+			>
 		</div>
-		<Plot series={waveSeries} xLabel="Time (ms)" yLabel="Amplitude (full scale = 1)" xTooltipFormat={msFmt} height={280} exportName="waveforms" />
+		<Plot
+			series={waveSeries}
+			xLabel="Time (ms)"
+			yLabel="Amplitude (full scale = 1)"
+			xTooltipFormat={msFmt}
+			height={280}
+			exportName="waveforms"
+		/>
 	</Card>
 
-	<Card title="Spectra" subtitle="Welch power spectral density (Hann, 4096-point segments, 50 % overlap). In dB, filtering is a subtraction: output = input + 20·log₁₀|H|.">
-		<Plot series={specSeries} xScale="log" xDomain={[20, nyq]} yDomain={specDomain} xLabel="Frequency (Hz)" yLabel="Power (dB, relative)" xFormat={freqFormat} xTooltipFormat={hzTip} height={320} exportName="spectra" />
-		{#if hOverlay}<p class="small muted">The dashed curve is the filter’s |H(f)| shifted up by {trimNumber(hOverlay.offset, 3)} dB so that 0 dB sits at the top of the input spectrum.</p>{/if}
+	<Card
+		title="Spectra"
+		subtitle="Welch power spectral density (Hann, 4096-point segments, 50 % overlap). In dB, filtering is a subtraction: output = input + 20·log₁₀|H|."
+	>
+		<Plot
+			series={specSeries}
+			xScale="log"
+			xDomain={[20, nyq]}
+			yDomain={specDomain}
+			xLabel="Frequency (Hz)"
+			yLabel="Power (dB, relative)"
+			xFormat={freqFormat}
+			xTooltipFormat={hzTip}
+			height={320}
+			exportName="spectra"
+		/>
+		{#if hOverlay}<p class="small muted">
+				The dashed curve is the filter’s |H(f)| shifted up by {trimNumber(hOverlay.offset, 3)} dB so that
+				0 dB sits at the top of the input spectrum.
+			</p>{/if}
 	</Card>
 
 	{#snippet theory()}
 		<h2>What a filter does to a signal</h2>
 		<p>
-			A linear filter multiplies every frequency component of its input by <Tex math={'H(e^{j\\omega})'} />: the magnitude scales it, the phase delays it. In power terms <Tex math={'S_y(f)=|H(f)|^2\\,S_x(f)'} />, which in decibels is a simple sum: the gap between the input and output spectra above traces the dashed |H| curve. The audible result depends on what the signal is made of.
+			A linear filter multiplies every frequency component of its input by <Tex
+				math={'H(e^{j\\omega})'}
+			/>: the magnitude scales it, the phase delays it. In power terms <Tex
+				math={'S_y(f)=|H(f)|^2\\,S_x(f)'}
+			/>, which in decibels is a simple sum: the gap between the input and output spectra above
+			traces the dashed |H| curve. The audible result depends on what the signal is made of.
 		</p>
 		<h3>Periodic waveforms and their harmonics</h3>
-		<p>A square and a sawtooth wave of fundamental <Tex math="f_0" /> are sums of harmonics with amplitudes falling as 1/k:</p>
-		<Tex display math={'x_{\\text{sq}}(t)=\\frac{4}{\\pi}\\sum_{k\\ \\text{odd}}\\frac{\\sin(2\\pi k f_0 t)}{k},\\qquad x_{\\text{saw}}(t)=\\frac{2}{\\pi}\\sum_{k\\ge1}\\frac{(-1)^{k+1}\\sin(2\\pi k f_0 t)}{k}'} />
 		<p>
-			A low-pass removes the upper harmonics: the edges round off and, once only the fundamental remains, the wave becomes a sine. A steep low-pass also leaves ringing at the edges (the Gibbs phenomenon). A high-pass removes the fundamental and the flat tops of the square wave sag. The test waves here are <em>band-limited</em> (only harmonics below fs/2 are generated); a naive square wave would alias.
+			A square and a sawtooth wave of fundamental <Tex math="f_0" /> are sums of harmonics with amplitudes
+			falling as 1/k:
+		</p>
+		<Tex
+			display
+			math={'x_{\\text{sq}}(t)=\\frac{4}{\\pi}\\sum_{k\\ \\text{odd}}\\frac{\\sin(2\\pi k f_0 t)}{k},\\qquad x_{\\text{saw}}(t)=\\frac{2}{\\pi}\\sum_{k\\ge1}\\frac{(-1)^{k+1}\\sin(2\\pi k f_0 t)}{k}'}
+		/>
+		<p>
+			A low-pass removes the upper harmonics: the edges round off and, once only the fundamental
+			remains, the wave becomes a sine. A steep low-pass also leaves ringing at the edges (the Gibbs
+			phenomenon). A high-pass removes the fundamental and the flat tops of the square wave sag. The
+			test waves here are <em>band-limited</em> (only harmonics below fs/2 are generated); a naive square
+			wave would alias.
 		</p>
 		<h3>White and pink noise</h3>
 		<p>
-			White noise has a flat power spectral density, <Tex math={'S(f)=N_0'} />: every hertz carries the same power, so each octave carries twice the power of the one below and the noise sounds bright. Pink noise has <Tex math={'S(f)\\propto 1/f'} />, a tilt of −3 dB per octave, so every octave carries the same power:
+			White noise has a flat power spectral density, <Tex math={'S(f)=N_0'} />: every hertz carries
+			the same power, so each octave carries twice the power of the one below and the noise sounds
+			bright. Pink noise has <Tex math={'S(f)\\propto 1/f'} />, a tilt of −3 dB per octave, so every
+			octave carries the same power:
 		</p>
 		<Tex display math={'P_{[f,2f]}=\\int_f^{2f}\\frac{c}{\\nu}\\,d\\nu=c\\ln 2'} />
-		<p>Because hearing analyses sound in roughly constant-percentage bands, pink noise sounds evenly balanced, which makes it the standard test signal for loudspeakers and equalisers.</p>
+		<p>
+			Because hearing analyses sound in roughly constant-percentage bands, pink noise sounds evenly
+			balanced, which makes it the standard test signal for loudspeakers and equalisers.
+		</p>
 		<h3>Transients and smearing</h3>
 		<p>
-			A short event has a broad spectrum; removing part of that spectrum spreads the event out in time. A narrow band-pass or a high-Q resonance rings for roughly <Tex math={'Q/(\\pi f_0)'} /> seconds (the time constant of its poles), and a steep IIR low-pass rings after every transient. A linear-phase FIR rings symmetrically — <em>before</em> the transient as well as after (pre-ringing) — and delays everything by half its length. Use the drum pattern and “Jump to transient” to compare.
+			A short event has a broad spectrum; removing part of that spectrum spreads the event out in
+			time. A narrow band-pass or a high-Q resonance rings for roughly <Tex math={'Q/(\\pi f_0)'} /> seconds
+			(the time constant of its poles), and a steep IIR low-pass rings after every transient. A linear-phase
+			FIR rings symmetrically — <em>before</em> the transient as well as after (pre-ringing) — and delays
+			everything by half its length. Use the drum pattern and “Jump to transient” to compare.
 		</p>
 		<h3>Decibels and loudness</h3>
 		<p>
-			Levels here are in dBFS: <Tex math={'20\\log_{10}(\\text{amplitude})'} /> relative to full scale (1.0). The <strong>peak</strong> level decides whether a signal clips; the <strong>RMS</strong> level tracks its power and correlates better with loudness. Their difference is the crest factor: 3 dB for a sine, about 12–14 dB for Gaussian noise, and much more for clicks. Perceived loudness is not simply RMS: hearing is much less sensitive at low and very high frequencies (equal-loudness contours), and roughly +10 dB is perceived as twice as loud. Because a louder version of a sound almost always seems “better”, compare filters with <em>Match loudness</em> switched on.
+			Levels here are in dBFS: <Tex math={'20\\log_{10}(\\text{amplitude})'} /> relative to full scale
+			(1.0). The <strong>peak</strong> level decides whether a signal clips; the
+			<strong>RMS</strong>
+			level tracks its power and correlates better with loudness. Their difference is the crest factor:
+			3 dB for a sine, about 12–14 dB for Gaussian noise, and much more for clicks. Perceived loudness
+			is not simply RMS: hearing is much less sensitive at low and very high frequencies (equal-loudness
+			contours), and roughly +10 dB is perceived as twice as loud. Because a louder version of a sound
+			almost always seems “better”, compare filters with
+			<em>Match loudness</em> switched on.
 		</p>
 		<Callout kind="try">
 			<ul>
-				<li>Pink noise through a 4th-order Butterworth low-pass at 1 kHz, then switch the response type to high-pass. Press <kbd>B</kbd> repeatedly while playing.</li>
-				<li>A 220 Hz square wave through a low-pass at 500 Hz: only the fundamental survives and it sounds like a sine. Look at the 20 ms waveform.</li>
-				<li>The impulse train through a peaking biquad with Q = 30 and +20 dB: every click rings at f₀. Halve the Q and the ringing halves.</li>
-				<li>Drums through a 501-tap FIR low-pass at 300 Hz versus an 8th-order elliptic low-pass at 300 Hz: jump to the transient and compare pre-ringing (FIR) with post-ringing (IIR).</li>
-				<li>Raise a peaking EQ to +12 dB and turn <em>Match loudness</em> on and off: how much of the “improvement” was just level?</li>
+				<li>
+					Pink noise through a 4th-order Butterworth low-pass at 1 kHz, then switch the response
+					type to high-pass. Press <kbd>B</kbd> repeatedly while playing.
+				</li>
+				<li>
+					A 220 Hz square wave through a low-pass at 500 Hz: only the fundamental survives and it
+					sounds like a sine. Look at the 20 ms waveform.
+				</li>
+				<li>
+					The impulse train through a peaking biquad with Q = 30 and +20 dB: every click rings at
+					f₀. Halve the Q and the ringing halves.
+				</li>
+				<li>
+					Drums through a 501-tap FIR low-pass at 300 Hz versus an 8th-order elliptic low-pass at
+					300 Hz: jump to the transient and compare pre-ringing (FIR) with post-ringing (IIR).
+				</li>
+				<li>
+					Raise a peaking EQ to +12 dB and turn <em>Match loudness</em> on and off: how much of the “improvement”
+					was just level?
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

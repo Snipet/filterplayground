@@ -9,10 +9,20 @@ import { type Complex, abs } from '$lib/dsp/complex';
 import { residuez } from '$lib/features/tf-analyzer/pfe';
 import type { SOS } from '$lib/dsp/types';
 
-export type StructureId = 'df1' | 'df2' | 'tdf2' | 'cascade' | 'parallel' | 'lattice' | 'fir' | 'firt';
+export type StructureId =
+	'df1' | 'df2' | 'tdf2' | 'cascade' | 'parallel' | 'lattice' | 'fir' | 'firt';
 
 /** Fixed display order (also fixes each structure's series colour). */
-export const STRUCTURE_IDS: StructureId[] = ['df1', 'df2', 'tdf2', 'cascade', 'parallel', 'lattice', 'fir', 'firt'];
+export const STRUCTURE_IDS: StructureId[] = [
+	'df1',
+	'df2',
+	'tdf2',
+	'cascade',
+	'parallel',
+	'lattice',
+	'fir',
+	'firt'
+];
 
 export const STRUCTURE_NAMES: Record<StructureId, string> = {
 	df1: 'Direct form I',
@@ -40,7 +50,10 @@ export interface Ops {
 }
 
 /** Normalise and trim: a₀ = 1, trailing exact zeros removed from a. */
-export function normalizeTf(b: readonly number[], a: readonly number[]): { b: number[]; a: number[] } {
+export function normalizeTf(
+	b: readonly number[],
+	a: readonly number[]
+): { b: number[]; a: number[] } {
 	const a0 = a[0];
 	if (!a0) throw new Error('a₀ must be non-zero');
 	const bn = b.map((v) => v / a0);
@@ -51,7 +64,10 @@ export function normalizeTf(b: readonly number[], a: readonly number[]): { b: nu
 	return { b: bt, a: an };
 }
 
-const pad = (v: readonly number[], n: number) => [...v, ...new Array(Math.max(0, n - v.length)).fill(0)];
+const pad = (v: readonly number[], n: number) => [
+	...v,
+	...new Array(Math.max(0, n - v.length)).fill(0)
+];
 
 // ---------------------------------------------------------------------------
 // Direct forms
@@ -133,7 +149,11 @@ export function cascade(sos: SOS): Processor {
 		const a0 = r[3] || 1;
 		const n = r.map((v) => v / a0);
 		const K = sectionOrder(n);
-		return { b: n.slice(0, K + 1), a: [1, ...n.slice(4, 4 + K)], proc: tdf2(n.slice(0, K + 1), [1, ...n.slice(4, 4 + K)]) };
+		return {
+			b: n.slice(0, K + 1),
+			a: [1, ...n.slice(4, 4 + K)],
+			proc: tdf2(n.slice(0, K + 1), [1, ...n.slice(4, 4 + K)])
+		};
 	});
 	return {
 		step(x) {
@@ -163,7 +183,8 @@ export interface ParallelForm {
  */
 export function parallelForm(b: readonly number[], a: readonly number[]): ParallelForm {
 	const pf = residuez(b, a);
-	if (pf.repeated) throw new Error('The parallel form needs distinct poles; this filter has repeated poles.');
+	if (pf.repeated)
+		throw new Error('The parallel form needs distinct poles; this filter has repeated poles.');
 	const items = pf.poles.map((p, i) => ({ p, r: pf.residues[i] }));
 	const sections: ParallelForm['sections'] = [];
 	const used = new Array(items.length).fill(false);
@@ -250,7 +271,10 @@ export function reflectionCoefficients(aIn: readonly number[]): { k: number[]; p
 		const km = cur[m];
 		k[m - 1] = km;
 		const den = 1 - km * km;
-		if (Math.abs(den) < 1e-14) throw new Error(`|k${sub(m)}| = 1: the step-down recursion breaks down (a zero or pole lies exactly on the unit circle, or the taps are symmetric).`);
+		if (Math.abs(den) < 1e-14)
+			throw new Error(
+				`|k${sub(m)}| = 1: the step-down recursion breaks down (a zero or pole lies exactly on the unit circle, or the taps are symmetric).`
+			);
 		const next = new Array<number>(m);
 		for (let i = 0; i < m; i++) next[i] = (cur[i] - km * cur[m - i]) / den;
 		cur = next;
@@ -276,8 +300,14 @@ export interface LatticeLadder {
 /** Gray–Markel lattice–ladder coefficients for H(z) = B(z)/A(z). */
 export function latticeLadder(bIn: readonly number[], aIn: readonly number[]): LatticeLadder {
 	const N = Math.max(aIn.length, bIn.length) - 1;
-	const a = pad(aIn.map((v) => v / aIn[0]), N + 1);
-	const c = pad(bIn.map((v) => v / aIn[0]), N + 1);
+	const a = pad(
+		aIn.map((v) => v / aIn[0]),
+		N + 1
+	);
+	const c = pad(
+		bIn.map((v) => v / aIn[0]),
+		N + 1
+	);
 	const { k, polys } = reflectionCoefficients(a);
 	const v = new Array<number>(N + 1).fill(0);
 	for (let m = N; m >= 0; m--) {
@@ -319,7 +349,10 @@ export interface FirLattice {
 }
 
 export function firLattice(h: readonly number[]): FirLattice {
-	if (h[0] === 0) throw new Error('h[0] = 0: the FIR lattice needs a non-zero first tap (remove leading zeros, i.e. the pure delay, first).');
+	if (h[0] === 0)
+		throw new Error(
+			'h[0] = 0: the FIR lattice needs a non-zero first tap (remove leading zeros, i.e. the pure delay, first).'
+		);
 	const { k } = reflectionCoefficients(h.map((v) => v / h[0]));
 	return { h0: h[0], k };
 }
@@ -379,7 +412,10 @@ export function runProcessor(p: Processor, x: ArrayLike<number>): number[] {
 }
 
 /** Record pre-update state, input and output for n = 0..len−1. */
-export function trace(p: Processor, x: ArrayLike<number>): { x: number; state: number[]; y: number }[] {
+export function trace(
+	p: Processor,
+	x: ArrayLike<number>
+): { x: number; state: number[]; y: number }[] {
 	p.reset();
 	const rows: { x: number; state: number[]; y: number }[] = [];
 	for (let n = 0; n < x.length; n++) {

@@ -4,7 +4,17 @@
  */
 import { fftInPlace, nextPow2 } from '$lib/dsp/fft';
 
-export type SignalType = 'white' | 'pink' | 'sine' | 'square' | 'saw' | 'chirp' | 'impulses' | 'twotone' | 'drums' | 'file';
+export type SignalType =
+	| 'white'
+	| 'pink'
+	| 'sine'
+	| 'square'
+	| 'saw'
+	| 'chirp'
+	| 'impulses'
+	| 'twotone'
+	| 'drums'
+	| 'file';
 
 export interface SignalInfo {
 	id: SignalType;
@@ -15,16 +25,69 @@ export interface SignalInfo {
 }
 
 export const SIGNALS: SignalInfo[] = [
-	{ id: 'white', name: 'White noise', description: 'Equal power per hertz: sounds bright and hissy. Its spectrum is flat, so the output spectrum is simply |H|².' },
-	{ id: 'pink', name: 'Pink noise', description: 'Equal power per octave (−3 dB/octave). Sounds balanced to the ear; used for loudspeaker and room measurements.' },
-	{ id: 'sine', name: 'Sine', description: 'A single frequency: a filter can only change its level and phase, never its shape.', freq: 'tone' },
-	{ id: 'square', name: 'Square (band-limited)', description: 'Odd harmonics falling at 1/k (−6 dB/octave). Low-pass filtering rounds the edges and adds ringing; high-pass makes the flat tops sag.', freq: 'tone' },
-	{ id: 'saw', name: 'Sawtooth (band-limited)', description: 'All harmonics falling at 1/k. The classic subtractive-synthesiser source.', freq: 'tone' },
-	{ id: 'chirp', name: 'Log sweep 20 Hz → 20 kHz', description: 'A logarithmic sine sweep: the output envelope traces the magnitude response over time.' },
-	{ id: 'impulses', name: 'Impulse train', description: 'Single-sample clicks. Each click is the filter’s impulse response — listen to the ringing of high-Q filters.', freq: 'rate' },
-	{ id: 'twotone', name: 'Two tones', description: 'A low and a high sine at equal level. Shows how much of each the filter lets through.', freq: 'tone' },
-	{ id: 'drums', name: 'Drum-like transients', description: 'Kick (decaying low sweep), snare (noise burst + tone) and hi-hat clicks: sharp transients that reveal smearing and pre-/post-ringing.' },
-	{ id: 'file', name: 'Your audio file', description: 'Decoded and mixed to mono in your browser. Nothing is uploaded.' }
+	{
+		id: 'white',
+		name: 'White noise',
+		description:
+			'Equal power per hertz: sounds bright and hissy. Its spectrum is flat, so the output spectrum is simply |H|².'
+	},
+	{
+		id: 'pink',
+		name: 'Pink noise',
+		description:
+			'Equal power per octave (−3 dB/octave). Sounds balanced to the ear; used for loudspeaker and room measurements.'
+	},
+	{
+		id: 'sine',
+		name: 'Sine',
+		description:
+			'A single frequency: a filter can only change its level and phase, never its shape.',
+		freq: 'tone'
+	},
+	{
+		id: 'square',
+		name: 'Square (band-limited)',
+		description:
+			'Odd harmonics falling at 1/k (−6 dB/octave). Low-pass filtering rounds the edges and adds ringing; high-pass makes the flat tops sag.',
+		freq: 'tone'
+	},
+	{
+		id: 'saw',
+		name: 'Sawtooth (band-limited)',
+		description: 'All harmonics falling at 1/k. The classic subtractive-synthesiser source.',
+		freq: 'tone'
+	},
+	{
+		id: 'chirp',
+		name: 'Log sweep 20 Hz → 20 kHz',
+		description:
+			'A logarithmic sine sweep: the output envelope traces the magnitude response over time.'
+	},
+	{
+		id: 'impulses',
+		name: 'Impulse train',
+		description:
+			'Single-sample clicks. Each click is the filter’s impulse response — listen to the ringing of high-Q filters.',
+		freq: 'rate'
+	},
+	{
+		id: 'twotone',
+		name: 'Two tones',
+		description:
+			'A low and a high sine at equal level. Shows how much of each the filter lets through.',
+		freq: 'tone'
+	},
+	{
+		id: 'drums',
+		name: 'Drum-like transients',
+		description:
+			'Kick (decaying low sweep), snare (noise burst + tone) and hi-hat clicks: sharp transients that reveal smearing and pre-/post-ringing.'
+	},
+	{
+		id: 'file',
+		name: 'Your audio file',
+		description: 'Decoded and mixed to mono in your browser. Nothing is uploaded.'
+	}
 ];
 
 /** Small fast seeded PRNG (mulberry32). */
@@ -118,8 +181,10 @@ function additive(n: number, fs: number, f: number, coef: (k: number) => number)
 	return out;
 }
 
-export const square = (n: number, fs: number, f: number) => additive(n, fs, f, (k) => (k % 2 === 1 ? 4 / (Math.PI * k) : 0));
-export const sawtooth = (n: number, fs: number, f: number) => additive(n, fs, f, (k) => ((k % 2 === 1 ? 1 : -1) * 2) / (Math.PI * k));
+export const square = (n: number, fs: number, f: number) =>
+	additive(n, fs, f, (k) => (k % 2 === 1 ? 4 / (Math.PI * k) : 0));
+export const sawtooth = (n: number, fs: number, f: number) =>
+	additive(n, fs, f, (k) => ((k % 2 === 1 ? 1 : -1) * 2) / (Math.PI * k));
 
 /** Logarithmic sweep from f0 to f1 over the whole signal. */
 export function logChirp(n: number, fs: number, f0: number, f1: number): Float64Array {
@@ -168,7 +233,13 @@ export function drums(n: number, fs: number, seed = 3): Float64Array {
 			});
 		} else {
 			// snare: noise burst plus a 190 Hz body
-			add(s, Math.round(0.25 * fs), (t) => 0.55 * Math.exp(-t / 0.05) * (2 * rnd() - 1) + 0.35 * Math.exp(-t / 0.07) * Math.sin(2 * Math.PI * 190 * t));
+			add(
+				s,
+				Math.round(0.25 * fs),
+				(t) =>
+					0.55 * Math.exp(-t / 0.05) * (2 * rnd() - 1) +
+					0.35 * Math.exp(-t / 0.07) * Math.sin(2 * Math.PI * 190 * t)
+			);
 		}
 		// hi-hats on every half beat
 		for (const off of [0, 0.5]) {
@@ -228,7 +299,13 @@ export function fadeEdges(x: Float64Array, len: number): Float64Array {
  * Samples of x[start … start+len) for plotting, reduced to at most `maxPts`
  * points with a min/max envelope so that peaks are never lost.
  */
-export function windowed(x: ArrayLike<number>, start: number, len: number, fs: number, maxPts = 1400): { t: number[]; y: number[] } {
+export function windowed(
+	x: ArrayLike<number>,
+	start: number,
+	len: number,
+	fs: number,
+	maxPts = 1400
+): { t: number[]; y: number[] } {
 	const s = Math.max(0, Math.min(x.length - 1, Math.floor(start)));
 	const e = Math.min(x.length, s + Math.max(1, Math.floor(len)));
 	const n = e - s;

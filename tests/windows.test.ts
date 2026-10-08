@@ -15,7 +15,12 @@ import { windowMetrics, windowValues, type WindowType } from '../src/lib/dsp/win
 function verdict(type: WindowType, s: ToneSetup, periodic = false) {
 	const w = makeWindow({ type }, s.N, periodic);
 	const m = windowMetrics(w);
-	return resolveWeak(windowedSpectrum(twoTones(s), w, s.pad), windowedSpectrum(twoTones(s, false), w, s.pad), s, m.mainLobeWidth / 2);
+	return resolveWeak(
+		windowedSpectrum(twoTones(s), w, s.pad),
+		windowedSpectrum(twoTones(s, false), w, s.pad),
+		s,
+		m.mainLobeWidth / 2
+	);
 }
 
 describe('windows: leakage experiment', () => {
@@ -46,7 +51,8 @@ describe('windows: leakage experiment', () => {
 	});
 	it('coherent sampling: integer-bin tones without padding are resolved by every periodic window', () => {
 		const s: ToneSetup = { N: 64, f1: 10, f2: 16, weakDb: -60, pad: 1 };
-		for (const t of ['rectangular', 'hann', 'blackmanharris'] as const) expect(verdict(t, s, true).resolved, t).toBe(true);
+		for (const t of ['rectangular', 'hann', 'blackmanharris'] as const)
+			expect(verdict(t, s, true).resolved, t).toBe(true);
 	});
 });
 

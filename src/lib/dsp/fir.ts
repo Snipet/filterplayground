@@ -205,7 +205,8 @@ export function rootRaisedCosine(sps: number, beta: number, span: number): numbe
 					(1 - 2 / Math.PI) * Math.cos(Math.PI / (4 * beta)))
 			);
 		}
-		const num = Math.sin(Math.PI * t * (1 - beta)) + 4 * beta * t * Math.cos(Math.PI * t * (1 + beta));
+		const num =
+			Math.sin(Math.PI * t * (1 - beta)) + 4 * beta * t * Math.cos(Math.PI * t * (1 + beta));
 		const den = Math.PI * t * (1 - Math.pow(4 * beta * t, 2));
 		return num / den;
 	});

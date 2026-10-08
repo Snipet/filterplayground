@@ -13,7 +13,12 @@
 	const options = WINDOWS.map((w) => ({ value: w.id, label: w.name }));
 </script>
 
-<Select {label} value={value.type} {options} onchange={(t: WindowType) => (value = { type: t, param: windowInfo(t).param?.default })} />
+<Select
+	{label}
+	value={value.type}
+	{options}
+	onchange={(t: WindowType) => (value = { type: t, param: windowInfo(t).param?.default })}
+/>
 {#if info.param}
 	<Slider
 		label={info.param.label}

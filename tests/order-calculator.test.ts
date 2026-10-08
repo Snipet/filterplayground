@@ -52,11 +52,35 @@ describe('IIR minimum orders', () => {
 		lp(),
 		lp({ domain: 'digital', fs: 8000 }),
 		lp({ band: 'highpass', fp: [2000, 2000], fst: [1000, 1000], rp: 0.5, rs: 60 }),
-		lp({ domain: 'digital', fs: 48000, band: 'highpass', fp: [300, 300], fst: [100, 100], rp: 0.5, rs: 60 }),
+		lp({
+			domain: 'digital',
+			fs: 48000,
+			band: 'highpass',
+			fp: [300, 300],
+			fst: [100, 100],
+			rp: 0.5,
+			rs: 60
+		}),
 		lp({ band: 'bandpass', fp: [1000, 2000], fst: [700, 3000], rp: 1, rs: 50 }),
-		lp({ domain: 'digital', fs: 16000, band: 'bandpass', fp: [1000, 2000], fst: [700, 3000], rp: 1, rs: 50 }),
+		lp({
+			domain: 'digital',
+			fs: 16000,
+			band: 'bandpass',
+			fp: [1000, 2000],
+			fst: [700, 3000],
+			rp: 1,
+			rs: 50
+		}),
 		lp({ band: 'bandstop', fp: [700, 3000], fst: [1000, 2000], rp: 1, rs: 40 }),
-		lp({ domain: 'digital', fs: 16000, band: 'bandstop', fp: [700, 3000], fst: [1000, 2000], rp: 0.5, rs: 40 })
+		lp({
+			domain: 'digital',
+			fs: 16000,
+			band: 'bandstop',
+			fp: [700, 3000],
+			fst: [1000, 2000],
+			rp: 0.5,
+			rs: 40
+		})
 	];
 
 	it('memoised estimate/design agree exactly with estimateFromSpecs / designAnalog / designDigital', () => {
@@ -70,7 +94,16 @@ describe('IIR minimum orders', () => {
 				if (ref.capped && (fam.id === 'butter' || fam.id === 'cheby2')) continue; // see the capped test below
 				expect(mine.f1, tag).toBeCloseTo(ref.f1, 6);
 				if (ref.f2 !== undefined) expect(mine.f2!, tag).toBeCloseTo(ref.f2, 6);
-				const spec = { family: fam.id, band: s.band, order: ref.order, f1: ref.f1, f2: ref.f2, rp: s.rp, rs: s.rs, besselNorm: 'mag' as const };
+				const spec = {
+					family: fam.id,
+					band: s.band,
+					order: ref.order,
+					f1: ref.f1,
+					f2: ref.f2,
+					rp: s.rp,
+					rs: s.rs,
+					besselNorm: 'mag' as const
+				};
 				const refFilter: Filter =
 					s.domain === 'analog'
 						? { kind: 'analog', zpk: designAnalog(spec) }
@@ -87,8 +120,12 @@ describe('IIR minimum orders', () => {
 		for (const s of specs) {
 			for (const r of iirResults(s)) {
 				if (r.capped) continue;
-				expect(r.passAtt, `${r.family} ${s.band} ${s.domain} pass`).toBeLessThanOrEqual(s.rp + 1e-6);
-				expect(r.stopAtt, `${r.family} ${s.band} ${s.domain} stop`).toBeGreaterThanOrEqual(s.rs - 1e-3);
+				expect(r.passAtt, `${r.family} ${s.band} ${s.domain} pass`).toBeLessThanOrEqual(
+					s.rp + 1e-6
+				);
+				expect(r.stopAtt, `${r.family} ${s.band} ${s.domain} stop`).toBeGreaterThanOrEqual(
+					s.rs - 1e-3
+				);
 			}
 		}
 	});
@@ -96,7 +133,8 @@ describe('IIR minimum orders', () => {
 	it('one order less does not meet the mask (closed-form families)', () => {
 		for (const s of specs) {
 			for (const r of iirResults(s)) {
-				if (r.capped || r.order < 2 || !['butter', 'cheby1', 'cheby2', 'ellip'].includes(r.family)) continue;
+				if (r.capped || r.order < 2 || !['butter', 'cheby1', 'cheby2', 'ellip'].includes(r.family))
+					continue;
 				// redesign at N−1, keeping each family's own normalisation:
 				// passband edges for Cheby I / elliptic, Rp at the passband edge otherwise
 				const N = r.order - 1;
@@ -111,9 +149,19 @@ describe('IIR minimum orders', () => {
 					filter =
 						s.domain === 'analog'
 							? { kind: 'analog', zpk: designAnalog({ ...spec, f1, f2 }) }
-							: { kind: 'digital', fs: s.fs, sos: designDigital({ ...spec, f1, f2, fs: s.fs }).sos };
-					const pass = evaluate(filter, s.band === 'lowpass' ? [s.fp[0]] : s.band === 'highpass' ? [s.fp[0]] : s.fp).magDb;
-					const stop = evaluate(filter, s.band === 'lowpass' || s.band === 'highpass' ? [s.fst[0]] : s.fst).magDb;
+							: {
+									kind: 'digital',
+									fs: s.fs,
+									sos: designDigital({ ...spec, f1, f2, fs: s.fs }).sos
+								};
+					const pass = evaluate(
+						filter,
+						s.band === 'lowpass' ? [s.fp[0]] : s.band === 'highpass' ? [s.fp[0]] : s.fp
+					).magDb;
+					const stop = evaluate(
+						filter,
+						s.band === 'lowpass' || s.band === 'highpass' ? [s.fst[0]] : s.fst
+					).magDb;
 					if (Math.min(...pass) >= -s.rp - 1e-9 && Math.max(...stop) <= -s.rs) ok = false;
 				}
 				expect(ok, `${r.family} ${s.band} ${s.domain} N−1 = ${N} should fail`).toBe(true);
@@ -169,8 +217,14 @@ describe('selectivity and discrimination', () => {
 	it('low-pass prototype values', () => {
 		expect(selectivity(lp())).toBeCloseTo(2, 12);
 		// digital: tan(π·2000/8000)/tan(π·1000/8000)
-		expect(selectivity(lp({ domain: 'digital', fs: 8000 }))).toBeCloseTo(1 / Math.tan(Math.PI / 8), 10);
-		expect(discrimination(1, 40)).toBeCloseTo(Math.sqrt((Math.pow(10, 0.1) - 1) / (Math.pow(10, 4) - 1)), 14);
+		expect(selectivity(lp({ domain: 'digital', fs: 8000 }))).toBeCloseTo(
+			1 / Math.tan(Math.PI / 8),
+			10
+		);
+		expect(discrimination(1, 40)).toBeCloseTo(
+			Math.sqrt((Math.pow(10, 0.1) - 1) / (Math.pow(10, 4) - 1)),
+			14
+		);
 		expect(transitionHz(lp())).toBe(1000);
 		expect(transitionHz(lp({ band: 'bandpass', fp: [1000, 2000], fst: [800, 3000] }))).toBe(200);
 	});
@@ -180,35 +234,58 @@ describe('selectivity and discrimination', () => {
 		expect(validateSpec(lp({ domain: 'digital', fs: 3000 }))).toMatch(/Nyquist/);
 		expect(validateSpec(lp({ rs: 0.5 }))).toMatch(/exceed/);
 		expect(validateSpec(lp({ band: 'bandstop', fp: [700, 3000], fst: [1000, 2000] }))).toBeNull();
-		expect(validateSpec(lp({ band: 'bandstop', fp: [1000, 2000], fst: [700, 3000] }))).toMatch(/ordered/);
+		expect(validateSpec(lp({ band: 'bandstop', fp: [1000, 2000], fst: [700, 3000] }))).toMatch(
+			/ordered/
+		);
 	});
 });
 
 describe('FIR estimates', () => {
 	it('Kaiser matches scipy.signal.kaiserord', () => {
 		// kaiserord(60, 0.1) with width relative to Nyquist → numtaps 74, β = 5.653
-		const r = firResults(lp({ domain: 'digital', fs: 2, fp: [0.4, 0.4], fst: [0.45, 0.45], rp: 0.1, rs: 60 }));
+		const r = firResults(
+			lp({ domain: 'digital', fs: 2, fp: [0.4, 0.4], fst: [0.45, 0.45], rp: 0.1, rs: 60 })
+		);
 		const k = r.rows.find((x) => x.id === 'kaiser')!;
 		expect(r.df).toBeCloseTo(0.025, 12);
 		// (60 − 7.95)/(2.285·2π·0.025) + 1 = 146.02 → 147
 		expect(k.taps).toBe(147);
-		const r2 = firResults(lp({ domain: 'digital', fs: 2, fp: [0.4, 0.4], fst: [0.5, 0.5], rp: 0.1, rs: 60 }));
+		const r2 = firResults(
+			lp({ domain: 'digital', fs: 2, fp: [0.4, 0.4], fst: [0.5, 0.5], rp: 0.1, rs: 60 })
+		);
 		expect(r2.rows.find((x) => x.id === 'kaiser')!.taps).toBe(74);
 		expect(r2.rows.find((x) => x.id === 'kaiser')!.detail).toContain('β = 5.653');
 	});
 
 	it('Kaiser design at the estimated length meets the attenuation (±1 dB)', () => {
-		const s = lp({ domain: 'digital', fs: 48000, fp: [4000, 4000], fst: [5000, 5000], rp: 0.1, rs: 60 });
+		const s = lp({
+			domain: 'digital',
+			fs: 48000,
+			fp: [4000, 4000],
+			fst: [5000, 5000],
+			rp: 0.1,
+			rs: 60
+		});
 		const r = firResults(s);
 		const k = r.rows.find((x) => x.id === 'kaiser')!;
 		const beta = Number(k.detail.match(/β = ([\d.]+)/)![1]);
 		const h = firwin(k.taps, [4500], { type: 'kaiser', param: beta }, true, 48000);
-		const stop = evaluate({ kind: 'digital', fs: 48000, fir: h }, Array.from({ length: 200 }, (_, i) => 5000 + (i * 19000) / 199)).magDb;
+		const stop = evaluate(
+			{ kind: 'digital', fs: 48000, fir: h },
+			Array.from({ length: 200 }, (_, i) => 5000 + (i * 19000) / 199)
+		).magDb;
 		expect(-Math.max(...stop)).toBeGreaterThan(59);
 	});
 
 	it('Parks–McClellan estimate is close: remez at that length meets the ripple specs within ~25 %', () => {
-		const s = lp({ domain: 'digital', fs: 48000, fp: [4000, 4000], fst: [5000, 5000], rp: 0.5, rs: 60 });
+		const s = lp({
+			domain: 'digital',
+			fs: 48000,
+			fp: [4000, 4000],
+			fst: [5000, 5000],
+			rp: 0.5,
+			rs: 60
+		});
 		const r = firResults(s);
 		const pm = r.rows.find((x) => x.id === 'remez')!;
 		const w = r.dp / r.ds;
@@ -227,7 +304,14 @@ describe('FIR estimates', () => {
 	});
 
 	it('fixed windows: Δf ≈ C/N and attenuation limits', () => {
-		const s = lp({ domain: 'digital', fs: 48000, fp: [1000, 1000], fst: [2000, 2000], rp: 1, rs: 60 });
+		const s = lp({
+			domain: 'digital',
+			fs: 48000,
+			fp: [1000, 1000],
+			fst: [2000, 2000],
+			rp: 1,
+			rs: 60
+		});
 		const r = firResults(s);
 		const get = (id: string) => r.rows.find((x) => x.id === id)!;
 		expect(get('hann').taps).toBe(Math.ceil(3.1 / (1000 / 48000)));
@@ -239,7 +323,15 @@ describe('FIR estimates', () => {
 	});
 
 	it('high-pass and band-stop lengths are odd (type I)', () => {
-		const s = lp({ domain: 'digital', fs: 48000, band: 'highpass', fp: [2000, 2000], fst: [1000, 1000], rp: 1, rs: 60 });
+		const s = lp({
+			domain: 'digital',
+			fs: 48000,
+			band: 'highpass',
+			fp: [2000, 2000],
+			fst: [1000, 1000],
+			rp: 1,
+			rs: 60
+		});
 		for (const row of firResults(s).rows) expect(row.taps % 2).toBe(1);
 	});
 

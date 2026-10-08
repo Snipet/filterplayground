@@ -36,36 +36,147 @@ export interface WindowInfo {
 }
 
 export const WINDOWS: WindowInfo[] = [
-	{ id: 'rectangular', name: 'Rectangular (boxcar)', description: 'No tapering. Narrowest main lobe but −13 dB sidelobes: the "do nothing" window.' },
-	{ id: 'triangular', name: 'Triangular', description: 'Convolution of two rectangles. −27 dB sidelobes falling at 12 dB/oct.' },
+	{
+		id: 'rectangular',
+		name: 'Rectangular (boxcar)',
+		description: 'No tapering. Narrowest main lobe but −13 dB sidelobes: the "do nothing" window.'
+	},
+	{
+		id: 'triangular',
+		name: 'Triangular',
+		description: 'Convolution of two rectangles. −27 dB sidelobes falling at 12 dB/oct.'
+	},
 	{ id: 'bartlett', name: 'Bartlett', description: 'Triangular window with zero end points.' },
-	{ id: 'hann', name: 'Hann', description: 'Raised cosine reaching zero at both ends. −31 dB first sidelobe, 18 dB/oct roll-off. The common default.' },
-	{ id: 'hamming', name: 'Hamming', description: 'Raised cosine optimised to cancel the first sidelobe (−43 dB), but sidelobes barely decay.' },
-	{ id: 'blackman', name: 'Blackman', description: 'Three-term cosine sum. −58 dB sidelobes at the cost of a 3× wider main lobe.' },
-	{ id: 'blackmanharris', name: 'Blackman–Harris (4-term)', description: 'Minimum 4-term cosine sum: −92 dB sidelobes.' },
-	{ id: 'nuttall', name: 'Nuttall (continuous 1st derivative)', description: '4-term window with fast sidelobe decay (−93 dB, 18 dB/oct).' },
-	{ id: 'blackmannuttall', name: 'Blackman–Nuttall', description: '4-term minimum-sidelobe window: −98 dB.' },
-	{ id: 'flattop', name: 'Flat top', description: 'Very flat main lobe for accurate amplitude measurement; very wide.' },
-	{ id: 'kaiser', name: 'Kaiser', param: { label: 'β', default: 8.6, min: 0, max: 20, step: 0.1, help: 'β trades main-lobe width for sidelobe level (β≈0: rectangular, 5: Hamming-like, 8.6: Blackman-like).' }, description: 'Near-optimal concentration of energy in the main lobe with a single tunable parameter β. The workhorse for FIR design.' },
-	{ id: 'gaussian', name: 'Gaussian', param: { label: 'σ', default: 0.4, min: 0.05, max: 1, step: 0.01, help: 'Standard deviation relative to the half-length.' }, description: 'Gaussian bell. Its transform is (nearly) Gaussian too — no sidelobes until truncation.' },
-	{ id: 'tukey', name: 'Tukey (tapered cosine)', param: { label: 'α', default: 0.5, min: 0, max: 1, step: 0.01, help: 'Fraction of the window inside the cosine tapers (0 = rectangular, 1 = Hann).' }, description: 'Flat middle with cosine tapers at each end.' },
-	{ id: 'chebyshev', name: 'Dolph–Chebyshev', param: { label: 'Sidelobe dB', default: 100, min: 20, max: 200, step: 1, help: 'All sidelobes sit exactly at this level below the main lobe.' }, description: 'Equiripple sidelobes: the narrowest main lobe for a given sidelobe level.' },
-	{ id: 'dpss', name: 'DPSS (Slepian)', param: { label: 'NW', default: 3, min: 0.5, max: 10, step: 0.1, help: 'Time–half-bandwidth product. Main lobe half-width ≈ NW bins.' }, description: 'Maximises the energy inside a chosen bandwidth — the optimal concentration problem that Kaiser approximates.' },
-	{ id: 'bohman', name: 'Bohman', description: 'Convolution of two half-cosines. −46 dB sidelobes, 24 dB/oct decay.' },
-	{ id: 'parzen', name: 'Parzen (de la Vallée Poussin)', description: 'Piecewise cubic. −53 dB sidelobes with 24 dB/oct decay.' },
+	{
+		id: 'hann',
+		name: 'Hann',
+		description:
+			'Raised cosine reaching zero at both ends. −31 dB first sidelobe, 18 dB/oct roll-off. The common default.'
+	},
+	{
+		id: 'hamming',
+		name: 'Hamming',
+		description:
+			'Raised cosine optimised to cancel the first sidelobe (−43 dB), but sidelobes barely decay.'
+	},
+	{
+		id: 'blackman',
+		name: 'Blackman',
+		description: 'Three-term cosine sum. −58 dB sidelobes at the cost of a 3× wider main lobe.'
+	},
+	{
+		id: 'blackmanharris',
+		name: 'Blackman–Harris (4-term)',
+		description: 'Minimum 4-term cosine sum: −92 dB sidelobes.'
+	},
+	{
+		id: 'nuttall',
+		name: 'Nuttall (continuous 1st derivative)',
+		description: '4-term window with fast sidelobe decay (−93 dB, 18 dB/oct).'
+	},
+	{
+		id: 'blackmannuttall',
+		name: 'Blackman–Nuttall',
+		description: '4-term minimum-sidelobe window: −98 dB.'
+	},
+	{
+		id: 'flattop',
+		name: 'Flat top',
+		description: 'Very flat main lobe for accurate amplitude measurement; very wide.'
+	},
+	{
+		id: 'kaiser',
+		name: 'Kaiser',
+		param: {
+			label: 'β',
+			default: 8.6,
+			min: 0,
+			max: 20,
+			step: 0.1,
+			help: 'β trades main-lobe width for sidelobe level (β≈0: rectangular, 5: Hamming-like, 8.6: Blackman-like).'
+		},
+		description:
+			'Near-optimal concentration of energy in the main lobe with a single tunable parameter β. The workhorse for FIR design.'
+	},
+	{
+		id: 'gaussian',
+		name: 'Gaussian',
+		param: {
+			label: 'σ',
+			default: 0.4,
+			min: 0.05,
+			max: 1,
+			step: 0.01,
+			help: 'Standard deviation relative to the half-length.'
+		},
+		description:
+			'Gaussian bell. Its transform is (nearly) Gaussian too — no sidelobes until truncation.'
+	},
+	{
+		id: 'tukey',
+		name: 'Tukey (tapered cosine)',
+		param: {
+			label: 'α',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01,
+			help: 'Fraction of the window inside the cosine tapers (0 = rectangular, 1 = Hann).'
+		},
+		description: 'Flat middle with cosine tapers at each end.'
+	},
+	{
+		id: 'chebyshev',
+		name: 'Dolph–Chebyshev',
+		param: {
+			label: 'Sidelobe dB',
+			default: 100,
+			min: 20,
+			max: 200,
+			step: 1,
+			help: 'All sidelobes sit exactly at this level below the main lobe.'
+		},
+		description: 'Equiripple sidelobes: the narrowest main lobe for a given sidelobe level.'
+	},
+	{
+		id: 'dpss',
+		name: 'DPSS (Slepian)',
+		param: {
+			label: 'NW',
+			default: 3,
+			min: 0.5,
+			max: 10,
+			step: 0.1,
+			help: 'Time–half-bandwidth product. Main lobe half-width ≈ NW bins.'
+		},
+		description:
+			'Maximises the energy inside a chosen bandwidth — the optimal concentration problem that Kaiser approximates.'
+	},
+	{
+		id: 'bohman',
+		name: 'Bohman',
+		description: 'Convolution of two half-cosines. −46 dB sidelobes, 24 dB/oct decay.'
+	},
+	{
+		id: 'parzen',
+		name: 'Parzen (de la Vallée Poussin)',
+		description: 'Piecewise cubic. −53 dB sidelobes with 24 dB/oct decay.'
+	},
 	{ id: 'cosine', name: 'Cosine (sine)', description: 'Half a sine period. −23 dB sidelobes.' },
 	{ id: 'lanczos', name: 'Lanczos (sinc)', description: 'Central lobe of a sinc function.' },
 	{ id: 'welch', name: 'Welch (parabolic)', description: 'Parabola reaching zero at the ends.' }
 ];
 
-export const windowInfo = (id: WindowType): WindowInfo => WINDOWS.find((w) => w.id === id) ?? WINDOWS[0];
+export const windowInfo = (id: WindowType): WindowInfo =>
+	WINDOWS.find((w) => w.id === id) ?? WINDOWS[0];
 
 function cosineSum(N: number, a: number[], periodic: boolean): number[] {
 	const M = periodic ? N : N - 1;
 	if (N === 1) return [1];
 	return Array.from({ length: N }, (_, n) => {
 		let s = 0;
-		for (let k = 0; k < a.length; k++) s += (k % 2 ? -1 : 1) * a[k] * Math.cos((2 * Math.PI * k * n) / M);
+		for (let k = 0; k < a.length; k++)
+			s += (k % 2 ? -1 : 1) * a[k] * Math.cos((2 * Math.PI * k * n) / M);
 		return s;
 	});
 }
@@ -83,7 +194,12 @@ export function besselI0(x: number): number {
 	return sum;
 }
 
-export function windowValues(type: WindowType, N: number, param?: number, periodic = false): number[] {
+export function windowValues(
+	type: WindowType,
+	N: number,
+	param?: number,
+	periodic = false
+): number[] {
 	if (N <= 0) return [];
 	if (N === 1) return [1];
 	const p = param ?? windowInfo(type).param?.default ?? 0;
@@ -133,7 +249,8 @@ export function windowValues(type: WindowType, N: number, param?: number, period
 			if (alpha >= 1) return windowValues('hann', N);
 			const width = Math.floor((alpha * M) / 2);
 			return Array.from({ length: N }, (_, n) => {
-				if (n < width + 1 && n <= M / 2) return 0.5 * (1 + Math.cos(Math.PI * ((2 * n) / (alpha * M) - 1)));
+				if (n < width + 1 && n <= M / 2)
+					return 0.5 * (1 + Math.cos(Math.PI * ((2 * n) / (alpha * M) - 1)));
 				if (n > M - width - 1 && n > M / 2)
 					return 0.5 * (1 + Math.cos(Math.PI * ((2 * n) / (alpha * M) - 2 / alpha + 1)));
 				return 1;
@@ -228,7 +345,10 @@ function dftReal(p: Float64Array, rot: (k: number) => [number, number]): number[
 /** First discrete prolate spheroidal (Slepian) sequence, normalised to peak 1. */
 export function dpss(N: number, NW: number): number[] {
 	const W = NW / N;
-	const d = Array.from({ length: N }, (_, n) => Math.pow((N - 1 - 2 * n) / 2, 2) * Math.cos(2 * Math.PI * W));
+	const d = Array.from(
+		{ length: N },
+		(_, n) => Math.pow((N - 1 - 2 * n) / 2, 2) * Math.cos(2 * Math.PI * W)
+	);
 	const e = Array.from({ length: N }, (_, n) => (n === 0 ? 0 : (n * (N - n)) / 2)); // e[n] couples n−1,n
 	// largest eigenvalue by Sturm bisection
 	const countLess = (x: number) => {
@@ -345,7 +465,8 @@ export function windowMetrics(w: readonly number[]): WindowMetrics {
 		}
 	}
 	let peakSidelobeDb = -Infinity;
-	if (nullIdx > 0) for (let i = nullIdx; i < db.length; i++) peakSidelobeDb = Math.max(peakSidelobeDb, db[i]);
+	if (nullIdx > 0)
+		for (let i = nullIdx; i < db.length; i++) peakSidelobeDb = Math.max(peakSidelobeDb, db[i]);
 	return {
 		coherentGain,
 		enbw,

@@ -9,7 +9,10 @@ const f = (v: number) => {
 	return (/[.e]/i.test(s) ? s : `${s}.0`) + 'f';
 };
 const arr = (vs: readonly number[]) => `{ ${vs.map(f).join(', ')} }`;
-const pad = (v: readonly number[], n: number) => [...v, ...new Array(Math.max(0, n - v.length)).fill(0)];
+const pad = (v: readonly number[], n: number) => [
+	...v,
+	...new Array(Math.max(0, n - v.length)).fill(0)
+];
 
 export function codeDf1(b: readonly number[], a: readonly number[]): string {
 	const M = b.length - 1;
@@ -50,14 +53,23 @@ ${K > 1 ? `    for (int k = ${K - 1}; k > 0; k--) w[k] = w[k - 1];\n` : ''}    w
 }`;
 }
 
-export function codeTdf2(bIn: readonly number[], aIn: readonly number[], name = 'tdf2', comment = true): string {
+export function codeTdf2(
+	bIn: readonly number[],
+	aIn: readonly number[],
+	name = 'tdf2',
+	comment = true
+): string {
 	const K = Math.max(bIn.length, aIn.length) - 1;
 	const b = pad(bIn, K + 1);
 	const a = pad(aIn, K + 1);
-	return `${comment ? `/* Transposed direct form II: the state s[k] holds partial sums.
+	return `${
+		comment
+			? `/* Transposed direct form II: the state s[k] holds partial sums.
  *   y[n]   = b[0] x[n] + s[0]
  *   s[k]   = b[k+1] x[n] - a[k+1] y[n] + s[k+1]
- *   s[K-1] = b[K] x[n] - a[K] y[n] */\n` : ''}static const float b[${K + 1}] = ${arr(b)};
+ *   s[K-1] = b[K] x[n] - a[K] y[n] */\n`
+			: ''
+	}static const float b[${K + 1}] = ${arr(b)};
 static const float a[${K + 1}] = ${arr(a)};   /* a[0] = 1 */
 static float s[${Math.max(1, K)}];
 

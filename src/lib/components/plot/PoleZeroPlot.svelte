@@ -80,7 +80,9 @@
 
 	const R = $derived.by(() => {
 		if (extent) return extent;
-		const mags = [...zeros, ...poles, ...handles.map((h) => h.value)].map((r) => Math.hypot(r.re, r.im));
+		const mags = [...zeros, ...poles, ...handles.map((h) => h.value)].map((r) =>
+			Math.hypot(r.re, r.im)
+		);
 		const m = mags.length ? Math.max(...mags.filter(Number.isFinite)) : 0;
 		if (domain === 'z') return Math.max(1.3, m * 1.15);
 		const nice = niceUp(Math.max(m * 1.25, 1e-9));
@@ -108,7 +110,8 @@
 		const n = raw / mag;
 		const step = (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
 		const t: number[] = [];
-		for (let v = -Math.floor(R / step) * step; v <= R + 1e-12; v += step) if (Math.abs(v) > step * 1e-6) t.push(v);
+		for (let v = -Math.floor(R / step) * step; v <= R + 1e-12; v += step)
+			if (Math.abs(v) > step * 1e-6) t.push(v);
 		return t;
 	});
 
@@ -159,7 +162,8 @@
 				const a = Math.floor(Math.min(pos, stops.length - 2));
 				const f = pos - a;
 				const o = (j * res + i) * 4;
-				for (let ch = 0; ch < 3; ch++) img.data[o + ch] = stops[a][ch] + (stops[a + 1][ch] - stops[a][ch]) * f;
+				for (let ch = 0; ch < 3; ch++)
+					img.data[o + ch] = stops[a][ch] + (stops[a + 1][ch] - stops[a][ch]) * f;
 				img.data[o + 3] = 255;
 			}
 		}
@@ -316,7 +320,13 @@
 				</g>
 				<g class="axes">
 					<line x1={cx - side / 2} x2={cx + side / 2} y1={Y(0)} y2={Y(0)} />
-					<line x1={X(0)} x2={X(0)} y1={cy - side / 2} y2={cy + side / 2} class:jw={domain === 's'} />
+					<line
+						x1={X(0)}
+						x2={X(0)}
+						y1={cy - side / 2}
+						y2={cy + side / 2}
+						class:jw={domain === 's'}
+					/>
 					{#if domain === 'z'}
 						<circle class="unit" cx={X(0)} cy={Y(0)} r={k} />
 						{#each unitCircleLabels as l (l.a)}
@@ -329,8 +339,12 @@
 						{/each}
 					{/if}
 					{#each ticks as t (t)}
-						<text class="tick" x={X(t)} y={cy + side / 2 + 13} text-anchor="middle">{tickFmt(t)}</text>
-						<text class="tick" x={cx - side / 2 - 5} y={Y(t) + 4} text-anchor="end">{tickFmt(t)}</text>
+						<text class="tick" x={X(t)} y={cy + side / 2 + 13} text-anchor="middle"
+							>{tickFmt(t)}</text
+						>
+						<text class="tick" x={cx - side / 2 - 5} y={Y(t) + 4} text-anchor="end"
+							>{tickFmt(t)}</text
+						>
 					{/each}
 					<text class="axis-name" x={cx + side / 2 - 2} y={Y(0) - 5} text-anchor="end"
 						>{domain === 's' ? (sHz ? 'σ/2π' : 'σ') : 'Re'}</text
@@ -345,16 +359,19 @@
 				{#each zGroups as g, i (i)}
 					<g class="zero">
 						<circle cx={X(g.v.re)} cy={Y(g.v.im)} r="5.5" />
-						{#if g.count > 1}<text class="mult" x={X(g.v.re) + 8} y={Y(g.v.im) - 6}>{g.count}</text>{/if}
+						{#if g.count > 1}<text class="mult" x={X(g.v.re) + 8} y={Y(g.v.im) - 6}>{g.count}</text
+							>{/if}
 					</g>
 				{/each}
 				{#each pGroups as g, i (i)}
 					{@const unstable = domain === 'z' ? Math.hypot(g.v.re, g.v.im) >= 1 - 1e-12 : g.v.re >= 0}
 					<g class="pole" class:unstable>
 						<path
-							d="M{X(g.v.re) - 5.5},{Y(g.v.im) - 5.5}l11,11M{X(g.v.re) - 5.5},{Y(g.v.im) + 5.5}l11,-11"
+							d="M{X(g.v.re) - 5.5},{Y(g.v.im) - 5.5}l11,11M{X(g.v.re) - 5.5},{Y(g.v.im) +
+								5.5}l11,-11"
 						/>
-						{#if g.count > 1}<text class="mult" x={X(g.v.re) + 8} y={Y(g.v.im) - 6}>{g.count}</text>{/if}
+						{#if g.count > 1}<text class="mult" x={X(g.v.re) + 8} y={Y(g.v.im) - 6}>{g.count}</text
+							>{/if}
 					</g>
 				{/each}
 
@@ -366,7 +383,6 @@
 					</g>
 				{/each}
 			</svg>
-
 		{/if}
 	</div>
 	<div class="readout" aria-live="off">{hover ? hoverText : '\u00a0'}</div>

@@ -47,12 +47,16 @@ export function shareUrl(state: unknown): string {
 }
 
 /** Assign known keys from `src` onto `target` when the types match. */
-export function applyState<T extends Record<string, unknown>>(target: T, src: Partial<T> | null): void {
+export function applyState<T extends Record<string, unknown>>(
+	target: T,
+	src: Partial<T> | null
+): void {
 	if (!src) return;
 	for (const k of Object.keys(target) as (keyof T)[]) {
 		const v = src[k];
 		if (v === undefined) continue;
 		const cur = target[k];
-		if (typeof v === typeof cur || (Array.isArray(cur) && Array.isArray(v))) target[k] = v as T[keyof T];
+		if (typeof v === typeof cur || (Array.isArray(cur) && Array.isArray(v)))
+			target[k] = v as T[keyof T];
 	}
 }

@@ -88,14 +88,14 @@ src/routes/<slug>/+page.svelte   One folder per tool
 
 <ToolLayout slug="my-tool" related={['other-slug']}>
 	{#snippet controls()}
-		<ControlGroup title="Filter"> …Slider / Select / Segmented… </ControlGroup>
+		<ControlGroup title="Filter">…Slider / Select / Segmented…</ControlGroup>
 	{/snippet}
 
 	<!-- main area: StatGrid, ResponseView / Plot cards, tables, ExportPanel -->
 
 	{#snippet theory()}
 		<h2>How it works</h2>
-		<p>… with <Tex math="H(s)=\frac{1}{s+1}" /> inline and <Tex display math="…" /> blocks …</p>
+		<p>… with <Tex math="H(s)=\frac{1}{s + 1}" /> inline and <Tex display math="…" /> blocks …</p>
 		<Callout kind="try"><ul><li>Experiments to try…</li></ul></Callout>
 	{/snippet}
 </ToolLayout>

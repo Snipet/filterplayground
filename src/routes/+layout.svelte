@@ -21,7 +21,12 @@
 		theme.init();
 		const onKey = (e: KeyboardEvent) => {
 			const t = e.target as HTMLElement;
-			const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+			const typing =
+				t &&
+				(t.tagName === 'INPUT' ||
+					t.tagName === 'TEXTAREA' ||
+					t.tagName === 'SELECT' ||
+					t.isContentEditable);
 			if (e.key === '/' && !typing) {
 				e.preventDefault();
 				navOpen = true;
@@ -41,20 +46,74 @@
 
 <div class="app" class:nav-open={navOpen}>
 	<header class="topbar">
-		<button class="menu btn ghost" type="button" aria-label="Toggle navigation" aria-expanded={navOpen} onclick={() => (navOpen = !navOpen)}>
-			<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+		<button
+			class="menu btn ghost"
+			type="button"
+			aria-label="Toggle navigation"
+			aria-expanded={navOpen}
+			onclick={() => (navOpen = !navOpen)}
+		>
+			<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"
+				><path
+					d="M3 5h14M3 10h14M3 15h14"
+					stroke="currentColor"
+					stroke-width="1.8"
+					stroke-linecap="round"
+				/></svg
+			>
 		</button>
 		<a class="brand" href={href('/')}>
-			<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)" /><path d="M4 11h9c3 0 4 1 5.5 4.5S22 24 28 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" /><circle cx="18" cy="9" r="2.4" fill="none" stroke="#fff" stroke-width="2" /></svg>
+			<svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"
+				><rect width="32" height="32" rx="7" fill="var(--accent)" /><path
+					d="M4 11h9c3 0 4 1 5.5 4.5S22 24 28 24"
+					fill="none"
+					stroke="#fff"
+					stroke-width="2.6"
+					stroke-linecap="round"
+				/><circle cx="18" cy="9" r="2.4" fill="none" stroke="#fff" stroke-width="2" /></svg
+			>
 			<span>Filter Playground</span>
 		</a>
 		<span class="spacer"></span>
-		<a class="btn ghost small gh" href="https://github.com/Snipet/filterplayground" rel="noopener" target="_blank">GitHub</a>
-		<button class="btn ghost theme" type="button" onclick={() => theme.cycle()} aria-label="Switch to {theme.resolved === 'dark' ? 'light' : 'dark'} theme" title="Toggle theme">
+		<a
+			class="btn ghost small gh"
+			href="https://github.com/Snipet/filterplayground"
+			rel="noopener"
+			target="_blank">GitHub</a
+		>
+		<button
+			class="btn ghost theme"
+			type="button"
+			onclick={() => theme.cycle()}
+			aria-label="Switch to {theme.resolved === 'dark' ? 'light' : 'dark'} theme"
+			title="Toggle theme"
+		>
 			{#if theme.resolved === 'dark'}
-				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
+					><circle
+						cx="12"
+						cy="12"
+						r="4.5"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+					/><path
+						d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+					/></svg
+				>
 			{:else}
-				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" /></svg>
+				<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"
+					><path
+						d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linejoin="round"
+					/></svg
+				>
 			{/if}
 		</button>
 	</header>
@@ -75,31 +134,52 @@
 		{#if results}
 			<ul class="links">
 				{#each results as t (t.slug)}
-					<li><a href={toolHref(t.slug)} class:active={isActive(t.slug)} onclick={() => (query = '')}>{t.nav}</a></li>
+					<li>
+						<a href={toolHref(t.slug)} class:active={isActive(t.slug)} onclick={() => (query = '')}
+							>{t.nav}</a
+						>
+					</li>
 				{:else}
 					<li class="empty">No tools match “{query}”.</li>
 				{/each}
 			</ul>
 		{:else}
-			<a class="home-link" class:active={path === href('/') || path === '/'} href={href('/')}>Overview</a>
+			<a class="home-link" class:active={path === href('/') || path === '/'} href={href('/')}
+				>Overview</a
+			>
 			{#each CATEGORIES as cat (cat.id)}
 				<div class="cat">
 					<div class="cat-title">{cat.title}</div>
 					<ul class="links">
 						{#each toolsIn(cat.id) as t (t.slug)}
-							<li><a href={toolHref(t.slug)} class:active={isActive(t.slug)} aria-current={isActive(t.slug) ? 'page' : undefined}>{t.nav}</a></li>
+							<li>
+								<a
+									href={toolHref(t.slug)}
+									class:active={isActive(t.slug)}
+									aria-current={isActive(t.slug) ? 'page' : undefined}>{t.nav}</a
+								>
+							</li>
 						{/each}
 					</ul>
 				</div>
 			{/each}
 		{/if}
 	</nav>
-	<button class="scrim" type="button" aria-label="Close navigation" tabindex="-1" onclick={() => (navOpen = false)}></button>
+	<button
+		class="scrim"
+		type="button"
+		aria-label="Close navigation"
+		tabindex="-1"
+		onclick={() => (navOpen = false)}
+	></button>
 
 	<main class="content">
 		{@render children()}
 		<footer class="site-footer">
-			<span>Filter Playground — an open toolkit for learning and designing analog &amp; digital filters. All computation runs in your browser.</span>
+			<span
+				>Filter Playground — an open toolkit for learning and designing analog &amp; digital
+				filters. All computation runs in your browser.</span
+			>
 		</footer>
 	</main>
 </div>

@@ -10,12 +10,7 @@
 </script>
 
 <label class="toggle" class:disabled>
-	<input
-		type="checkbox"
-		bind:checked
-		{disabled}
-		onchange={() => onchange?.(checked)}
-	/>
+	<input type="checkbox" bind:checked {disabled} onchange={() => onchange?.(checked)} />
 	<span class="track" aria-hidden="true"><span class="thumb"></span></span>
 	<span class="text">
 		<span>{label}</span>

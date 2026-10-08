@@ -34,10 +34,15 @@
 	const xSeries = $derived(xl - xc);
 	const xPar = $derived((xl * xc) / (xc - xl));
 	const kind = (x: number) => (Math.abs(x) < 1e-12 ? '' : x > 0 ? ' (inductive)' : ' (capacitive)');
-	const fmtX = (x: number) => (Number.isFinite(x) ? formatSI(Math.abs(x), 'Ω', 4) + kind(x) : '∞ (resonance)');
+	const fmtX = (x: number) =>
+		Number.isFinite(x) ? formatSI(Math.abs(x), 'Ω', 4) + kind(x) : '∞ (resonance)';
 </script>
 
-<CalcCard {id} {title} blurb="Series or parallel LC tank. Reactances are evaluated at the frequency f you choose.">
+<CalcCard
+	{id}
+	{title}
+	blurb="Series or parallel LC tank. Reactances are evaluated at the frequency f you choose."
+>
 	{#snippet head()}
 		<Segmented
 			label="Solve for"
@@ -53,17 +58,55 @@
 	{/snippet}
 
 	<div class="fields">
-		{#if solve !== 'L'}<NumberInput label="Inductance L" bind:value={L} unit="H" si min={1e-15} logStep={1.1} />{/if}
-		{#if solve !== 'C'}<NumberInput label="Capacitance C" bind:value={C} unit="F" si min={1e-18} logStep={1.1} />{/if}
-		{#if solve !== 'f0'}<NumberInput label="Resonance f₀" bind:value={f0} unit="Hz" si min={1e-9} logStep={1.05} />{/if}
-		<NumberInput label="Evaluate reactances at f" bind:value={f} unit="Hz" si min={1e-9} logStep={1.05} />
+		{#if solve !== 'L'}<NumberInput
+				label="Inductance L"
+				bind:value={L}
+				unit="H"
+				si
+				min={1e-15}
+				logStep={1.1}
+			/>{/if}
+		{#if solve !== 'C'}<NumberInput
+				label="Capacitance C"
+				bind:value={C}
+				unit="F"
+				si
+				min={1e-18}
+				logStep={1.1}
+			/>{/if}
+		{#if solve !== 'f0'}<NumberInput
+				label="Resonance f₀"
+				bind:value={f0}
+				unit="Hz"
+				si
+				min={1e-9}
+				logStep={1.05}
+			/>{/if}
+		<NumberInput
+			label="Evaluate reactances at f"
+			bind:value={f}
+			unit="Hz"
+			si
+			min={1e-9}
+			logStep={1.05}
+		/>
 	</div>
 	<Results
 		rows={[
-			solve === 'f0' ? { label: 'Resonance f₀', value: formatSI(res.f0, 'Hz', 4), primary: true } : null,
-			solve === 'L' ? { label: 'Inductance L', value: formatSI(res.L, 'H', 4), primary: true } : null,
-			solve === 'C' ? { label: 'Capacitance C', value: formatSI(res.C, 'F', 4), primary: true } : null,
-			{ label: 'Z₀ = √(L/C)', value: formatSI(characteristicImpedance(res.L, res.C), 'Ω', 4), hint: 'Characteristic impedance: both reactances equal Z₀ at resonance' },
+			solve === 'f0'
+				? { label: 'Resonance f₀', value: formatSI(res.f0, 'Hz', 4), primary: true }
+				: null,
+			solve === 'L'
+				? { label: 'Inductance L', value: formatSI(res.L, 'H', 4), primary: true }
+				: null,
+			solve === 'C'
+				? { label: 'Capacitance C', value: formatSI(res.C, 'F', 4), primary: true }
+				: null,
+			{
+				label: 'Z₀ = √(L/C)',
+				value: formatSI(characteristicImpedance(res.L, res.C), 'Ω', 4),
+				hint: 'Characteristic impedance: both reactances equal Z₀ at resonance'
+			},
 			{ label: 'Inductive reactance at f', value: formatSI(xl, 'Ω', 4) },
 			{ label: 'Capacitive reactance at f', value: formatSI(xc, 'Ω', 4) },
 			{ label: 'Series LC reactance', value: fmtX(xSeries), hint: 'XL − XC' },
@@ -72,6 +115,9 @@
 	/>
 
 	{#snippet formula()}
-		<Tex display math={'\\begin{gathered}f_0=\\frac{1}{2\\pi\\sqrt{LC}},\\qquad Z_0=\\sqrt{\\frac{L}{C}}\\\\[7pt] X_L=2\\pi fL,\\qquad X_C=\\frac{1}{2\\pi fC}\\end{gathered}'} />
+		<Tex
+			display
+			math={'\\begin{gathered}f_0=\\frac{1}{2\\pi\\sqrt{LC}},\\qquad Z_0=\\sqrt{\\frac{L}{C}}\\\\[7pt] X_L=2\\pi fL,\\qquad X_C=\\frac{1}{2\\pi fC}\\end{gathered}'}
+		/>
 	{/snippet}
 </CalcCard>

@@ -17,7 +17,8 @@
 <section class="calc" {id} aria-labelledby="{id}-title">
 	<header>
 		<h2 id="{id}-title">{title}</h2>
-		<a class="anchor" href="#{id}" title="Link to this calculator" aria-label="Link to {title}">#</a>
+		<a class="anchor" href="#{id}" title="Link to this calculator" aria-label="Link to {title}">#</a
+		>
 	</header>
 	{#if blurb}<p class="blurb">{blurb}</p>{/if}
 	{#if head}<div class="head">{@render head()}</div>{/if}

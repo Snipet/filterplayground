@@ -43,7 +43,11 @@
 	});
 </script>
 
-<CalcCard {id} {title} blurb="First-order RC low-pass or high-pass: pick the unknown, enter the other two.">
+<CalcCard
+	{id}
+	{title}
+	blurb="First-order RC low-pass or high-pass: pick the unknown, enter the other two."
+>
 	{#snippet head()}
 		<Segmented
 			label="Solve for"
@@ -59,19 +63,58 @@
 	{/snippet}
 
 	<div class="fields">
-		{#if solve !== 'R'}<NumberInput label="Resistance R" bind:value={R} unit="Ω" si min={1e-6} logStep={1.1} />{/if}
-		{#if solve !== 'C'}<NumberInput label="Capacitance C" bind:value={C} unit="F" si min={1e-18} logStep={1.1} />{/if}
+		{#if solve !== 'R'}<NumberInput
+				label="Resistance R"
+				bind:value={R}
+				unit="Ω"
+				si
+				min={1e-6}
+				logStep={1.1}
+			/>{/if}
+		{#if solve !== 'C'}<NumberInput
+				label="Capacitance C"
+				bind:value={C}
+				unit="F"
+				si
+				min={1e-18}
+				logStep={1.1}
+			/>{/if}
 		{#if solve !== 'fc'}
-			<NumberInput label="Cutoff fc (−3 dB)" bind:value={fc} unit="Hz" si min={1e-9} logStep={1.05} />
-			<NumberInput label="Time constant τ" value={tauFromCutoff(fc)} unit="s" si min={1e-18} logStep={1.05} onchange={(v) => (fc = cutoffFromTau(v))} />
+			<NumberInput
+				label="Cutoff fc (−3 dB)"
+				bind:value={fc}
+				unit="Hz"
+				si
+				min={1e-9}
+				logStep={1.05}
+			/>
+			<NumberInput
+				label="Time constant τ"
+				value={tauFromCutoff(fc)}
+				unit="s"
+				si
+				min={1e-18}
+				logStep={1.05}
+				onchange={(v) => (fc = cutoffFromTau(v))}
+			/>
 		{/if}
 	</div>
 	<Results
 		rows={[
-			solve === 'R' ? { label: 'Resistance R', value: formatSI(res.R, 'Ω', 4), primary: true } : null,
-			solve === 'C' ? { label: 'Capacitance C', value: formatSI(res.C, 'F', 4), primary: true } : null,
-			solve === 'fc' ? { label: 'Cutoff fc', value: formatSI(res.fc, 'Hz', 4), primary: true } : null,
-			{ label: 'Time constant τ = RC', value: formatSI(res.R * res.C, 's', 4), primary: solve === 'fc' },
+			solve === 'R'
+				? { label: 'Resistance R', value: formatSI(res.R, 'Ω', 4), primary: true }
+				: null,
+			solve === 'C'
+				? { label: 'Capacitance C', value: formatSI(res.C, 'F', 4), primary: true }
+				: null,
+			solve === 'fc'
+				? { label: 'Cutoff fc', value: formatSI(res.fc, 'Hz', 4), primary: true }
+				: null,
+			{
+				label: 'Time constant τ = RC',
+				value: formatSI(res.R * res.C, 's', 4),
+				primary: solve === 'fc'
+			},
 			{ label: 'ωc = 2π fc', value: `${trimNumber(2 * Math.PI * res.fc, 5)} rad/s` },
 			...suggestions
 		].filter((r) => r !== null)}

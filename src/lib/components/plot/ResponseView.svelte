@@ -97,7 +97,15 @@
 	const range = $derived.by((): [number, number] => {
 		if (!first) return [1, 1000];
 		if (first.kind === 'analog') {
-			const wc = Math.max(...filters.filter((f) => f.filter.kind === 'analog').map((f) => characteristicFrequency((f.filter as Extract<Filter, { kind: 'analog' }>).zpk))) / (2 * Math.PI);
+			const wc =
+				Math.max(
+					...filters
+						.filter((f) => f.filter.kind === 'analog')
+						.map((f) =>
+							characteristicFrequency((f.filter as Extract<Filter, { kind: 'analog' }>).zpk)
+						)
+				) /
+				(2 * Math.PI);
 			const lo = fmin ?? Math.pow(10, Math.floor(Math.log10(wc)) - 2);
 			const hi = fmax ?? Math.pow(10, Math.ceil(Math.log10(wc)) + 2);
 			if (scale === 'linear') return [fmin ?? 0, fmax ?? wc * 4];
@@ -125,7 +133,8 @@
 			label: filters[i].label,
 			color: colorOf(i),
 			dash: filters[i].dash,
-			format: magMode === 'db' ? (v: number) => `${trimNumber(v, 4)} dB` : (v: number) => trimNumber(v, 4)
+			format:
+				magMode === 'db' ? (v: number) => `${trimNumber(v, 4)} dB` : (v: number) => trimNumber(v, 4)
 		}))
 	);
 
@@ -164,13 +173,16 @@
 			label: filters[i].label,
 			color: colorOf(i),
 			dash: filters[i].dash,
-			format: isAnalog ? (v: number) => formatSI(v, 's', 4) : (v: number) => `${trimNumber(v, 4)} samples`
+			format: isAnalog
+				? (v: number) => formatSI(v, 's', 4)
+				: (v: number) => `${trimNumber(v, 4)} samples`
 		}))
 	);
 
 	const gdLimits = $derived.by((): [number, number] | undefined => {
 		const vals: number[] = [];
-		for (const s of gdSeries) for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) vals.push(Math.abs(s.y[i]));
+		for (const s of gdSeries)
+			for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) vals.push(Math.abs(s.y[i]));
 		if (!vals.length) return undefined;
 		vals.sort((a, b) => a - b);
 		const p = vals[Math.floor(vals.length * 0.97)] ?? vals[vals.length - 1];
@@ -181,7 +193,9 @@
 	// Constant delays (linear phase) need a minimum span or the axis zooms into rounding noise.
 	const gdMinSpan = $derived.by(() => {
 		let m = 0;
-		for (const s of gdSeries) for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) m = Math.max(m, Math.abs(s.y[i]));
+		for (const s of gdSeries)
+			for (let i = 0; i < s.y.length; i++)
+				if (Number.isFinite(s.y[i])) m = Math.max(m, Math.abs(s.y[i]));
 		return isAnalog ? Math.max(m * 0.5, 1e-12) : Math.max(2, m * 0.25);
 	});
 
@@ -222,17 +236,43 @@
 				Math.max(
 					...filters
 						.filter((f) => f.filter.kind === 'analog')
-						.map((f) => suggestAnalogDuration((f.filter as Extract<Filter, { kind: 'analog' }>).zpk))
+						.map((f) =>
+							suggestAnalogDuration((f.filter as Extract<Filter, { kind: 'analog' }>).zpk)
+						)
 				);
 			const wantImp = views.includes('impulse');
 			const wantStep = views.includes('step');
-			const imp = filters.map((f) => (wantImp && f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'impulse', dur, 500) : null));
-			const stp = filters.map((f) => (wantStep && f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'step', dur, 500) : null));
+			const imp = filters.map((f) =>
+				wantImp && f.filter.kind === 'analog'
+					? analogTimeResponse(f.filter.zpk, 'impulse', dur, 500)
+					: null
+			);
+			const stp = filters.map((f) =>
+				wantStep && f.filter.kind === 'analog'
+					? analogTimeResponse(f.filter.zpk, 'step', dur, 500)
+					: null
+			);
 			// only analog entries can share an analog time axis
 			const keep = (_: unknown, i: number) => filters[i].filter.kind === 'analog';
 			return {
-				impulse: imp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })).filter(keep),
-				step: stp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })).filter(keep),
+				impulse: imp
+					.map((r, i) => ({
+						x: r?.t ?? [],
+						y: r?.y ?? [],
+						label: filters[i].label,
+						color: colorOf(i),
+						dash: filters[i].dash
+					}))
+					.filter(keep),
+				step: stp
+					.map((r, i) => ({
+						x: r?.t ?? [],
+						y: r?.y ?? [],
+						label: filters[i].label,
+						color: colorOf(i),
+						dash: filters[i].dash
+					}))
+					.filter(keep),
 				dirac: imp.some((r) => r?.dirac),
 				unit: 's'
 			};
@@ -240,28 +280,40 @@
 		const n =
 			timeSpan ??
 			Math.max(
-				...filters.filter((f) => f.filter.kind === 'digital').map((f) => suggestDigitalLength(f.filter as Extract<Filter, { kind: 'digital' }>, 1024))
+				...filters
+					.filter((f) => f.filter.kind === 'digital')
+					.map((f) => suggestDigitalLength(f.filter as Extract<Filter, { kind: 'digital' }>, 1024))
 			);
 		const idx = Array.from({ length: n }, (_, i) => i);
 		const stem = n <= 72;
 		const digitalOnly = (_: unknown, i: number) => filters[i].filter.kind === 'digital';
 		return {
-			impulse: filters.map((f, i) => ({
-				x: idx,
-				y: f.filter.kind === 'digital' && views.includes('impulse') ? Array.from(digitalImpulseResponse(f.filter, n)) : [],
-				label: f.label,
-				color: colorOf(i),
-				dash: f.dash,
-				kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
-			})).filter(digitalOnly),
-			step: filters.map((f, i) => ({
-				x: idx,
-				y: f.filter.kind === 'digital' && views.includes('step') ? Array.from(digitalStepResponse(f.filter, n)) : [],
-				label: f.label,
-				color: colorOf(i),
-				dash: f.dash,
-				kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
-			})).filter(digitalOnly),
+			impulse: filters
+				.map((f, i) => ({
+					x: idx,
+					y:
+						f.filter.kind === 'digital' && views.includes('impulse')
+							? Array.from(digitalImpulseResponse(f.filter, n))
+							: [],
+					label: f.label,
+					color: colorOf(i),
+					dash: f.dash,
+					kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
+				}))
+				.filter(digitalOnly),
+			step: filters
+				.map((f, i) => ({
+					x: idx,
+					y:
+						f.filter.kind === 'digital' && views.includes('step')
+							? Array.from(digitalStepResponse(f.filter, n))
+							: [],
+					label: f.label,
+					color: colorOf(i),
+					dash: f.dash,
+					kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
+				}))
+				.filter(digitalOnly),
 			dirac: false,
 			unit: 'samples'
 		};
@@ -370,7 +422,9 @@
 						heatmap={pzHeat}
 						title={isAnalog ? 'Poles & zeros (s-plane)' : 'Poles & zeros (z-plane)'}
 					/>
-					{#if filters.length > 1}<p class="note">Showing {filters[0].label ?? 'the first filter'}.</p>{/if}
+					{#if filters.length > 1}<p class="note">
+							Showing {filters[0].label ?? 'the first filter'}.
+						</p>{/if}
 				</div>
 			{/if}
 			{#if views.includes('impulse') && timeData}
@@ -384,7 +438,9 @@
 						legend={false}
 						exportName="impulse"
 					/>
-					{#if timeData.dirac}<p class="note">Plus a Dirac impulse at t = 0 (H(s) has a direct feed-through term).</p>{/if}
+					{#if timeData.dirac}<p class="note">
+							Plus a Dirac impulse at t = 0 (H(s) has a direct feed-through term).
+						</p>{/if}
 				</div>
 			{/if}
 			{#if views.includes('step') && timeData}

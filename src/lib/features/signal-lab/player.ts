@@ -20,12 +20,20 @@ export class ABPlayer {
 	active: Channel | null = null;
 
 	static supported(): boolean {
-		return typeof window !== 'undefined' && !!(window.AudioContext ?? (window as unknown as { webkitAudioContext?: Ctor }).webkitAudioContext);
+		return (
+			typeof window !== 'undefined' &&
+			!!(
+				window.AudioContext ??
+				(window as unknown as { webkitAudioContext?: Ctor }).webkitAudioContext
+			)
+		);
 	}
 
 	private ensure(): AudioContext {
 		if (!this.ctx) {
-			const C: Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: Ctor }).webkitAudioContext;
+			const C: Ctor =
+				window.AudioContext ??
+				(window as unknown as { webkitAudioContext: Ctor }).webkitAudioContext;
 			this.ctx = new C({ latencyHint: 'interactive' });
 			this.master = this.ctx.createGain();
 			this.master.gain.value = this.volume;
@@ -124,7 +132,11 @@ export class ABPlayer {
  * Decode an audio file (any format the browser supports), resample it to `fs`,
  * mix it to mono and keep at most `maxSeconds`.
  */
-export async function decodeToMono(bytes: ArrayBuffer, fs: number, maxSeconds = 10): Promise<Float32Array> {
+export async function decodeToMono(
+	bytes: ArrayBuffer,
+	fs: number,
+	maxSeconds = 10
+): Promise<Float32Array> {
 	const off = new OfflineAudioContext(1, 1, fs);
 	const buf = await off.decodeAudioData(bytes.slice(0));
 	const n = Math.min(buf.length, Math.round(maxSeconds * fs));

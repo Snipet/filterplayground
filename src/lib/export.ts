@@ -43,7 +43,11 @@ export function sosToC(sos: SOS, name = 'sos', type: CType = 'double'): string {
 }
 
 export function sosToJson(sos: SOS): string {
-	return JSON.stringify(sos.map((r) => r.map((v) => Number(num(v)))), null, 2);
+	return JSON.stringify(
+		sos.map((r) => r.map((v) => Number(num(v)))),
+		null,
+		2
+	);
 }
 
 export function arrayToPython(name: string, a: readonly number[]): string {
@@ -60,7 +64,15 @@ export function arrayToC(name: string, a: readonly number[], type: CType = 'doub
 		return type === 'float' ? (/[.e]/i.test(s) ? s : `${s}.0`) + 'f' : s;
 	};
 	const rows: string[] = [];
-	for (let i = 0; i < a.length; i += 4) rows.push('    ' + a.slice(i, i + 4).map(f).join(', ') + ',');
+	for (let i = 0; i < a.length; i += 4)
+		rows.push(
+			'    ' +
+				a
+					.slice(i, i + 4)
+					.map(f)
+					.join(', ') +
+				','
+		);
 	return `static const ${type} ${name}[${a.length}] = {\n${rows.join('\n')}\n};`;
 }
 
@@ -102,7 +114,8 @@ export function firToFixedC(h: readonly number[], bits = 16, name = 'h'): string
 	const ints = h.map((v) => toFixed(v, bits, frac));
 	const type = bits <= 8 ? 'int8_t' : bits <= 16 ? 'int16_t' : 'int32_t';
 	const rows: string[] = [];
-	for (let i = 0; i < ints.length; i += 8) rows.push('    ' + ints.slice(i, i + 8).join(', ') + ',');
+	for (let i = 0; i < ints.length; i += 8)
+		rows.push('    ' + ints.slice(i, i + 8).join(', ') + ',');
 	return `/* Q${frac} coefficients (value = integer / 2^${frac}) */\n#include <stdint.h>\nstatic const ${type} ${name}[${ints.length}] = {\n${rows.join('\n')}\n};`;
 }
 
@@ -151,7 +164,11 @@ void ${name}_reset(void)
 }`;
 }
 
-export function firImplementationC(h: readonly number[], type: CType = 'float', name = 'fir'): string {
+export function firImplementationC(
+	h: readonly number[],
+	type: CType = 'float',
+	name = 'fir'
+): string {
 	return `${arrayToC(`${name}_taps`, h, type)}
 
 #define ${name.toUpperCase()}_LEN ${h.length}

@@ -85,7 +85,10 @@ export function buildModel(domain: Domain, fs: number, form: InputForm, raw: Raw
 			case 'ba': {
 				const b = raw.b!;
 				const a = raw.a!;
-				if (a[0] === 0) throw new Error('a₀ must be non-zero — with a₀ = 0 the difference equation cannot be solved for y[n] (the filter would not be causal).');
+				if (a[0] === 0)
+					throw new Error(
+						'a₀ must be non-zero — with a₀ = 0 the difference equation cannot be solved for y[n] (the filter would not be causal).'
+					);
 				if (b.every((v) => v === 0)) throw new Error('The numerator is all zeros: H(z) = 0.');
 				tf = { b: [...b], a: [...a] };
 				zpk = tf2zpk(tf);
@@ -122,7 +125,10 @@ export function buildModel(domain: Domain, fs: number, form: InputForm, raw: Raw
 			case 'fir': {
 				const taps = raw.taps!;
 				if (taps.every((v) => v === 0)) throw new Error('All taps are zero.');
-				if (taps.length > 400) throw new Error('Please keep FIR filters to at most 400 taps here (the roots of very long polynomials are not meaningful to tabulate).');
+				if (taps.length > 400)
+					throw new Error(
+						'Please keep FIR filters to at most 400 taps here (the roots of very long polynomials are not meaningful to tabulate).'
+					);
 				tf = { b: [...taps], a: [1] };
 				zpk = tf2zpk(tf);
 				sos = zpk2sos(zpk);
@@ -141,7 +147,8 @@ export function buildModel(domain: Domain, fs: number, form: InputForm, raw: Raw
 		case 'ba': {
 			const b = trimLeading(raw.b!);
 			const a = trimLeading(raw.a!);
-			if (a.length === 0 || a.every((v) => v === 0)) throw new Error('The denominator is all zeros.');
+			if (a.length === 0 || a.every((v) => v === 0))
+				throw new Error('The denominator is all zeros.');
 			if (b.every((v) => v === 0)) throw new Error('The numerator is all zeros: H(s) = 0.');
 			tf = { b, a };
 			zpk = tf2zpkAnalog(tf);
@@ -164,7 +171,9 @@ export function buildModel(domain: Domain, fs: number, form: InputForm, raw: Raw
 		}
 	}
 	if (zpk.z.length > zpk.p.length)
-		notes.push(`H(s) is improper (${zpk.z.length} zeros, ${zpk.p.length} poles): its gain grows without bound at high frequencies, so it is not physically realisable on its own.`);
+		notes.push(
+			`H(s) is improper (${zpk.z.length} zeros, ${zpk.p.length} poles): its gain grows without bound at high frequencies, so it is not physically realisable on its own.`
+		);
 	return { domain, fs, form, zpk, tf, sos, fir: null, filter: { kind: 'analog', zpk }, notes };
 }
 
@@ -250,7 +259,10 @@ function refineCrossing(model: Model, lo: number, hi: number, levelDb: number): 
 	return (a + b) / 2;
 }
 
-export function linearPhaseOf(h: readonly number[]): { kind: 'symmetric' | 'antisymmetric' | null; type?: 'I' | 'II' | 'III' | 'IV' } {
+export function linearPhaseOf(h: readonly number[]): {
+	kind: 'symmetric' | 'antisymmetric' | null;
+	type?: 'I' | 'II' | 'III' | 'IV';
+} {
 	let s = 0;
 	let e = h.length - 1;
 	while (s < e && h[s] === 0) s++;
@@ -288,7 +300,9 @@ export function analyze(model: Model): Properties {
 			else if (worstPole >= 1 - unitTol) {
 				// repeated poles on the unit circle are unstable, simple ones marginal
 				const onCircle = zpk.p.filter((p) => Math.abs(abs(p) - 1) < unitTol);
-				const repeated = onCircle.some((p, i) => onCircle.some((q, j) => j !== i && Math.hypot(p.re - q.re, p.im - q.im) < 1e-6));
+				const repeated = onCircle.some((p, i) =>
+					onCircle.some((q, j) => j !== i && Math.hypot(p.re - q.re, p.im - q.im) < 1e-6)
+				);
 				stability = repeated ? 'unstable' : 'marginal';
 			}
 		} else {
@@ -297,7 +311,9 @@ export function analyze(model: Model): Properties {
 			if (worstPole > unitTol * scale) stability = 'unstable';
 			else if (worstPole >= -unitTol * scale) {
 				const onAxis = zpk.p.filter((p) => Math.abs(p.re) <= unitTol * scale);
-				const repeated = onAxis.some((p, i) => onAxis.some((q, j) => j !== i && Math.hypot(p.re - q.re, p.im - q.im) < 1e-6 * scale));
+				const repeated = onAxis.some((p, i) =>
+					onAxis.some((q, j) => j !== i && Math.hypot(p.re - q.re, p.im - q.im) < 1e-6 * scale)
+				);
 				stability = repeated ? 'unstable' : 'marginal';
 			}
 		}
@@ -323,11 +339,36 @@ export function analyze(model: Model): Properties {
 		}
 		const where = digital ? 'outside the unit circle' : 'in the right half-plane';
 		const onWhere = digital ? 'on the unit circle' : 'on the jω axis';
-		if (outside > 0) minPhase = { status: 'no', delay, reason: `${outside} zero${outside > 1 ? 's' : ''} ${where}` };
-		else if (on > 0) minPhase = { status: 'boundary', delay, reason: `${on} zero${on > 1 ? 's' : ''} ${onWhere} (not strictly minimum phase)` };
-		else if (delay > 0) minPhase = { status: 'boundary', delay, reason: `minimum phase apart from a pure delay of ${delay} sample${delay > 1 ? 's' : ''}` };
-		else minPhase = { status: 'yes', delay, reason: digital ? 'all zeros inside the unit circle' : 'all zeros in the left half-plane' };
-		if (stability !== 'stable' && minPhase.status === 'yes') minPhase = { ...minPhase, status: 'boundary', reason: 'zeros are fine, but the filter is not stable' };
+		if (outside > 0)
+			minPhase = {
+				status: 'no',
+				delay,
+				reason: `${outside} zero${outside > 1 ? 's' : ''} ${where}`
+			};
+		else if (on > 0)
+			minPhase = {
+				status: 'boundary',
+				delay,
+				reason: `${on} zero${on > 1 ? 's' : ''} ${onWhere} (not strictly minimum phase)`
+			};
+		else if (delay > 0)
+			minPhase = {
+				status: 'boundary',
+				delay,
+				reason: `minimum phase apart from a pure delay of ${delay} sample${delay > 1 ? 's' : ''}`
+			};
+		else
+			minPhase = {
+				status: 'yes',
+				delay,
+				reason: digital ? 'all zeros inside the unit circle' : 'all zeros in the left half-plane'
+			};
+		if (stability !== 'stable' && minPhase.status === 'yes')
+			minPhase = {
+				...minPhase,
+				status: 'boundary',
+				reason: 'zeros are fine, but the filter is not stable'
+			};
 	}
 
 	// frequency scan
@@ -352,7 +393,11 @@ export function analyze(model: Model): Properties {
 
 	// linear phase
 	let linearPhase: Properties['linearPhase'];
-	if (!digital) linearPhase = { status: 'n/a', reason: 'A rational H(s) cannot have exactly linear phase (only approximately, e.g. Bessel).' };
+	if (!digital)
+		linearPhase = {
+			status: 'n/a',
+			reason: 'A rational H(s) cannot have exactly linear phase (only approximately, e.g. Bessel).'
+		};
 	else if (model.fir) {
 		const lp = linearPhaseOf(model.fir);
 		if (lp.kind)
@@ -361,8 +406,16 @@ export function analyze(model: Model): Properties {
 				type: lp.type,
 				reason: `${lp.kind === 'symmetric' ? 'Symmetric' : 'Antisymmetric'} impulse response → type ${lp.type}`
 			};
-		else linearPhase = { status: 'no', reason: 'FIR, but the impulse response is neither symmetric nor antisymmetric' };
-	} else linearPhase = { status: 'no', reason: 'IIR: poles away from the origin rule out exact linear phase' };
+		else
+			linearPhase = {
+				status: 'no',
+				reason: 'FIR, but the impulse response is neither symmetric nor antisymmetric'
+			};
+	} else
+		linearPhase = {
+			status: 'no',
+			reason: 'IIR: poles away from the origin rule out exact linear phase'
+		};
 
 	// DC / Nyquist
 	const dcGain = digital ? magAt(model, 0) : dcAnalog(zpk);
@@ -371,7 +424,8 @@ export function analyze(model: Model): Properties {
 	// peak
 	let peak: Properties['peak'];
 	let imax = 0;
-	for (let i = 1; i < mags.length; i++) if (mags[i] > mags[imax] || !Number.isFinite(mags[imax])) imax = i;
+	for (let i = 1; i < mags.length; i++)
+		if (mags[i] > mags[imax] || !Number.isFinite(mags[imax])) imax = i;
 	if (!Number.isFinite(mags[imax])) peak = { f: grid[imax], mag: Infinity };
 	else {
 		const loF = grid[Math.max(0, imax - 1)];
@@ -458,7 +512,15 @@ export function rootRows(model: Model): RootRow[] {
 	const add = (list: Complex[], kind: 'pole' | 'zero') => {
 		const groups: { v: Complex; count: number; pair: boolean }[] = [];
 		for (const r of list) {
-			if (r.im < -1e-12 * Math.max(1, abs(r)) && list.some((s) => Math.abs(s.re - r.re) < 1e-9 * Math.max(1, abs(r)) && Math.abs(s.im + r.im) < 1e-9 * Math.max(1, abs(r)))) continue;
+			if (
+				r.im < -1e-12 * Math.max(1, abs(r)) &&
+				list.some(
+					(s) =>
+						Math.abs(s.re - r.re) < 1e-9 * Math.max(1, abs(r)) &&
+						Math.abs(s.im + r.im) < 1e-9 * Math.max(1, abs(r))
+				)
+			)
+				continue;
 			const pair = !isReal(r, 1e-12);
 			const v = pair ? { re: r.re, im: Math.abs(r.im) } : { re: r.re, im: 0 };
 			const tol = 1e-7 * Math.max(1, abs(v));
@@ -487,7 +549,17 @@ export function rootRows(model: Model): RootRow[] {
 				if (g.pair) q = Math.abs(g.v.re) <= 1e-12 * m ? Infinity : m / (2 * Math.abs(g.v.re));
 				if (kind === 'pole' && g.v.re < 0) t60 = (3 * Math.LN10) / -g.v.re;
 			}
-			rows.push({ kind, value: g.v, pair: g.pair, multiplicity: g.count, mag: m, angleDeg, freqHz, q, t60 });
+			rows.push({
+				kind,
+				value: g.v,
+				pair: g.pair,
+				multiplicity: g.count,
+				mag: m,
+				angleDeg,
+				freqHz,
+				q,
+				t60
+			});
 		}
 	};
 	add(model.zpk.p, 'pole');

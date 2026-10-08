@@ -98,7 +98,12 @@ export function randomTaps(t: LpType, N: number, seed: number): number[] {
  * normalising would divide by ~0); antisymmetric types a windowed Hilbert
  * transformer or differentiator, for either parity.
  */
-export function demoTaps(t: LpType, N: number, shape: SymShape | AntiShape, win: WindowSpec): number[] {
+export function demoTaps(
+	t: LpType,
+	N: number,
+	shape: SymShape | AntiShape,
+	win: WindowSpec
+): number[] {
 	const M = (N - 1) / 2;
 	if (!isAnti(t)) {
 		const s = shape as SymShape;
@@ -131,7 +136,8 @@ export function amplitude(h: readonly number[], fNorm: number, anti: boolean): n
 	const M = (h.length - 1) / 2;
 	const w = 2 * Math.PI * fNorm;
 	let s = 0;
-	for (let n = 0; n < h.length; n++) s += h[n] * (anti ? Math.sin((M - n) * w) : Math.cos((M - n) * w));
+	for (let n = 0; n < h.length; n++)
+		s += h[n] * (anti ? Math.sin((M - n) * w) : Math.cos((M - n) * w));
 	return s;
 }
 
@@ -165,14 +171,16 @@ export function firZeros(h: readonly number[]): Complex[] {
 // Zero symmetry
 // ---------------------------------------------------------------------------
 
-export type ZeroGroupKind = 'quad' | 'unit-pair' | 'real-pair' | 'plus1' | 'minus1' | 'origin' | 'other';
+export type ZeroGroupKind =
+	'quad' | 'unit-pair' | 'real-pair' | 'plus1' | 'minus1' | 'origin' | 'other';
 
 export interface ZeroGroup {
 	kind: ZeroGroupKind;
 	members: Complex[];
 }
 
-const near = (a: Complex, b: Complex, tol: number) => Math.hypot(a.re - b.re, a.im - b.im) <= tol * Math.max(1, Math.hypot(b.re, b.im));
+const near = (a: Complex, b: Complex, tol: number) =>
+	Math.hypot(a.re - b.re, a.im - b.im) <= tol * Math.max(1, Math.hypot(b.re, b.im));
 
 /**
  * Group the zeros of a linear-phase FIR by the symmetry that forces them:

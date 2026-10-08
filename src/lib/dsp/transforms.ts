@@ -2,19 +2,7 @@
  * Frequency transformations (low-pass prototype → LP/HP/BP/BS) and analog →
  * digital mappings (bilinear, matched-Z, impulse invariance, Euler).
  */
-import {
-	type Complex,
-	abs,
-	add,
-	c,
-	div,
-	exp,
-	mul,
-	neg,
-	scale,
-	sqrt,
-	sub
-} from './complex';
+import { type Complex, abs, add, c, div, exp, mul, neg, scale, sqrt, sub } from './complex';
 import { cleanRealRoots, polyFromRootsC, roots } from './poly';
 import { freqsZpk, freqzZpk } from './response';
 import type { BandType, ZPK } from './types';
@@ -104,7 +92,9 @@ export function bilinear(zpk: ZPK, fs: number): ZPK {
 	const z = zpk.z.map((zz) => div(add(c(fs2), zz), sub(c(fs2), zz)));
 	const p = zpk.p.map((pp) => div(add(c(fs2), pp), sub(c(fs2), pp)));
 	for (let i = 0; i < degree; i++) z.push(c(-1));
-	const k = zpk.k * div(prod(zpk.z.map((zz) => sub(c(fs2), zz))), prod(zpk.p.map((pp) => sub(c(fs2), pp)))).re;
+	const k =
+		zpk.k *
+		div(prod(zpk.z.map((zz) => sub(c(fs2), zz))), prod(zpk.p.map((pp) => sub(c(fs2), pp)))).re;
 	return { z, p, k };
 }
 
@@ -132,7 +122,11 @@ function matchGain(analog: ZPK, digital: ZPK, fs: number, wRef?: number): ZPK {
  * are placed at z = −1 (the "modified" matched-Z), which keeps the order and
  * rolls off towards Nyquist. Gain is matched at a reference frequency.
  */
-export function matchedZ(zpk: ZPK, fs: number, infiniteZerosAt: 'nyquist' | 'origin' = 'nyquist'): ZPK {
+export function matchedZ(
+	zpk: ZPK,
+	fs: number,
+	infiniteZerosAt: 'nyquist' | 'origin' = 'nyquist'
+): ZPK {
 	const T = 1 / fs;
 	const degree = zpk.p.length - zpk.z.length;
 	const z = zpk.z.map((zz) => exp(scale(zz, T)));
@@ -206,13 +200,18 @@ export function impulseInvariance(zpk: ZPK, fs: number): ImpulseInvarianceResult
 	const numReal = numPoly.map((v) => v.re);
 	// leading coefficient & zeros
 	let lead = 0;
-	while (lead < numReal.length - 1 && Math.abs(numReal[lead]) < 1e-14 * Math.max(...numReal.map(Math.abs))) lead++;
+	while (
+		lead < numReal.length - 1 &&
+		Math.abs(numReal[lead]) < 1e-14 * Math.max(...numReal.map(Math.abs))
+	)
+		lead++;
 	const trimmed = numReal.slice(lead);
 	const zz = cleanRealRoots(roots(trimmed));
 	return { zpk: { z: zz, p: d, k: trimmed[0] }, warning };
 }
 
-export type Discretization = 'bilinear' | 'matched' | 'impulse' | 'forward-euler' | 'backward-euler';
+export type Discretization =
+	'bilinear' | 'matched' | 'impulse' | 'forward-euler' | 'backward-euler';
 
 export interface DiscretizeResult {
 	zpk: ZPK;
