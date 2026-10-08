@@ -574,7 +574,7 @@
 							{#if s.x.length <= 160}
 								{#each Array.from(s.y) as yv, k (k)}
 									{#if Number.isFinite(yv)}
-										<circle cx={xs(s.x[k])} cy={clampPx(ys(yv))} r="3" fill={color} stroke="var(--chart-surface)" stroke-width="1.5" />
+										<circle cx={xs(s.x[k])} cy={clampPx(ys(yv))} r="3" fill={color} stroke="var(--chart-surface)" stroke-width="1.5" opacity={s.opacity ?? 1} />
 									{/if}
 								{/each}
 							{/if}

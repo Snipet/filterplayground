@@ -318,6 +318,9 @@ textarea {
 }
 .visually-hidden {
 	position: absolute !important;
+	/* pin to the containing block so it can never widen a scroll container */
+	top: 0;
+	left: 0;
 	width: 1px;
 	height: 1px;
 	overflow: hidden;

@@ -35,6 +35,8 @@
 		handles?: PzHandle[];
 		onhandlemove?: (id: string | number, value: Complex) => void;
 		onhandleselect?: (id: string | number | null) => void;
+		/** Called when a handle drag finishes (pointer released). */
+		onhandledragend?: (id: string | number) => void;
 		onplotclick?: (value: Complex) => void;
 		/** Value (e.g. dB) to colour the plane with; omit for no heatmap. */
 		heatmap?: ((s: Complex) => number) | null;
@@ -60,6 +62,7 @@
 		handles = [],
 		onhandlemove,
 		onhandleselect,
+		onhandledragend,
 		onplotclick,
 		heatmap = null,
 		heatRange = [-40, 20],
@@ -166,6 +169,8 @@
 	// ---------- interaction ----------
 	let svgEl: SVGSVGElement | undefined = $state();
 	let dragging: PzHandle | null = null;
+	/** Suppresses the click event that follows a handle press. */
+	let pressedHandle = false;
 	let hover = $state<Complex | null>(null);
 
 	function local(ev: PointerEvent | MouseEvent) {
@@ -202,23 +207,30 @@
 		ev.stopPropagation();
 		ev.preventDefault();
 		dragging = h;
+		pressedHandle = true;
 		onhandleselect?.(h.id);
 		svgEl?.setPointerCapture(ev.pointerId);
 	}
 
 	function endDrag(ev: PointerEvent) {
 		if (dragging) {
+			const id = dragging.id;
 			dragging = null;
 			try {
 				svgEl?.releasePointerCapture(ev.pointerId);
 			} catch {
 				/* noop */
 			}
+			onhandledragend?.(id);
 		}
 	}
 
 	function onClick(ev: MouseEvent) {
 		if (!svgEl) return;
+		if (pressedHandle) {
+			pressedHandle = false;
+			return;
+		}
 		const { px, py } = local(ev);
 		const v = { re: invX(px), im: invY(py) };
 		if (Math.abs(v.re) > R || Math.abs(v.im) > R) return;
@@ -354,11 +366,10 @@
 					</g>
 				{/each}
 			</svg>
-			{#if hover}
-				<div class="readout">{hoverText}</div>
-			{/if}
+
 		{/if}
 	</div>
+	<div class="readout" aria-live="off">{hover ? hoverText : '\u00a0'}</div>
 </figure>
 
 <style>
@@ -481,20 +492,13 @@
 		stroke-dasharray: 3 2;
 	}
 	.readout {
-		position: absolute;
-		left: 0.4rem;
-		bottom: 0.2rem;
 		font-size: 0.75rem;
 		color: var(--text-2);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 6px;
-		padding: 0.1rem 0.45rem;
-		pointer-events: none;
+		min-height: 1.2rem;
 		font-variant-numeric: tabular-nums;
 		white-space: pre;
-		max-width: calc(100% - 0.8rem);
 		overflow: hidden;
 		text-overflow: ellipsis;
+		text-align: center;
 	}
 </style>
