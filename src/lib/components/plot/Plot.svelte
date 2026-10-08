@@ -525,7 +525,12 @@
 			{/if}
 		</figcaption>
 	{/if}
-	<div class="plot-body" bind:clientWidth={width} style:height="{height}px">
+	<div
+		class="plot-body"
+		class:dragzone={markers.some((m) => m.draggable)}
+		bind:clientWidth={width}
+		style:height="{height}px"
+	>
 		{#if width > 0}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 			<svg
@@ -837,6 +842,10 @@
 		position: relative;
 		width: 100%;
 		touch-action: pan-y;
+	}
+	/* plots with draggable handles must keep touch moves for the drag */
+	.plot-body.dragzone {
+		touch-action: pinch-zoom;
 	}
 	svg {
 		display: block;
