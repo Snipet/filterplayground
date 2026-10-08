@@ -4,7 +4,7 @@
  */
 import { firwin, minimumPhase, sinc, type WindowSpec } from '$lib/dsp/fir';
 import { windowValues } from '$lib/dsp/windows';
-import { roots } from '$lib/dsp/poly';
+import { fastRoots } from '$lib/features/fir-designer/fastRoots';
 import type { Complex } from '$lib/dsp/complex';
 
 export type LpType = 1 | 2 | 3 | 4;
@@ -149,7 +149,8 @@ export function magnitude(h: readonly number[], fNorm: number): number {
 /**
  * Zeros of H(z) = Σ h[n] z^{−n} (roots of h[0] z^{N−1} + … + h[N−1]).
  * Negligible end taps (|h| < 1e-12·max) are dropped first: they are a pure delay,
- * and would otherwise show up as numerical zeros at 0 and ∞.
+ * and would otherwise show up as numerical zeros at 0 and ∞. Uses the local fast
+ * Aberth solver (the shared roots() is too slow for interactive use at these degrees).
  */
 export function firZeros(h: readonly number[]): Complex[] {
 	const peak = Math.max(...h.map(Math.abs));
@@ -157,7 +158,7 @@ export function firZeros(h: readonly number[]): Complex[] {
 	let b = h.length - 1;
 	while (a < b && Math.abs(h[a]) <= 1e-12 * peak) a++;
 	while (b > a && Math.abs(h[b]) <= 1e-12 * peak) b--;
-	return roots(h.slice(a, b + 1));
+	return fastRoots(h.slice(a, b + 1));
 }
 
 // ---------------------------------------------------------------------------

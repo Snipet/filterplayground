@@ -52,6 +52,8 @@
 	} from '$lib/features/fir-designer/design';
 	import { matlabRecipe, scipyRecipe } from '$lib/features/fir-designer/recipes';
 	import { toolHref } from '$lib/paths';
+	import PoleZeroPlot from '$lib/components/plot/PoleZeroPlot.svelte';
+	import { firZerosFast } from '$lib/features/fir-designer/fastRoots';
 
 	// ---------------- state ----------------
 	let method = $state<Method>('pm');
@@ -193,8 +195,12 @@
 
 	// ---------------- plots ----------------
 	const regions = $derived(isCustom ? gapRegions(design?.bands ?? [], fs) : maskRegions(spec, fs));
-	// group delay is the constant (N−1)/2 by construction (shown in the stats), so it is not plotted
-	const views = $derived<ResponseKind[]>(N <= 128 ? ['phase', 'pz', 'impulse', 'step'] : ['phase', 'impulse', 'step']);
+	// group delay is the constant (N−1)/2 by construction (shown in the stats), so it is not plotted;
+	// zeros are drawn in their own card with the local fast root finder
+	const views: ResponseKind[] = ['phase', 'impulse'];
+	const MAX_ZERO_TAPS = 256;
+	const zeros = $derived(N <= MAX_ZERO_TAPS ? firZerosFast(h) : []);
+	const poles = $derived(zeros.map(() => ({ re: 0, im: 0 })));
 
 	const passBands = $derived(design && !isCustom ? specBands(spec, fs).bands.filter((_, i) => specBands(spec, fs).kinds[i] === 'pass') : []);
 	const passSeries = $derived.by((): Series[] => {
@@ -509,11 +515,18 @@
 
 	<ResponseView filters={[{ filter, label: `${info.name}, N = ${N}` }]} {regions} {views} dbRange={Math.max(100, isCustom ? 100 : rs + 50)} />
 
-	{#if !isCustom && passSeries.length}
-		<Card title="Passband detail" subtitle="The same response zoomed into the passband{passBands.length > 1 ? 's' : ''}, with the ±δp limits of the mask.">
-			<Plot series={passSeries} xDomain={passDomain} yDomain={passYDomain} hlines={passLimits} xLabel="Frequency (Hz)" yLabel="Magnitude (dB)" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={220} minYSpan={0.05} exportName="passband" />
+	<div class="two">
+		<Card title="Zeros (z-plane)" subtitle={N <= MAX_ZERO_TAPS ? `${zeros.length} zeros; all poles at the origin. Stopband zeros sit on the unit circle; the rest come in mirror pairs z, 1/z*.` : `Not drawn above ${MAX_ZERO_TAPS} taps.`}>
+			{#if N <= MAX_ZERO_TAPS}
+				<PoleZeroPlot {zeros} {poles} domain="z" {fs} height={300} />
+			{/if}
 		</Card>
-	{/if}
+		{#if !isCustom && passSeries.length}
+			<Card title="Passband detail" subtitle="The response zoomed into the passband{passBands.length > 1 ? 's' : ''}, with the ±δp limits of the mask.">
+				<Plot series={passSeries} xDomain={passDomain} yDomain={passYDomain} hlines={passLimits} xLabel="Frequency (Hz)" yLabel="Magnitude (dB)" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={300} minYSpan={0.05} exportName="passband" />
+			</Card>
+		{/if}
+	</div>
 
 	{#if isCustom && ampSeries.length}
 		<Card title="Amplitude vs desired" subtitle="The real (zero-phase) amplitude A(f) — it may go negative — against the desired response in each band.">
@@ -687,5 +700,10 @@
 	}
 	tr.cur td {
 		background: var(--accent-wash);
+	}
+	.two {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+		gap: 1.1rem;
 	}
 </style>

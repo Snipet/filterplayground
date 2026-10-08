@@ -115,7 +115,7 @@ export function fastRoots(coeffs: readonly number[], maxIter = 500): Complex[] {
 				zi[i] -= si;
 			} else break;
 		}
-		out.push({ re: zr[i], im: zi[i] });
+		if (Number.isFinite(zr[i]) && Number.isFinite(zi[i])) out.push({ re: zr[i], im: zi[i] });
 	}
 	return cleanRealRoots(out);
 }

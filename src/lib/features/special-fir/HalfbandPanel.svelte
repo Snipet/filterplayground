@@ -11,6 +11,8 @@
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import { scipyWindow } from '$lib/features/fir-designer/recipes';
 	import { amplitude, foldedMultiplies } from './special';
+	import PoleZeroPlot from '$lib/components/plot/PoleZeroPlot.svelte';
+	import { firZerosFast } from '$lib/features/fir-designer/fastRoots';
 
 	interface Props {
 		fs: number;
@@ -48,6 +50,7 @@
 		return { pass, stop };
 	});
 	const fm = $derived(foldedMultiplies(h));
+	const zeros = $derived(firZerosFast(h));
 	const endZero = $derived(isZero(h[0]));
 
 	const stats = $derived<Stat[]>([
@@ -80,11 +83,14 @@
 
 <StatGrid {stats} />
 
-<ResponseView filters={[{ filter, label: `Half-band, N = ${n}` }]} views={n <= 101 ? ['pz', 'phase'] : ['phase']} vlines={[{ value: fs / 4, label: 'fs/4' }]} />
+<ResponseView filters={[{ filter, label: `Half-band, N = ${n}` }]} views={['phase']} vlines={[{ value: fs / 4, label: 'fs/4' }]} />
 
 <div class="two">
 	<Card title="Taps" subtitle="Every other tap is zero — except the centre tap, which is 1/2.">
 		<Plot series={tapSeries} vlines={[{ value: M, label: 'centre' }]} xLabel="n" height={230} exportName="halfband-taps" />
+	</Card>
+	<Card title="Zeros (z-plane)" subtitle="{zeros.length} zeros. Stopband zeros lie on the unit circle; the passband zeros come in mirror groups.">
+		<PoleZeroPlot {zeros} poles={zeros.map(() => ({ re: 0, im: 0 }))} domain="z" {fs} height={260} />
 	</Card>
 	<Card title="Symmetry about fs/4" subtitle="A(f) + A(fs/2 − f) = 1: the two curves coincide, so passband and stopband ripples are equal.">
 		<Plot series={symSeries} xDomain={[0, fs / 2]} vlines={[{ value: fs / 4, label: 'fs/4' }]} hlines={[{ value: 0.5 }]} xLabel="Frequency (Hz)" yLabel="Amplitude" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={230} />

@@ -512,7 +512,13 @@ export function designAt(cfg: FirConfig, N: number): FirDesign {
 			// remez uses H = −j·A·e^{−jωM} for antisymmetric designs; we use the +j convention
 			// (as SciPy/MATLAB do), so negate.
 			const h = sym === 'odd' ? r.h.map((v) => -v) : r.h;
-			if (!h.every(Number.isFinite)) throw new Error('The Remez exchange produced invalid taps — try other band edges or length.');
+			if (!h.every(Number.isFinite) || !h.some((v) => v !== 0))
+				throw new Error('The Remez exchange produced invalid taps — try other band edges or a different length.');
+			// below ~1e-8 the barycentric interpolation runs out of double precision and the exchange collapses
+			if (r.delta < 1e-8)
+				throw new Error(
+					`At N = ${N} the optimal ripple would be below 10⁻⁸ (over 160 dB), beyond the numerical range of the Remez exchange. Use fewer taps, narrower bands or a tighter spec.`
+				);
 			return { ...base, h, remez: { ...r, h } };
 		}
 	}
