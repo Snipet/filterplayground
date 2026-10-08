@@ -47,8 +47,14 @@ export function firwin(
 		const right = edges[1];
 		const sf = left === 0 ? 0 : right === 1 ? 1 : (left + right) / 2;
 		let s = 0;
-		for (let n = 0; n < numtaps; n++) s += h[n] * Math.cos(Math.PI * (n - alpha) * sf);
-		if (s !== 0) for (let n = 0; n < numtaps; n++) h[n] /= s;
+		let mag = 0;
+		for (let n = 0; n < numtaps; n++) {
+			s += h[n] * Math.cos(Math.PI * (n - alpha) * sf);
+			mag += Math.abs(h[n]);
+		}
+		// An even-length filter passing Nyquist has a forced zero there (type II), so the
+		// gain to normalise is ~0: leave it unscaled rather than blow the taps up.
+		if (Math.abs(s) > 1e-9 * mag) for (let n = 0; n < numtaps; n++) h[n] /= s;
 	}
 	return h;
 }

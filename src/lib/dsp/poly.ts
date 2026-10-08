@@ -130,56 +130,113 @@ export function roots(pIn: readonly number[] | readonly Complex[]): Complex[] {
 		return out;
 	}
 
-	const dp = p.slice(0, n).map((coef, i) => ({ re: coef.re * (n - i), im: coef.im * (n - i) }));
+	out.push(...aberth(p));
+	return out;
+}
 
+/**
+ * Aberth–Ehrlich iteration on a monic complex polynomial (flat arrays, no
+ * allocation in the inner loop). Each root is frozen once its step is below
+ * 1e-14 relative, then all roots get a few Newton polishing steps.
+ */
+function aberth(p: Complex[], maxIter = 600): Complex[] {
+	const n = p.length - 1;
+	const cr = Float64Array.from(p, (v) => v.re);
+	const ci = Float64Array.from(p, (v) => v.im);
+	const zr = new Float64Array(n);
+	const zi = new Float64Array(n);
+	const done = new Uint8Array(n);
 	// Initial guesses on a circle whose radius is the geometric mean of root magnitudes,
 	// with an irrational angular offset to break symmetry.
-	const r0 = Math.pow(abs(p[n]), 1 / n) || 1;
-	const z: Complex[] = [];
+	const r0 = Math.pow(Math.hypot(cr[n], ci[n]), 1 / n) || 1;
 	for (let k = 0; k < n; k++) {
-		const theta = (2 * Math.PI * k) / n + 0.4;
-		z.push(c(r0 * Math.cos(theta), r0 * Math.sin(theta)));
+		const t = (2 * Math.PI * k) / n + 0.4;
+		zr[k] = r0 * Math.cos(t);
+		zi[k] = r0 * Math.sin(t);
 	}
-
-	const maxIter = 800;
-	for (let iter = 0; iter < maxIter; iter++) {
-		let maxStep = 0;
+	// Horner for p and p' at (xr, xi); results in ev[0..3]
+	const ev = new Float64Array(4);
+	const evalP = (xr: number, xi: number) => {
+		let pr = cr[0];
+		let pi = ci[0];
+		let dr = 0;
+		let di = 0;
+		for (let k = 1; k <= n; k++) {
+			const ndr = dr * xr - di * xi + pr;
+			di = dr * xi + di * xr + pi;
+			dr = ndr;
+			const npr = pr * xr - pi * xi + cr[k];
+			pi = pr * xi + pi * xr + ci[k];
+			pr = npr;
+		}
+		ev[0] = pr;
+		ev[1] = pi;
+		ev[2] = dr;
+		ev[3] = di;
+	};
+	let remaining = n;
+	for (let it = 0; it < maxIter && remaining > 0; it++) {
 		for (let i = 0; i < n; i++) {
-			const pv = polyvalCC(p, z[i]);
-			if (pv.re === 0 && pv.im === 0) continue;
-			const dv = polyvalCC(dp, z[i]);
-			const ratio = div(pv, dv);
-			let sum = c(0);
+			if (done[i]) continue;
+			evalP(zr[i], zi[i]);
+			const [pr, pi, dr, di] = ev;
+			if (pr === 0 && pi === 0) {
+				done[i] = 1;
+				remaining--;
+				continue;
+			}
+			const dd = dr * dr + di * di;
+			if (dd === 0) continue;
+			// ratio = p / p'
+			const rr = (pr * dr + pi * di) / dd;
+			const ri = (pi * dr - pr * di) / dd;
+			// sum = Σ_{j≠i} 1/(z_i − z_j)
+			let sr = 0;
+			let si = 0;
 			for (let j = 0; j < n; j++) {
 				if (j === i) continue;
-				const d = sub(z[i], z[j]);
-				if (d.re === 0 && d.im === 0) continue;
-				sum = add(sum, div(c(1), d));
+				const er = zr[i] - zr[j];
+				const ei = zi[i] - zi[j];
+				const e2 = er * er + ei * ei;
+				if (e2 === 0) continue;
+				sr += er / e2;
+				si -= ei / e2;
 			}
-			const denom = sub(c(1), mul(ratio, sum));
-			const w = div(ratio, denom);
-			if (!Number.isFinite(w.re) || !Number.isFinite(w.im)) continue;
-			z[i] = sub(z[i], w);
-			const step = abs(w) / Math.max(1e-300, abs(z[i]));
-			if (step > maxStep) maxStep = step;
+			// w = ratio / (1 − ratio·sum)
+			const denR = 1 - (rr * sr - ri * si);
+			const denI = -(rr * si + ri * sr);
+			const d2 = denR * denR + denI * denI;
+			if (d2 === 0) continue;
+			const wr = (rr * denR + ri * denI) / d2;
+			const wi = (ri * denR - rr * denI) / d2;
+			if (!Number.isFinite(wr) || !Number.isFinite(wi)) continue;
+			zr[i] -= wr;
+			zi[i] -= wi;
+			if (Math.hypot(wr, wi) <= 1e-14 * Math.max(1e-300, Math.hypot(zr[i], zi[i]))) {
+				done[i] = 1;
+				remaining--;
+			}
 		}
-		if (maxStep < 1e-15) break;
 	}
-
-	// Newton polishing
+	// Newton polishing (accept only steps that reduce |p|)
+	const out: Complex[] = [];
 	for (let i = 0; i < n; i++) {
 		for (let k = 0; k < 3; k++) {
-			const pv = polyvalCC(p, z[i]);
-			const dv = polyvalCC(dp, z[i]);
-			if (abs(dv) === 0) break;
-			const step = div(pv, dv);
-			const cand = sub(z[i], step);
-			if (abs(polyvalCC(p, cand)) <= abs(pv)) z[i] = cand;
-			else break;
+			evalP(zr[i], zi[i]);
+			const [pr, pi, dr, di] = ev;
+			const dd = dr * dr + di * di;
+			if (dd === 0) break;
+			const sr = (pr * dr + pi * di) / dd;
+			const si = (pi * dr - pr * di) / dd;
+			const before = Math.hypot(pr, pi);
+			evalP(zr[i] - sr, zi[i] - si);
+			if (Math.hypot(ev[0], ev[1]) <= before) {
+				zr[i] -= sr;
+				zi[i] -= si;
+			} else break;
 		}
+		out.push(c(zr[i], zi[i]));
 	}
-
-	out.push(...z);
 	return out;
 }
 

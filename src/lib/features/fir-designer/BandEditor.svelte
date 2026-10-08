@@ -99,7 +99,11 @@
 		overflow-x: auto;
 	}
 	.bands {
-		min-width: 520px;
+		min-width: 620px;
+	}
+	.bands td:nth-child(2),
+	.bands td:nth-child(3) {
+		min-width: 6.5rem;
 	}
 	.bands td {
 		padding: 0.25em 0.3em;

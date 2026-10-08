@@ -526,29 +526,27 @@
 				<Plot series={passSeries} xDomain={passDomain} yDomain={passYDomain} hlines={passLimits} xLabel="Frequency (Hz)" yLabel="Magnitude (dB)" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={300} minYSpan={0.05} exportName="passband" />
 			</Card>
 		{/if}
+		{#if isCustom && ampSeries.length}
+			<Card title="Amplitude vs desired" subtitle="The real (zero-phase) amplitude A(f) — it may go negative — against the desired response in each band.">
+				<Plot series={ampSeries} xDomain={[0, nyq]} xLabel="Frequency (Hz)" yLabel="Amplitude" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={240} exportName="amplitude" />
+				<div class="table-wrap">
+					<table class="errtab">
+						<thead><tr><th>#</th><th>Range</th><th>Desired</th><th class="num">Max |A − D|</th></tr></thead>
+						<tbody>
+							{#each design?.bands ?? [] as b, i (i)}
+								<tr>
+									<td>{i + 1}</td>
+									<td>{formatSI(b.f1, 'Hz', 4)} – {formatSI(b.f2, 'Hz', 4)}</td>
+									<td>{b.d1 === b.d2 ? trimNumber(b.d1, 4) : `${trimNumber(b.d1, 4)} → ${trimNumber(b.d2, 4)}`}</td>
+									<td class="num">{errs[i] ? `${trimNumber(errs[i].maxErr, 3)} (${trimNumber(20 * Math.log10(Math.max(errs[i].maxErr, 1e-12)), 3)} dB)` : '—'}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</Card>
+		{/if}
 	</div>
-
-	{#if isCustom && ampSeries.length}
-		<Card title="Amplitude vs desired" subtitle="The real (zero-phase) amplitude A(f) — it may go negative — against the desired response in each band.">
-			<Plot series={ampSeries} xDomain={[0, nyq]} xLabel="Frequency (Hz)" yLabel="Amplitude" xFormat={freqFormat} xTooltipFormat={(v) => formatSI(v, 'Hz', 4)} height={240} exportName="amplitude" />
-			<div class="table-wrap">
-				<table class="errtab">
-					<thead><tr><th>Band</th><th>Range</th><th>Desired</th><th class="num">Max |A − D|</th><th class="num">In dB</th></tr></thead>
-					<tbody>
-						{#each design?.bands ?? [] as b, i (i)}
-							<tr>
-								<td>{i + 1}</td>
-								<td>{formatSI(b.f1, 'Hz', 4)} – {formatSI(b.f2, 'Hz', 4)}</td>
-								<td>{b.d1 === b.d2 ? trimNumber(b.d1, 4) : `${trimNumber(b.d1, 4)} → ${trimNumber(b.d2, 4)}`}</td>
-								<td class="num">{errs[i] ? trimNumber(errs[i].maxErr, 3) : '—'}</td>
-								<td class="num">{errs[i] ? `${trimNumber(20 * Math.log10(Math.max(errs[i].maxErr, 1e-12)), 3)} dB` : '—'}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</Card>
-	{/if}
 
 	{#if design?.remez && errorSeries.length}
 		<Card
@@ -694,6 +692,10 @@
 	}
 	.errtab {
 		margin-top: 0.6rem;
+		font-size: 0.85rem;
+	}
+	.errtab td {
+		white-space: nowrap;
 	}
 	.note {
 		margin: 0.4rem 0 0;

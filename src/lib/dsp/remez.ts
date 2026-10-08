@@ -169,6 +169,10 @@ export function remez(numtaps: number, bandsHz: RemezBand[], fs: number, opts: R
 		A[i] = computeA(Math.cos(2 * Math.PI * f)) * Q(f);
 	}
 	const h = freqSample(N, A, symmetry);
+	if (!h.every(Number.isFinite) || !h.some((v) => v !== 0))
+		throw new Error(
+			'The Remez exchange collapsed (the optimal ripple is beyond double precision, or the bands are infeasible). Use fewer taps or relax the specification.'
+		);
 	return { h, delta: Math.abs(delta), iterations, converged, extremals: ext.map((e) => grid[e] * fs) };
 }
 

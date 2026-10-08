@@ -194,17 +194,31 @@ export function chebwin(M: number, at: number): number[] {
 	return w.map((v) => v / mx);
 }
 
-/** Real part of DFT of p[k]·e^{jθ_k} (θ given by `rot`). O(M²). */
+/** Real part of DFT of p[k]·e^{jθ_k} (θ given by `rot`). O(M²) with a twiddle table. */
 function dftReal(p: Float64Array, rot: (k: number) => [number, number]): number[] {
 	const M = p.length;
+	const cosT = new Float64Array(M);
+	const sinT = new Float64Array(M);
+	for (let i = 0; i < M; i++) {
+		cosT[i] = Math.cos((-2 * Math.PI * i) / M);
+		sinT[i] = Math.sin((-2 * Math.PI * i) / M);
+	}
+	const ar = new Float64Array(M);
+	const ai = new Float64Array(M);
+	for (let k = 0; k < M; k++) {
+		const [cr, ci] = rot(k);
+		ar[k] = p[k] * cr;
+		ai[k] = p[k] * ci;
+	}
 	const out: number[] = new Array(M).fill(0);
 	for (let m = 0; m < M; m++) {
 		let s = 0;
+		let idx = 0;
 		for (let k = 0; k < M; k++) {
-			const [cr, ci] = rot(k);
-			const ang = (-2 * Math.PI * m * k) / M;
-			// Re{(p cr + j p ci)(cos ang + j sin ang)}
-			s += p[k] * (cr * Math.cos(ang) - ci * Math.sin(ang));
+			// Re{(ar + j ai)(cos + j sin)}
+			s += ar[k] * cosT[idx] - ai[k] * sinT[idx];
+			idx += m;
+			if (idx >= M) idx -= M;
 		}
 		out[m] = s;
 	}
