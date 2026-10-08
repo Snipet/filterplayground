@@ -4,3 +4,4 @@ build
 node_modules
 static
 tests/fixtures/scipy_reference.json
+/.wrangler

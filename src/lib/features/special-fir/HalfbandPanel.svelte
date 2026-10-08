@@ -9,8 +9,9 @@
 	import { firwin, type WindowSpec } from '$lib/dsp/fir';
 	import { linspace } from '$lib/dsp/response';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { scipyWindow } from '$lib/features/fir-designer/recipes';
-	import { amplitude, foldedMultiplies } from './special';
+	import { scipyWindow, scipyWindowArray } from '$lib/features/fir-designer/recipes';
+	import { windowInfo } from '$lib/dsp/windows';
+	import { amplitude, foldedMultiplies, halfbandEndZeros } from './special';
 	import PoleZeroPlot from '$lib/components/plot/PoleZeroPlot.svelte';
 	import { firZerosFast } from '$lib/features/fir-designer/fastRoots';
 
@@ -80,7 +81,9 @@
 	});
 	const fm = $derived(foldedMultiplies(h));
 	const zeros = $derived(firZerosFast(h));
-	const endZero = $derived(isZero(h[0]));
+	const endZero = $derived(halfbandEndZeros(h));
+	// "Hann", "Nuttall", … without the parenthetical part of the full name
+	const winName = $derived(windowInfo(win.type).name.replace(/\s*\(.*\)$/, ''));
 
 	const stats = $derived<Stat[]>([
 		{ label: 'Taps N', value: `${n} (${fm.nonzero} non-zero)` },
@@ -106,15 +109,28 @@
 		}
 	]);
 
-	const recipe = $derived(
-		`from scipy import signal\n\nfs = ${fs}\n# half-band: cutoff fs/4, unscaled so the centre tap is exactly 1/2\nh = signal.firwin(${n}, fs / 4, window=${scipyWindow(win, n) ?? "'hamming'"}, scale=False, fs=fs)\n\n# decimate by 2: filter, then keep every other sample\n# y = signal.lfilter(h, 1.0, x)[::2]`
-	);
+	const recipe = $derived.by(() => {
+		// Welch is not in SciPy and firwin rejects the Nuttall cosine-sum spec: apply those
+		// windows as an explicit array to the rectangular (ideal) design instead
+		const arr = scipyWindowArray(win, 'N');
+		const design = arr
+			? `import numpy as np\nfrom scipy import signal\n\nfs = ${fs}\nN = ${n}\n# half-band: cutoff fs/4, unscaled so the centre tap is exactly 1/2\nh = signal.firwin(N, fs / 4, window='boxcar', scale=False, fs=fs)\nh *= ${arr}   # ${win.type} window`
+			: `from scipy import signal\n\nfs = ${fs}\n# half-band: cutoff fs/4, unscaled so the centre tap is exactly 1/2\nh = signal.firwin(${n}, fs / 4, window=${scipyWindow(win, n)}, scale=False, fs=fs)`;
+		return `${design}\n\n# decimate by 2: filter, then keep every other sample\n# y = signal.lfilter(h, 1.0, x)[::2]`;
+	});
 </script>
 
-{#if endZero}
+{#if endZero === 'length'}
 	<Callout kind="note" title="Wasted end taps">
 		With N = {n} = 4K + 1 the outermost taps fall on even offsets from the centre and are zero. Use N
 		= 4K + 3 (here {n + 2} or {n - 2}) so that every stored tap does work.
+	</Callout>
+{:else if endZero === 'window'}
+	<Callout kind="note" title="Wasted end taps">
+		The {winName} window is zero at its ends, so the outermost taps vanish whatever N is, and the next
+		ones in fall on even offsets from the centre, where the sinc is zero. Only the middle {n - 4} taps
+		matter: drop the four zero taps (the same filter, with 2 samples less delay) or pick a window that
+		is not zero at its ends, such as Hamming or Kaiser.
 	</Callout>
 {/if}
 

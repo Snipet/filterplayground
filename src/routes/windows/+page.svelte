@@ -15,6 +15,8 @@
 	import { trimNumber } from '$lib/dsp/units';
 	import {
 		allWindowMetrics,
+		effectiveParam,
+		lowest,
 		makeWindow,
 		resolveWeak,
 		sliceDecimate,
@@ -51,7 +53,7 @@
 		const info = windowInfo(s.type);
 		const short = info.name.replace(/ \(.*\)$/, '');
 		if (!info.param) return short;
-		const v = trimNumber(s.param ?? info.param.default, 3);
+		const v = trimNumber(effectiveParam(s, N) ?? info.param.default, 3);
 		return s.type === 'chebyshev' ? `${short} ${v} dB` : `${short} ${info.param.label}=${v}`;
 	}
 
@@ -177,18 +179,25 @@
 			}
 		];
 		if (analysed.length) {
-			const best = [...analysed].sort(
-				(a, b) => a.metrics.peakSidelobeDb - b.metrics.peakSidelobeDb
-			)[0];
-			const narrow = [...analysed].sort((a, b) => a.metrics.width3dB - b.metrics.width3dB)[0];
-			out.push({
-				label: 'Lowest sidelobes',
-				value: `${best.label}: ${trimNumber(best.metrics.peakSidelobeDb, 3)} dB`
-			});
-			out.push({
-				label: 'Narrowest main lobe',
-				value: `${narrow.label}: ${trimNumber(narrow.metrics.width3dB, 3)} bins (−3 dB)`
-			});
+			// −∞: no sidelobe found above windowSpectrum's −240 dB floor before N/2
+			// (sidelobes negligible, or the main lobe fills the band); NaN is skipped
+			const best = lowest(analysed, (a) => a.metrics.peakSidelobeDb);
+			const narrow = lowest(analysed, (a) => a.metrics.width3dB);
+			if (best) {
+				const psl = best.metrics.peakSidelobeDb;
+				out.push({
+					label: 'Lowest sidelobes',
+					value: `${best.label}: ${Number.isFinite(psl) ? `${trimNumber(psl, 3)} dB` : 'none above −240 dB'}`,
+					hint: Number.isFinite(psl)
+						? undefined
+						: 'No sidelobe between the main lobe and N/2 rises above the −240 dB analysis floor'
+				});
+			}
+			if (narrow)
+				out.push({
+					label: 'Narrowest main lobe',
+					value: `${narrow.label}: ${trimNumber(narrow.metrics.width3dB, 3)} bins (−3 dB)`
+				});
 		}
 		if (leak.length) {
 			const k = leak.filter((l) => l.res.resolved).length;
@@ -268,7 +277,7 @@
 	{#snippet controls()}
 		<ControlGroup title="Windows (up to 4)">
 			{#each slots as _s, i (i)}
-				<WindowSlot bind:slot={slots[i]} index={i} color={colorOf(i)} />
+				<WindowSlot bind:slot={slots[i]} index={i} color={colorOf(i)} {N} />
 			{/each}
 		</ControlGroup>
 

@@ -273,7 +273,7 @@
 						]}
 					/>
 				{/if}
-				<WindowPicker bind:value={win} />
+				<WindowPicker bind:value={win} N={nEff} />
 			{:else}
 				<button class="btn small" type="button" onclick={() => (seed += 1)}>New random taps</button>
 			{/if}
@@ -387,9 +387,11 @@
 			</table>
 		</div>
 		<p class="small muted note">
-			Antisymmetric types (III, IV) add a constant 90° phase: they suit Hilbert transformers and
-			differentiators, not ordinary selective filters. Type III vanishes at both ends, so its
-			Hilbert transformers and differentiators must be band-limited; type IV reaches fs/2.
+			Antisymmetric types (III, IV) can realise the band-pass (and type IV the high-pass) magnitudes
+			too, but they add a constant 90° phase, so they are rarely used as ordinary selective filters:
+			their natural uses are Hilbert transformers and differentiators. Type III vanishes at both
+			ends, so its Hilbert transformers and differentiators must be band-limited; type IV reaches
+			fs/2.
 		</p>
 	</Card>
 

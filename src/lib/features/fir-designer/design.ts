@@ -15,6 +15,7 @@ import { remez, type RemezResult } from '$lib/dsp/remez';
 import { kaiserBeta, kaiserOrder } from '$lib/dsp/windows';
 import { fftReal, nextPow2 } from '$lib/dsp/fft';
 import { cachedWindow, firwinFast } from './windowing';
+import { firlsSweep } from './fastLs';
 import type { BandType } from '$lib/dsp/types';
 
 export type Method = 'window' | 'kaiser' | 'ls' | 'fsamp' | 'pm';
@@ -171,6 +172,17 @@ export function specBands(spec: Spec, fs: number): SpecBands {
 		case 'bandstop':
 			return { bands: [P(0, e[0]), S(e[1], e[2]), P(e[3], nyq)], kinds: ['pass', 'stop', 'pass'] };
 	}
+}
+
+/**
+ * Frequency `f` rescaled from sampling rate `fsOld` to `fsNew` (6 significant digits), kept
+ * within the new fs/2: an edge at the old fs/2 lands exactly on the new one, and rounding up
+ * never pushes an edge past it.
+ */
+export function rescaleFreq(f: number, fsOld: number, fsNew: number): number {
+	const nyq = fsNew / 2;
+	if (f >= fsOld / 2) return nyq;
+	return Math.min(nyq, Number((f * (fsNew / fsOld)).toPrecision(6)));
 }
 
 /** Narrowest transition band (Hz). */
@@ -443,6 +455,32 @@ export function measureSpec(
 	};
 }
 
+/**
+ * Same verdict as measureSpec(h, spec, fs).met, but most failing designs are rejected
+ * cheaply first: the coarse FFT grid used for that is a subset of measureSpec's dense grid
+ * (both sizes are powers of two, and |H| = |A| up to rounding), so a violation found there
+ * is a violation there too.
+ */
+export function meetsSpec(h: readonly number[], spec: Spec, fs: number): boolean {
+	const n = nextPow2(Math.max(256, 2 * h.length));
+	const { re, im } = fftReal(h, n);
+	const sb = specBands(spec, fs);
+	const { dp, ds } = deltas(spec.rp, spec.rs);
+	const passHi = 1 + dp * (1 + SPEC_TOL);
+	const passLo = 1 - dp * (1 + SPEC_TOL);
+	const stopHi = ds * (1 + SPEC_TOL);
+	const df = fs / n;
+	for (let i = 0; i < sb.bands.length; i++) {
+		const pass = sb.kinds[i] === 'pass';
+		const k1 = Math.min(n / 2, Math.floor(sb.bands[i].f2 / df));
+		for (let k = Math.ceil(sb.bands[i].f1 / df); k <= k1; k++) {
+			const m = Math.hypot(re[k], im[k]);
+			if (pass ? m > passHi || m < passLo : m > stopHi) return false;
+		}
+	}
+	return measureSpec(h, spec, fs).met;
+}
+
 export interface BandError {
 	/** max |A − D| over the band. */
 	maxErr: number;
@@ -682,6 +720,36 @@ export function searchLength(
 	return { N: toN(hi), met: true, trials };
 }
 
+/**
+ * Smallest length (within the allowed parity) whose design passes `test`, found by trying
+ * every allowed length from `minN` upwards. Needed where pass/fail is not monotonic in N:
+ * window, frequency-sampling and least-squares designs pass in islands (as N grows, a band
+ * edge moves between sidelobe peaks and nulls), so a gallop/bisection can skip the first pass.
+ */
+export function scanLength(
+	test: (N: number) => boolean,
+	oddOnly: boolean,
+	maxN: number,
+	minN = 3
+): { N: number; met: boolean; trials: number } {
+	const step = oddOnly ? 2 : 1;
+	let N = oddOnly && minN % 2 === 0 ? minN + 1 : minN;
+	let last = N;
+	let trials = 0;
+	for (; N <= maxN; N += step) {
+		trials++;
+		last = N;
+		let r = false;
+		try {
+			r = test(N);
+		} catch {
+			r = false;
+		}
+		if (r) return { N, met: true, trials };
+	}
+	return { N: last, met: false, trials };
+}
+
 /** Design with the configured or automatically found length. */
 export function designFir(cfg: FirConfig): FirDesign {
 	const info = methodInfo(cfg.method);
@@ -716,8 +784,23 @@ export function designFir(cfg: FirConfig): FirDesign {
 		estimate = kaiserOrder(kaiserAttenuation(spec), dfNorm).numtaps;
 		formula = 'Kaiser';
 	}
-	const test = (N: number) => measureSpec(designAt(cfg, N).h, spec, cfg.fs).met;
-	const r = searchLength(test, fixParity(clampN(estimate)), oddOnly, maxN);
+	let test = (N: number) => meetsSpec(designAt(cfg, N).h, spec, cfg.fs);
+	if (cfg.method === 'ls') {
+		// screen each length with the O(M²)-per-length least-squares sweep; confirm a pass with firls
+		const sweep = firlsSweep(specBands(spec, cfg.fs).bands, cfg.fs, maxN);
+		const full = test;
+		test = (N: number) => {
+			const h = sweep(N);
+			return h ? meetsSpec(h, spec, cfg.fs) && full(N) : full(N);
+		};
+	}
+	// Parks–McClellan is optimal at every length, so its pass/fail is monotonic within each parity
+	// (and in practice across them): a gallop/bisection from the estimate finds the minimum. The
+	// other methods pass in islands and need the full scan.
+	const r =
+		cfg.method === 'pm'
+			? searchLength(test, fixParity(clampN(estimate)), oddOnly, maxN)
+			: scanLength(test, oddOnly, maxN);
 	const d = designAt(cfg, r.N);
 	return { ...d, auto: { estimate, formula, met: r.met, capped: !r.met, trials: r.trials } };
 }

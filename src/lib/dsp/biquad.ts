@@ -24,6 +24,12 @@ export interface BiquadInfo {
 	name: string;
 	usesQ: boolean;
 	usesGain: boolean;
+	/**
+	 * Q sets a bandwidth: between the −3 dB points (band-pass, notch) or the
+	 * half-gain-in-dB points (peaking). For the other types Q shapes the response
+	 * around f₀ instead (corner resonance, phase transition, shelf slope).
+	 */
+	usesBw?: boolean;
 	firstOrder?: boolean;
 	description: string;
 }
@@ -48,13 +54,15 @@ export const BIQUAD_TYPES: BiquadInfo[] = [
 		name: 'Band-pass (0 dB peak)',
 		usesQ: true,
 		usesGain: false,
-		description: 'Unity gain at f₀; Q sets the bandwidth (BW = f₀/Q).'
+		usesBw: true,
+		description: 'Unity gain at f₀; Q sets the −3 dB bandwidth (≈ f₀/Q well below Nyquist).'
 	},
 	{
 		id: 'bandpass-peak',
 		name: 'Band-pass (peak = Q)',
 		usesQ: true,
 		usesGain: false,
+		usesBw: true,
 		description: 'Constant skirt gain; peak gain equals Q.'
 	},
 	{
@@ -62,6 +70,7 @@ export const BIQUAD_TYPES: BiquadInfo[] = [
 		name: 'Notch (band-reject)',
 		usesQ: true,
 		usesGain: false,
+		usesBw: true,
 		description: 'Zeros on the unit circle at f₀ — infinite attenuation there.'
 	},
 	{
@@ -76,6 +85,7 @@ export const BIQUAD_TYPES: BiquadInfo[] = [
 		name: 'Peaking EQ (bell)',
 		usesQ: true,
 		usesGain: true,
+		usesBw: true,
 		description: 'Boost or cut around f₀ with bandwidth set by Q.'
 	},
 	{
@@ -144,12 +154,60 @@ export interface BiquadParams {
 	gainDb?: number;
 }
 
-/** Convert bandwidth in octaves to Q (and back). */
-export const bwToQ = (bwOct: number): number => {
-	const p = Math.pow(2, bwOct);
-	return Math.sqrt(p) / (p - 1);
+/**
+ * Band edges (rad/sample) of the RBJ band-pass/notch (−3 dB points) and peaking
+ * EQ (half-gain-in-dB points) at ω₀ = 2π·f₀/fs. The analog prototype's edges are
+ * Ω± = √(1 + 1/(4Q²)) ± 1/(2Q) times its centre frequency (Ω+·Ω− = 1); the
+ * cookbook's prewarped bilinear transform maps them exactly via
+ * tan(ω/2) = Ω·tan(ω₀/2).
+ */
+function warpedEdges(q: number, w0: number): [number, number] {
+	const u = 1 / (2 * q);
+	const hi = Math.sqrt(1 + u * u) + u;
+	const K = Math.tan(Math.min(w0, Math.PI * (1 - 1e-12)) / 2);
+	return [2 * Math.atan(K / hi), 2 * Math.atan(K * hi)];
+}
+
+/** −3 dB / half-gain edges in Hz of the RBJ band-pass, notch or peaking biquad. */
+export function biquadBandEdges(f0: number, q: number, fs: number): [number, number] {
+	const [lo, hi] = warpedEdges(q, (2 * Math.PI * f0) / fs);
+	return [(lo * fs) / (2 * Math.PI), (hi * fs) / (2 * Math.PI)];
+}
+
+/**
+ * Convert bandwidth in octaves to Q (and back). Without `w0` this is the analog
+ * relation 1/Q = 2·sinh(ln2/2·N). With w0 = 2π·f₀/fs (rad/sample) it is the
+ * exact bandwidth of the digital RBJ band-pass/notch/peaking filter, which the
+ * bilinear transform narrows near Nyquist (the cookbook's ω₀/sin ω₀ factor is a
+ * first-order approximation of this that drifts for wide bands at high f₀).
+ */
+export const bwToQ = (bwOct: number, w0?: number): number => {
+	if (w0 === undefined || !(w0 > 0)) {
+		const p = Math.pow(2, bwOct);
+		return Math.sqrt(p) / (p - 1);
+	}
+	if (!(bwOct > 0)) return Infinity;
+	const w = Math.min(w0, Math.PI * (1 - 1e-12));
+	const K = Math.tan(w / 2);
+	const r = Math.pow(2, bwOct);
+	// lower edge x: tan(x/2)·tan(r·x/2) = K² (the edges are reciprocal in units
+	// of K), increasing in x on 0 < x < min(ω₀, π/r)
+	let lo = 0;
+	let hi = Math.min(w, Math.PI / r);
+	for (let i = 0; i < 100; i++) {
+		const x = (lo + hi) / 2;
+		if (Math.tan(x / 2) * Math.tan((r * x) / 2) < K * K) lo = x;
+		else hi = x;
+	}
+	const x = (lo + hi) / 2;
+	// Ω+ − Ω− = 1/Q
+	return K / (Math.tan((r * x) / 2) - Math.tan(x / 2));
 };
-export const qToBw = (q: number): number => (2 / Math.LN2) * Math.asinh(1 / (2 * q));
+export const qToBw = (q: number, w0?: number): number => {
+	if (w0 === undefined || !(w0 > 0)) return (2 / Math.LN2) * Math.asinh(1 / (2 * q));
+	const [lo, hi] = warpedEdges(q, w0);
+	return Math.log2(hi / lo);
+};
 
 /** Shelf slope S → Q for a given shelf gain (RBJ). */
 export function shelfSlopeToQ(S: number, gainDb: number): number {

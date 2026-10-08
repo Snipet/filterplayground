@@ -1,5 +1,7 @@
 /** Registry of every page in the site: drives the sidebar, home page and search. */
 
+import { foldDashes } from '$lib/utils/text';
+
 export type CategoryId = 'playgrounds' | 'analog' | 'iir' | 'fir' | 'analysis' | 'reference';
 
 export interface Category {
@@ -440,16 +442,19 @@ export const categoryById = (id: CategoryId): Category => CATEGORIES.find((c) =>
 
 /** Simple ranked search over titles, descriptions and tags. */
 export function searchTools(query: string): Tool[] {
-	const q = query.trim().toLowerCase();
+	// dash-insensitive, so 'pole-zero' finds 'Pole–Zero Playground'
+	const q = foldDashes(query.trim().toLowerCase());
 	if (!q) return TOOLS;
 	const terms = q.split(/\s+/);
 	return TOOLS.map((t) => {
-		const hay = `${t.title} ${t.description} ${t.tags.join(' ')}`.toLowerCase();
+		const title = foldDashes(t.title.toLowerCase());
+		const tags = t.tags.map((g) => foldDashes(g.toLowerCase()));
+		const hay = `${title} ${foldDashes(t.description.toLowerCase())} ${tags.join(' ')}`;
 		let score = 0;
 		for (const term of terms) {
 			if (!hay.includes(term)) return { t, score: -1 };
-			if (t.title.toLowerCase().includes(term)) score += 3;
-			if (t.tags.some((g) => g.includes(term))) score += 2;
+			if (title.includes(term)) score += 3;
+			if (tags.some((g) => g.includes(term))) score += 2;
 			score += 1;
 		}
 		return { t, score };

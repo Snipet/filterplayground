@@ -10,13 +10,30 @@
 	import Tex from '$lib/components/content/Tex.svelte';
 	import Callout from '$lib/components/content/Callout.svelte';
 	import ExportPanel from '$lib/components/content/ExportPanel.svelte';
-	import { BIQUAD_TYPES, biquad, bwToQ, qToBw, type BiquadType } from '$lib/dsp/biquad';
+	import {
+		BIQUAD_TYPES,
+		biquad,
+		biquadBandEdges,
+		bwToQ,
+		qToBw,
+		type BiquadType
+	} from '$lib/dsp/biquad';
 	import { sos2zpk } from '$lib/dsp/convert';
 	import { evaluate } from '$lib/dsp/response';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import { num } from '$lib/export';
 	import { readSharedState } from '$lib/share';
 	import { onMount } from 'svelte';
+	import {
+		FS_OPTIONS,
+		F0_MIN,
+		Q_MAX,
+		Q_MIN,
+		clampF0,
+		clampQ,
+		maxF0,
+		restoreState
+	} from '$lib/features/biquad/params';
 
 	let type = $state<BiquadType>('peaking');
 	let fs = $state(48000);
@@ -29,15 +46,20 @@
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
-		if (st.type && BIQUAD_TYPES.some((t) => t.id === st.type)) type = st.type;
-		if (typeof st.fs === 'number' && st.fs > 0) fs = st.fs;
-		if (typeof st.f0 === 'number' && st.f0 > 0) f0 = st.f0;
-		if (typeof st.q === 'number' && st.q > 0) q = st.q;
-		if (typeof st.gainDb === 'number') gainDb = st.gainDb;
+		const r = restoreState({ type, fs, f0, q, gainDb }, st);
+		type = r.type;
+		fs = r.fs;
+		f0 = r.f0;
+		q = r.q;
+		gainDb = r.gainDb;
 	});
 
 	const info = $derived(BIQUAD_TYPES.find((t) => t.id === type)!);
-	const bw = $derived(qToBw(q));
+	// exact bandwidth of this digital filter (bilinear-warped), not the analog N(Q)
+	const w0 = $derived((2 * Math.PI * f0) / fs);
+	const bw = $derived(qToBw(q, w0));
+	const bwRange = $derived({ min: qToBw(Q_MAX, w0), max: qToBw(Q_MIN, w0) });
+	const edges = $derived(biquadBandEdges(f0, q, fs));
 	const sec = $derived(biquad({ type, f0, fs, q, gainDb }));
 	const sos = $derived([sec]);
 	const filter = $derived({ kind: 'digital' as const, fs, sos });
@@ -56,16 +78,20 @@
 	]);
 
 	function onDrag(_id: string | number, x: number, y: number) {
-		f0 = Number(Math.min((fs / 2) * 0.98, Math.max(10, x)).toPrecision(4));
+		f0 = clampF0(Number(x.toPrecision(4)), fs);
 		if (info.usesGain) {
 			// shelves reach half their gain at f0
 			const g = type.includes('shelf') ? 2 * y : y;
 			gainDb = Math.round(Math.max(-30, Math.min(30, g)) * 10) / 10;
 		}
 	}
+	function setBw(v: number) {
+		// ignore a blur-commit from the slider as it unmounts on a type change
+		if (qMode === 'bw' && info.usesBw) q = clampQ(bwToQ(v, w0));
+	}
 	function onWheel(_id: string | number, dy: number) {
 		if (!info.usesQ) return;
-		q = Number(Math.min(50, Math.max(0.1, q * Math.pow(1.1, -Math.sign(dy)))).toPrecision(3));
+		q = Number(clampQ(q * Math.pow(1.1, -Math.sign(dy))).toPrecision(3));
 	}
 
 	const poleR = $derived(Math.max(...zpk.p.map((p) => Math.hypot(p.re, p.im))));
@@ -85,8 +111,10 @@
 		{ label: 'Gain at f₀', value: `${trimNumber(atF0, 4)} dB` },
 		{
 			label: 'Bandwidth',
-			value: info.usesQ ? `${trimNumber(bw, 3)} oct` : '—',
-			hint: 'Bandwidth in octaves equivalent to Q (bilinear-warped definition)'
+			value: info.usesBw ? `${trimNumber(bw, 3)} oct` : '—',
+			hint: info.usesBw
+				? `Octaves between the ${type === 'peaking' ? 'half-gain (dB)' : '−3 dB'} points of this digital filter: ${formatSI(edges[0], 'Hz', 4)} and ${formatSI(edges[1], 'Hz', 4)}`
+				: 'Only the band-pass, notch and peaking types have a bandwidth set by Q'
 		},
 		{
 			label: 'Decay time (−60 dB)',
@@ -94,7 +122,7 @@
 		}
 	]);
 
-	const fsOptions = [8000, 16000, 22050, 32000, 44100, 48000, 88200, 96000, 192000].map((v) => ({
+	const fsOptions = FS_OPTIONS.map((v) => ({
 		value: v,
 		label: formatSI(v, 'Hz', 4)
 	}));
@@ -132,34 +160,40 @@
 			<p class="small muted">{info.description}</p>
 		</ControlGroup>
 		<ControlGroup title="Parameters">
-			<Slider label="Frequency f₀" bind:value={f0} min={10} max={(fs / 2) * 0.98} log unit="Hz" />
+			<Slider label="Frequency f₀" bind:value={f0} min={F0_MIN} max={maxF0(fs)} log unit="Hz" />
 			{#if info.usesQ}
-				<Segmented
-					size="small"
-					bind:value={qMode}
-					options={[
-						{ value: 'q', label: 'Q' },
-						{ value: 'bw', label: 'Bandwidth (oct)' }
-					]}
-				/>
-				{#if qMode === 'q'}
-					<Slider label="Q" bind:value={q} min={0.1} max={50} log />
-				{:else}
+				{#if info.usesBw}
+					<Segmented
+						size="small"
+						bind:value={qMode}
+						options={[
+							{ value: 'q', label: 'Q' },
+							{ value: 'bw', label: 'Bandwidth (oct)' }
+						]}
+					/>
+				{/if}
+				{#if qMode === 'bw' && info.usesBw}
 					<Slider
 						label="Bandwidth"
-						value={bw}
-						min={0.05}
-						max={6}
+						bind:value={() => bw, setBw}
+						min={bwRange.min}
+						max={bwRange.max}
 						log
 						unit="oct"
-						onchange={(v) => (q = bwToQ(v))}
 					/>
+				{:else}
+					<Slider label="Q" bind:value={q} min={Q_MIN} max={Q_MAX} log />
 				{/if}
 			{/if}
 			{#if info.usesGain}
 				<Slider label="Gain" bind:value={gainDb} min={-30} max={30} step={0.1} unit="dB" />
 			{/if}
-			<Select label="Sample rate" bind:value={fs} options={fsOptions} />
+			<Select
+				label="Sample rate"
+				bind:value={fs}
+				options={fsOptions}
+				onchange={(v) => (f0 = clampF0(f0, v))}
+			/>
 		</ControlGroup>
 		<p class="small muted">
 			Drag the handle on the magnitude plot{info.usesGain ? ' (up/down sets the gain)' : ''}; scroll
@@ -227,20 +261,45 @@
 			math={'H_{peak}(z)=\\frac{(1+\\alpha A)-2\\cos\\omega_0\\,z^{-1}+(1-\\alpha A)z^{-2}}{(1+\\alpha/A)-2\\cos\\omega_0\\,z^{-1}+(1-\\alpha/A)z^{-2}}'}
 		/>
 		<p>
-			All second-order types share the same denominator, so they have the same poles for a given f₀
-			and Q. The poles sit at radius <Tex math={'r=\\sqrt{(1-\\alpha)/(1+\\alpha)}'} /> and angle ≈ ω₀.
-			The numerator decides the response type by where it puts the zeros: at z = −1 (low-pass), z = +1
-			(high-pass), on the unit circle at ±ω₀ (notch), or as reciprocals of the poles (all-pass).
+			The second-order low-pass, high-pass, both band-pass, notch and all-pass types share the
+			denominator
+			<Tex math={'(1+\\alpha)-2\\cos\\omega_0\\,z^{-1}+(1-\\alpha)z^{-2}'} />, so for a given f₀ and
+			Q they have the same poles: for Q &gt; ½ a complex pair at radius
+			<Tex math={'r=\\sqrt{(1-\\alpha)/(1+\\alpha)}'} /> and angle θ with
+			<Tex math={'\\cos\\theta=\\cos\\omega_0/\\sqrt{1-\\alpha^2}'} /> (≈ ω₀ when Q is high). The numerator
+			decides the response type by where it puts the zeros: at z = −1 (low-pass), z = +1 (high-pass),
+			z = ±1 (band-pass), on the unit circle at ±ω₀ (notch), or as reciprocals of the poles (all-pass).
+			The peaking EQ uses α/A in its denominator instead, so its poles move with the gain and match the
+			others only at 0 dB; the shelves have their own gain-dependent denominators.
 		</p>
 		<h3>Q, bandwidth and shelf slope</h3>
 		<p>
-			The cookbook relates Q to the bandwidth N in octaves (measured between the half-gain points in
-			the warped domain):
+			For the band-pass and notch filters the bandwidth N in octaves is measured between the −3 dB
+			points (relative to the peak for band-pass); for the peaking EQ, between the points where the
+			gain in dB is half its value at f₀. The analog prototype puts these points at
+			<Tex math={'\\Omega_\\pm=\\sqrt{1+1/(4Q^2)}\\pm 1/(2Q)'} /> times its centre frequency, which gives
+			the analog relation
+		</p>
+		<Tex display math={'\\frac{1}{Q} = 2\\sinh\\!\\left(\\frac{\\ln 2}{2}\\,N\\right)'} />
+		<p>
+			The bilinear transform maps Ω to the digital frequency ω with
+			<Tex math={'\\tan(\\omega/2)=\\Omega\\tan(\\omega_0/2)'} />, which squeezes the band as f₀
+			approaches Nyquist. The Bandwidth readout and slider use this exact mapping:
 		</p>
 		<Tex
 			display
-			math={'\\frac{1}{Q} = 2\\sinh\\!\\left(\\frac{\\ln 2}{2}\\,N\\,\\frac{\\omega_0}{\\sin\\omega_0}\\right)'}
+			math={'\\omega_\\pm = 2\\arctan\\!\\left(\\tan\\frac{\\omega_0}{2}\\left(\\sqrt{1+\\frac{1}{4Q^2}}\\pm\\frac{1}{2Q}\\right)\\right),\\qquad N=\\log_2\\frac{\\omega_+}{\\omega_-}'}
 		/>
+		<p>The cookbook approximates the same effect with the slope of the warping at ω₀:</p>
+		<Tex
+			display
+			math={'\\frac{1}{Q} \\approx 2\\sinh\\!\\left(\\frac{\\ln 2}{2}\\,N\\,\\frac{\\omega_0}{\\sin\\omega_0}\\right)'}
+		/>
+		<p>
+			This is accurate for narrow bands but drifts for wide ones near Nyquist: at fs = 48 kHz, f₀ =
+			18 kHz and Q = 0.5 it gives 0.763 octaves, while the filter's −3 dB points are 0.835 octaves
+			apart.
+		</p>
 		<Callout kind="try">
 			<ul>
 				<li>
@@ -251,7 +310,11 @@
 					Increase Q on the low-pass and watch the poles approach the unit circle — and the impulse
 					response ring longer.
 				</li>
-				<li>Compare a notch and a peaking filter with −30 dB gain: same poles, different zeros.</li>
+				<li>
+					Compare a notch and a band-pass with the same f₀ and Q: same poles, different zeros. Then
+					set a peaking filter to +6 dB and −6 dB: the poles of one are the zeros of the other, so
+					the cut exactly undoes the boost.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

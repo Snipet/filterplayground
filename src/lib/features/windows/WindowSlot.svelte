@@ -2,6 +2,7 @@
 	import Select from '$lib/components/controls/Select.svelte';
 	import Slider from '$lib/components/controls/Slider.svelte';
 	import { WINDOWS, windowInfo, type WindowType } from '$lib/dsp/windows';
+	import { effectiveParam, paramRange } from './analysis';
 
 	export interface Slot {
 		on: boolean;
@@ -13,10 +14,14 @@
 		slot: Slot;
 		index: number;
 		color: string;
+		/** Window length: limits parameters whose valid range depends on it (DPSS NW < N/2). */
+		N?: number;
 	}
-	let { slot = $bindable(), index, color }: Props = $props();
+	let { slot = $bindable(), index, color, N = Infinity }: Props = $props();
 
 	const info = $derived(windowInfo(slot.type));
+	const range = $derived(paramRange(slot.type, N));
+	const limited = $derived(!!range && range.max < (info.param?.max ?? Infinity));
 	const letter = $derived('ABCD'[index] ?? String(index + 1));
 	const id = $derived(`slot-${index}`);
 	const options = WINDOWS.map((w) => ({ value: w.id, label: w.name }));
@@ -34,13 +39,15 @@
 		{options}
 		onchange={(v: WindowType) => (slot.param = windowInfo(v).param?.default)}
 	/>
-	{#if info.param && slot.on}
+	{#if range && slot.on}
+		<!-- `?.`: the text box commits on blur, which can land after a switch to a window without a parameter -->
 		<Slider
-			label={info.param.label}
-			value={slot.param ?? info.param.default}
-			min={info.param.min}
-			max={info.param.max}
-			step={info.param.step}
+			label={range.label}
+			value={effectiveParam(slot, N) ?? range?.default ?? 0}
+			min={range?.min ?? 0}
+			max={range?.max ?? 1}
+			step={range?.step}
+			help={limited ? `${range.label} must stay below N/2 = ${N / 2}` : undefined}
 			onchange={(v) => (slot.param = v)}
 		/>
 	{/if}

@@ -43,7 +43,11 @@
 	let r0 = $state(50);
 	let series = $state<ESeries>('E12');
 
-	const shared = $derived({ family, order, rp, form, band, f0, bw, r0, series });
+	// the bandwidth in use: `bw` clamped to the slider range [f0/1000, 2·f0], which
+	// moves with f0 (`bw` itself keeps the user's value for when f0 changes back)
+	const bwSafe = $derived(Math.max(f0 / 1000, Math.min(bw, 2 * f0)));
+
+	const shared = $derived({ family, order, rp, form, band, f0, bw: bwSafe, r0, series });
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
@@ -72,7 +76,6 @@
 		}
 	});
 
-	const bwSafe = $derived(Math.max(1e-6 * f0, Math.min(bw, 4 * f0)));
 	const scaleOpts = $derived({ form, band, r0, f0, bw: bwSafe });
 	const exact = $derived<LadderNetwork | null>(
 		synth.syn ? scaleLadder(synth.syn, scaleOpts) : null
@@ -372,7 +375,7 @@
 			{#if isBP}
 				<Slider
 					label="Bandwidth f₂ − f₁"
-					bind:value={bw}
+					bind:value={() => bwSafe, (v) => (bw = v)}
 					min={f0 / 1000}
 					max={2 * f0}
 					log
@@ -668,9 +671,10 @@
 					element.
 				</li>
 				<li>
-					Make a band-pass filter with a narrow bandwidth (BW = f₀/50): the resonator inductances
-					explode and the capacitances shrink — narrow-band ladders are impractical without coupled
-					resonators.
+					Make a band-pass filter with a narrow bandwidth (BW = f₀/50): the element values spread
+					apart enormously — the series resonators get huge inductors and tiny capacitors, the shunt
+					resonators tiny inductors and huge capacitors (the spread grows like (f₀/BW)²) — so
+					narrow-band ladders are impractical without coupled resonators.
 				</li>
 			</ul>
 		</Callout>

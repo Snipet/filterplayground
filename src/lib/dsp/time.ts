@@ -194,7 +194,9 @@ export function characteristicFrequency(zpk: ZPK): number {
 /** Pick a time span (seconds) long enough for the response to settle. */
 export function suggestAnalogDuration(zpk: ZPK): number {
 	const decay = zpk.p.map((p) => -p.re).filter((d) => d > 0);
-	const wc = characteristicFrequency(zpk);
+	// poles only: far-away stopband zeros (elliptic, Chebyshev II) would shrink the cap
+	// below the time the response needs to settle
+	const wc = characteristicFrequency({ z: [], p: zpk.p, k: 1 });
 	if (decay.length === 0 || zpk.p.some((p) => p.re >= 0)) return 40 / wc;
 	const slowest = Math.min(...decay);
 	return Math.min(8 / slowest, 400 / wc);

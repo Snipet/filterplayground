@@ -204,6 +204,26 @@ function magAt(model: Model, f: number): number {
 	return evaluate(model.filter, [f]).mag[0];
 }
 
+/**
+ * |H| of a digital filter at exactly z = 1 (DC) or z = −1 (fs/2), in real arithmetic.
+ * e^{jπ} from cos/sin is −1 + 1.2e-16j, just off the unit circle, which turns a pole at
+ * z = −1 into a huge finite gain, and a complex 1/0 times another factor gives NaN.
+ */
+function magAtUnit(f: DigitalFilter, z: 1 | -1): number {
+	// Horner in z⁻¹ = z
+	const at = (p: readonly number[]) => p.reduceRight((s, v) => s * z + v, 0);
+	if (f.sos)
+		return Math.abs(f.sos.reduce((h, s) => h * (at(s.slice(0, 3)) / at(s.slice(3, 6))), 1));
+	if (f.zpk) {
+		let h = Math.abs(f.zpk.k);
+		for (const q of f.zpk.z) h *= Math.hypot(z - q.re, q.im);
+		for (const p of f.zpk.p) h /= Math.hypot(z - p.re, p.im);
+		return h;
+	}
+	const tf = f.fir ? { b: f.fir, a: [1] } : f.tf!;
+	return Math.abs(at(tf.b) / at(tf.a));
+}
+
 /** Frequency grid that resolves both very narrow low-frequency features and the full band. */
 export function analysisGrid(model: Model): number[] {
 	if (model.domain === 'digital') {
@@ -418,21 +438,28 @@ export function analyze(model: Model): Properties {
 		};
 
 	// DC / Nyquist
-	const dcGain = digital ? magAt(model, 0) : dcAnalog(zpk);
-	const nyquistGain = digital ? magAt(model, model.fs / 2) : null;
+	const dcGain = digital ? magAtUnit(model.filter as DigitalFilter, 1) : dcAnalog(zpk);
+	const nyquistGain = digital ? magAtUnit(model.filter as DigitalFilter, -1) : null;
 
-	// peak
+	// peak: the first infinite sample (a pole on the unit circle / jω axis) wins;
+	// NaN samples (0/0 where a zero sits on a pole) are skipped
 	let peak: Properties['peak'];
 	let imax = 0;
 	for (let i = 1; i < mags.length; i++)
-		if (mags[i] > mags[imax] || !Number.isFinite(mags[imax])) imax = i;
-	if (!Number.isFinite(mags[imax])) peak = { f: grid[imax], mag: Infinity };
+		if (mags[i] > mags[imax] || Number.isNaN(mags[imax])) imax = i;
+	if (mags[imax] === Infinity) peak = { f: grid[imax], mag: Infinity };
 	else {
 		const loF = grid[Math.max(0, imax - 1)];
 		const hiF = grid[Math.min(grid.length - 1, imax + 1)];
 		peak = hiF > loF ? refineMax(model, loF, hiF) : { f: grid[imax], mag: mags[imax] };
 		if (peak.mag < mags[imax]) peak = { f: grid[imax], mag: mags[imax] };
-		if (!digital) {
+		// A maximum at an end of the band (a low-pass at DC, a high-pass at fs/2 or f → ∞)
+		// is exact there; the search above only follows rounding noise in the flat top.
+		if (digital) {
+			if (dcGain >= peak.mag * (1 - 1e-12)) peak = { f: 0, mag: dcGain };
+			else if (nyquistGain! >= peak.mag * (1 - 1e-12))
+				peak = { f: model.fs / 2, mag: nyquistGain! };
+		} else {
 			if (dcGain >= peak.mag * (1 - 1e-12)) peak = { f: 0, mag: dcGain };
 			const hf = highFreqLimit(zpk);
 			if (hf >= peak.mag * (1 - 1e-9)) peak = { f: Infinity, mag: hf, atInfinity: true };

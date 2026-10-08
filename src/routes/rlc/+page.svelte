@@ -21,18 +21,21 @@
 		circuitSchematic,
 		circuitZpk,
 		dampingClass,
+		fastTimeConstant,
 		firstOrderW,
+		resonancePeak,
 		roundValues,
 		secondOrder,
+		slowTimeConstant,
 		solveFirstOrder,
 		solveSecondOrder,
 		stateZpks,
+		stepOvershoot,
 		texNum,
 		type CircuitId,
 		type Known,
 		type Values
 	} from '$lib/features/rlc/circuits';
-	import { evaluate, logspace } from '$lib/dsp/response';
 	import { analogTimeResponse, suggestAnalogDuration } from '$lib/dsp/time';
 	import { formatSI, trimNumber, type ESeries } from '$lib/dsp/units';
 	import { readSharedState } from '$lib/share';
@@ -156,14 +159,23 @@
 				value: formatSI(so.z0, 'Ω', 4),
 				hint: 'Impedance of L (and of C) at resonance'
 			},
-			{
-				label: 'Decay time constant',
-				value: formatSI(1 / (so.zeta * so.w0), 's', 4),
-				hint:
-					info.family === 'parallel'
-						? 'Envelope e^(−t/τ) with τ = 2RC'
-						: 'Envelope e^(−t/τ) with τ = 2L/R'
-			}
+			// e^(−ζω₀t) is an envelope only for complex (or double) poles; an overdamped
+			// response is set by the slower of its two real poles
+			damping === 'overdamped'
+				? {
+						label: 'Dominant time constant',
+						value: formatSI(slowTimeConstant(so.w0, so.zeta), 's', 4),
+						hint: `Slow real pole −ω₀(ζ − √(ζ²−1)) dominates; the fast pole −ω₀(ζ + √(ζ²−1)) has τ = ${formatSI(fastTimeConstant(so.w0, so.zeta), 's', 3)}. No oscillation envelope for ζ > 1`
+					}
+				: {
+						label: 'Decay time constant',
+						value: formatSI(1 / (so.zeta * so.w0), 's', 4),
+						hint:
+							(damping === 'critical'
+								? 'Double real pole at −1/τ: natural response (A + B·t)·e^(−t/τ)'
+								: 'Envelope e^(−t/τ)') +
+							(info.family === 'parallel' ? ' with τ = 2RC' : ' with τ = 2L/R')
+					}
 		];
 		if (damping === 'underdamped')
 			out.push({
@@ -172,27 +184,26 @@
 				hint: 'Damped natural frequency f₀√(1 − ζ²)'
 			});
 		if (info.band === 'lowpass' || info.band === 'highpass') {
-			const grid = logspace(f0 / 100, f0 * 100, 1500);
-			const r = evaluate(filter, grid);
-			let best = 0;
-			for (let i = 1; i < r.magDb.length; i++) if (r.magDb[i] > r.magDb[best]) best = i;
-			const peak = r.magDb[best];
+			// closed form: a sampled grid misses the narrow peak of a high-Q resonance
+			const pk = resonancePeak(info.band, so.w0, so.q);
+			const peakDb = pk ? 20 * Math.log10(pk.gain) : 0;
 			out.push({
 				label: 'Resonance peak',
-				value:
-					peak > 0.005 && best > 0 && best < grid.length - 1
-						? `${trimNumber(peak, 3)} dB @ ${formatSI(grid[best], 'Hz', 3)}`
-						: 'none',
-				hint: 'Peaking appears for Q > 1/√2'
+				value: !pk
+					? 'none'
+					: peakDb < 0.005
+						? '< 0.005 dB'
+						: `${trimNumber(peakDb, 3)} dB @ ${formatSI(pk.w / TWO_PI, 'Hz', 4)}`,
+				hint: `Peaking appears for Q > 1/√2: gain Q/√(1 − 1/(4Q²)) at ${info.band === 'lowpass' ? 'f₀·√(1 − 1/(2Q²))' : 'f₀/√(1 − 1/(2Q²))'}`
 			});
 		}
 		if (info.band === 'lowpass') {
-			const st = analogTimeResponse(filter.zpk, 'step', undefined, 800);
-			const fin = st.y[st.y.length - 1];
-			const over = (Math.max(...st.y) / fin - 1) * 100;
+			// the only second-order low-pass (output across C) is ω₀²/D(s) with unit DC
+			// gain, so the textbook formula is exact — no simulation that may not have settled
+			const over = stepOvershoot(so.zeta);
 			out.push({
 				label: 'Step overshoot',
-				value: `${trimNumber(Math.max(0, over), 3)} %`,
+				value: `${over >= 1e-3 ? trimNumber(over, 3) : over > 0 ? '< 0.001' : '0'} %`,
 				hint: 'e^(−πζ/√(1−ζ²)) for ζ < 1'
 			});
 		}
@@ -307,6 +318,8 @@
 	let solveQ = $state(0.707);
 	let known = $state<Known>('C');
 	let knownValue = $state(100e-9);
+	/** The component `knownValue` was entered for, so a topology change never reuses it in another unit. */
+	let knownValueOf = $state<Known>('C');
 	let eSeries = $state<ESeries>('E24');
 
 	const knownOptions = $derived(
@@ -316,14 +329,20 @@
 	);
 	const knownEff = $derived<Known>(info.uses[known] ? known : info.uses.C ? 'C' : 'L');
 	const knownUnit = $derived({ R: 'Ω', L: 'H', C: 'F' }[knownEff]);
+	/**
+	 * Value the solver works from. When the topology lacks the chosen part, knownEff falls
+	 * back to another one; that part's value then comes from the circuit, not from a number
+	 * entered for a different component.
+	 */
+	const knownVal = $derived(knownValueOf === knownEff ? knownValue : { R, L, C }[knownEff]);
 
 	const solved = $derived.by(() => {
 		try {
-			if (!(knownValue > 0)) throw new Error('The known component must be positive.');
+			if (!(knownVal > 0)) throw new Error('The known component must be positive.');
 			let exact: Values;
 			if (!isSecond) {
 				if (!(solveFc > 0)) throw new Error('Target frequency must be positive.');
-				exact = solveFirstOrder(info.family as 'rc' | 'rl', solveFc, knownEff, knownValue, {
+				exact = solveFirstOrder(info.family as 'rc' | 'rl', solveFc, knownEff, knownVal, {
 					R,
 					L,
 					C
@@ -335,7 +354,7 @@
 					solveF0,
 					solveQ,
 					knownEff,
-					knownValue
+					knownVal
 				);
 			}
 			const rounded = roundValues(exact, eSeries);
@@ -536,11 +555,18 @@
 					onchange={(k) => {
 						known = k;
 						knownValue = { R, L, C }[k];
+						knownValueOf = k;
 					}}
 				/>
 				<NumberInput
 					label="Known {knownEff}"
-					bind:value={knownValue}
+					bind:value={
+						() => knownVal,
+						(v) => {
+							knownValue = v;
+							knownValueOf = knownEff;
+						}
+					}
 					unit={knownUnit}
 					si
 					min={1e-15}

@@ -68,14 +68,34 @@
 	}
 
 	const fmt = (v: number) => (si ? formatSI(v, unit, digits) : trimNumber(v, digits));
+	// announced by assistive tech instead of the range input's raw (log: 0…RES) position
+	const valueText = $derived(fmt(value) + (unit && !si ? ` ${unit}` : ''));
 	let text = $state('');
 	let editing = $state(false);
 	$effect(() => {
 		if (!editing) text = fmt(value);
 	});
 
+	// Removing a focused field (its block switching away) fires blur synchronously, before any
+	// teardown: committing then would write the stale text into whatever replaced it. So the
+	// blur commit waits a microtask (still ahead of the click that caused the blur) and is
+	// dropped once the field is gone.
+	let alive = true;
+	$effect(() => () => {
+		alive = false;
+	});
+	const commitOnBlur = () =>
+		queueMicrotask(() => {
+			if (alive) commit();
+		});
+
 	function commit() {
-		const v = parseSI(text);
+		// untouched text is the rounded display: keep the exact value instead of rounding it
+		if (text === fmt(value)) {
+			editing = false;
+			return;
+		}
+		const v = parseSI(text, unit);
 		if (Number.isFinite(v)) {
 			const lo = allowOutOfRange ? (inputMin ?? -Infinity) : min;
 			const hi = allowOutOfRange ? (inputMax ?? Infinity) : max;
@@ -104,7 +124,7 @@
 					editing = true;
 					(e.target as HTMLInputElement).select();
 				}}
-				onblur={commit}
+				onblur={commitOnBlur}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') commit();
 					if (e.key === 'Escape') {
@@ -122,6 +142,7 @@
 		max={log ? RES : max}
 		step={log ? 1 : (step ?? (integer ? 1 : (max - min) / 500))}
 		value={pos}
+		aria-valuetext={valueText}
 		{disabled}
 		oninput={onInput}
 	/>

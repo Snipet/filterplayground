@@ -564,7 +564,8 @@ function factorTex(variable: string, item: { re: number; im: number; pair: boole
 
 /**
  * Factored H as TeX. Roots are given in the units of the ZPK (rad/s for s).
- * Identical factors are collected into powers.
+ * Identical factors are collected into powers. A pair with im = 0 (e.g. ζ = 1)
+ * is a double real root, as in {@link expand}, so it counts its factor twice.
  */
 export function transferTex(
 	variable: 's' | 'z',
@@ -576,7 +577,7 @@ export function transferTex(
 		const counts = new Map<string, number>();
 		for (const it of list) {
 			const f = factorTex(variable, it);
-			counts.set(f, (counts.get(f) ?? 0) + 1);
+			counts.set(f, (counts.get(f) ?? 0) + (it.pair && it.im === 0 ? 2 : 1));
 		}
 		const parts: string[] = [];
 		for (const [f, n] of counts) {

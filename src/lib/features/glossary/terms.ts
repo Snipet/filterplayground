@@ -4,6 +4,8 @@
  * `tools` lists page slugs from src/lib/tools.ts.
  */
 
+import { foldDashes } from '$lib/utils/text';
+
 export interface Term {
 	term: string;
 	/** Synonyms and abbreviations — searchable and shown under the term. */
@@ -236,7 +238,7 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Decade',
-		def: 'A frequency ratio of 10. Slopes are quoted per decade (an N-th-order low-pass falls at 20N dB/decade).',
+		def: 'A frequency ratio of 10. Slopes are quoted per decade (an all-pole N-th-order low-pass such as Butterworth, Chebyshev I or Bessel eventually falls at 20N dB/decade).',
 		see: ['Octave', 'Roll-off', 'Bode plot'],
 		tools: ['calculators']
 	},
@@ -562,8 +564,8 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Linear phase',
-		def: 'Phase proportional to frequency, φ(ω) = −ωτ, so every frequency is delayed by the same τ and waveshapes are preserved. Symmetric or antisymmetric FIR filters have exactly linear phase (four types); causal IIR filters cannot.',
-		see: ['Group delay', 'FIR filter', 'Minimum phase', 'Pre-ringing'],
+		def: 'Phase proportional to frequency, φ(ω) = −ωτ, so every frequency is delayed by the same τ and waveshapes are preserved. Symmetric FIR filters (types I, II) have exactly linear phase (apart from π jumps where their amplitude changes sign); antisymmetric ones (types III, IV) have generalised linear phase φ(ω) = π/2 − ωτ, a constant group delay plus a fixed 90° shift that suits differentiators and Hilbert transformers but does not preserve waveshapes. Causal IIR filters cannot have linear phase.',
+		see: ['Group delay', 'Phase delay', 'FIR filter', 'Minimum phase', 'Pre-ringing'],
 		tools: ['linear-phase']
 	},
 	{
@@ -688,8 +690,8 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Overshoot',
-		def: 'How far a step response rises above its final value, in percent. For a second-order low-pass it depends only on the damping ratio.',
-		tex: t`M_p=e^{-\pi\zeta/\sqrt{1-\zeta^2}}`,
+		def: 'How far a step response rises above its final value, as a fraction of that value (multiply by 100 to quote it in percent). For a second-order low-pass without zeros it depends only on the damping ratio and vanishes for ζ ≥ 1.',
+		tex: t`M_p=e^{-\pi\zeta/\sqrt{1-\zeta^2}}\quad(\zeta<1)`,
 		see: ['Step response', 'Damping ratio', 'Ringing'],
 		tools: ['rlc', 'family-compare']
 	},
@@ -747,7 +749,8 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Pole–zero plot',
-		def: "A map of a transfer function's poles (×) and zeros (○) in the s- or z-plane. The frequency response can be read from distances: the gain at a frequency is the product of distances to the zeros divided by that to the poles.",
+		def: "A map of a transfer function's poles (×) and zeros (○) in the s- or z-plane. The magnitude response can be read from distances: the gain at a frequency is |k| times the product of the distances from its point (jω, or e^(jω) on the unit circle) to the zeros, divided by the product of the distances to the poles. The gain constant k is not shown on the plot.",
+		tex: t`|H|=|k|\,\frac{\prod_i|x-z_i|}{\prod_i|x-p_i|},\qquad x=j\omega\;\text{or}\;e^{j\omega}`,
 		see: ['Pole', 'Zero', 'S-plane', 'Z-plane'],
 		tools: ['pole-zero']
 	},
@@ -785,9 +788,13 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Raised-cosine filter',
-		aka: ['root-raised-cosine', 'RRC'],
 		def: 'Pulse-shaping filter with a cosine-tapered transition set by the roll-off factor β. Its impulse response is zero at all other symbol instants, so it causes no intersymbol interference; in practice it is split into two root-raised-cosine filters at transmitter and receiver.',
-		see: ['Intersymbol interference', 'Matched filter', 'Sinc function'],
+		see: [
+			'Root-raised-cosine filter',
+			'Intersymbol interference',
+			'Matched filter',
+			'Sinc function'
+		],
 		tools: ['special-fir']
 	},
 	{
@@ -802,6 +809,14 @@ const TERMS_UNSORTED: Term[] = [
 		def: 'No tapering at all — simply truncating the signal or impulse response. It has the narrowest main lobe but high (−13 dB) sidelobes that decay slowly.',
 		see: ['Window function', 'Leakage', 'Gibbs phenomenon'],
 		tools: ['windows']
+	},
+	{
+		term: 'Reflection coefficient',
+		aka: ['ρ', 'Γ'],
+		def: 'The ratio of the reflected to the incident wave at a port where an impedance Z meets the reference impedance Z₀. It is complex, with |ρ| ≤ 1 for a passive load and ρ = 0 for a perfect match; return loss and VSWR are both functions of |ρ|.',
+		tex: t`\rho=\frac{Z-Z_0}{Z+Z_0}`,
+		see: ['Return loss', 'VSWR', 'Impedance'],
+		tools: ['calculators', 'lc-ladder']
 	},
 	{
 		term: 'Region of convergence',
@@ -824,10 +839,9 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Return loss',
-		aka: ['VSWR', 'reflection coefficient'],
-		def: 'How much power is reflected from a port, as a positive dB value: RL = −20·log₁₀|ρ|. For a lossless doubly-terminated filter, passband ripple and return loss are linked through |ρ|² = 1 − 10^(−Rp/10).',
-		tex: t`\text{VSWR}=\frac{1+|\rho|}{1-|\rho|}`,
-		see: ['Insertion loss', 'Ripple', 'Ladder network'],
+		def: 'How much power is reflected from a port, as a positive dB value: RL = −20·log₁₀|ρ|, where ρ is the reflection coefficient. For a lossless doubly-terminated filter, passband ripple and return loss are linked through |ρ|² = 1 − 10^(−Rp/10).',
+		tex: t`\text{RL}=-20\log_{10}|\rho|`,
+		see: ['Reflection coefficient', 'VSWR', 'Insertion loss', 'Ripple', 'Ladder network'],
 		tools: ['calculators', 'lc-ladder']
 	},
 	{
@@ -845,9 +859,16 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Roll-off',
-		def: 'How fast the attenuation grows beyond the cutoff. Far from the corner an N-pole low-pass falls at 20N dB/decade (≈ 6N dB/octave); near the corner the family (Butterworth, Chebyshev …) determines the steepness.',
-		see: ['Order', 'Decade', 'Octave', 'Transition band'],
+		def: 'How fast the attenuation grows beyond the cutoff. Far from the corner an all-pole N-th-order low-pass (Butterworth, Chebyshev I, Bessel) falls at 20N dB/decade (≈ 6N dB/octave), but M finite zeros reduce this to 20(N − M) dB/decade: Chebyshev II and elliptic low-passes level off at their stopband floor for even N and fall at only 20 dB/decade for odd N. Near the corner the family determines the steepness.',
+		see: ['Order', 'Decade', 'Octave', 'Transition band', 'Transmission zero'],
 		tools: ['bode', 'family-compare']
+	},
+	{
+		term: 'Root-raised-cosine filter',
+		aka: ['RRC', 'square-root raised cosine'],
+		def: 'Pulse-shaping filter whose frequency response is the square root of a raised cosine. One RRC at the transmitter and a matched one at the receiver cascade to a raised cosine, so the link is free of intersymbol interference and the receiver is matched to the pulse; a single RRC pulse is not zero at the other symbol instants.',
+		see: ['Raised-cosine filter', 'Matched filter', 'Intersymbol interference'],
+		tools: ['special-fir']
 	},
 	{
 		term: 'S-plane',
@@ -923,9 +944,9 @@ const TERMS_UNSORTED: Term[] = [
 	},
 	{
 		term: 'Sidelobe',
-		def: "Any secondary peak outside the main lobe of a window's or filter's spectrum. The highest sidelobe sets leakage in spectral analysis and the stopband attenuation of a window-designed FIR filter.",
+		def: "Any secondary peak outside the main lobe of a window's or filter's spectrum. The highest sidelobe, together with how fast the sidelobes decay, sets how far a strong tone leaks into other bins in spectral analysis. Lower sidelobes also give a window-designed FIR filter more stopband attenuation, but that depends on the integrated sidelobes and is about 8–17 dB better than the peak sidelobe (Hann: −31.5 dB sidelobe, ≈ 44 dB stopband).",
 		see: ['Main lobe', 'Leakage', 'Window function'],
-		tools: ['windows']
+		tools: ['windows', 'fir-designer']
 	},
 	{
 		term: 'Sinc function',
@@ -1003,6 +1024,14 @@ const TERMS_UNSORTED: Term[] = [
 		tools: ['pole-zero']
 	},
 	{
+		term: 'VSWR',
+		aka: ['voltage standing-wave ratio', 'SWR'],
+		def: 'Voltage standing-wave ratio: the ratio of the largest to the smallest voltage amplitude along a line feeding a mismatched load. It is 1 for a perfect match and grows without bound as |ρ| approaches 1 (total reflection).',
+		tex: t`\text{VSWR}=\frac{1+|\rho|}{1-|\rho|}`,
+		see: ['Reflection coefficient', 'Return loss'],
+		tools: ['calculators']
+	},
+	{
 		term: 'White noise',
 		def: 'A random signal whose power is spread evenly over all frequencies (a flat power spectral density). Filtering white noise shapes its spectrum by |H(f)|².',
 		see: ['Equivalent noise bandwidth', 'Dither'],
@@ -1073,10 +1102,35 @@ export function letterOf(term: string): string {
 const BY_TERM = new Map(TERMS.map((tm) => [tm.term, tm]));
 export const termByName = (name: string): Term | undefined => BY_TERM.get(name);
 
-/** Case-insensitive search over term, synonyms and definition (every word must match). */
+export { foldDashes };
+
+/** Case- and dash-insensitive search over term, synonyms and definition (every word must match). */
 export function matchTerm(tm: Term, query: string): boolean {
-	const q = query.trim().toLowerCase();
+	const q = foldDashes(query.trim().toLowerCase());
 	if (!q) return true;
-	const hay = `${tm.term} ${(tm.aka ?? []).join(' ')} ${tm.def}`.toLowerCase();
+	const hay = foldDashes(`${tm.term} ${(tm.aka ?? []).join(' ')} ${tm.def}`.toLowerCase());
 	return q.split(/\s+/).every((w) => hay.includes(w));
+}
+
+/**
+ * Split text into plain and highlighted runs for the words of a search query, matching the
+ * way matchTerm does (case- and dash-insensitive) while keeping the text's own characters.
+ */
+export function highlightRuns(text: string, query: string): { s: string; hit: boolean }[] {
+	const words = query
+		.trim()
+		.split(/\s+/)
+		.filter((w) => w.length > 0)
+		.map((w) =>
+			foldDashes(w)
+				.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+				.replace(/-/g, '[-\\u2010-\\u2015\\u2212]')
+		);
+	if (!words.length) return [{ s: text, hit: false }];
+	const splitter = new RegExp(`(${words.join('|')})`, 'gi');
+	const whole = new RegExp(`^(?:${words.join('|')})$`, 'i');
+	return text
+		.split(splitter)
+		.filter((s) => s.length > 0)
+		.map((s) => ({ s, hit: whole.test(s) }));
 }

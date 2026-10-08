@@ -31,16 +31,27 @@ export interface DigitalIIRSpec extends IIRSpec {
 
 const isBand = (b: BandType) => b === 'bandpass' || b === 'bandstop';
 
-/** Design an analog filter. Result is in rad/s. */
+/**
+ * The critical frequencies (Hz) of a spec: [fc, fc] for LP/HP, the band edges
+ * sorted low → high for BP/BS. f1 > f2 describes the same band; passed through
+ * unsorted it would give a negative bandwidth, which mirrors every pole into
+ * the right half-plane.
+ */
+function bandEdges(spec: IIRSpec): [number, number] {
+	if (!isBand(spec.band)) return [spec.f1, spec.f1];
+	const f2 = spec.f2 ?? spec.f1 * 2;
+	return [Math.min(spec.f1, f2), Math.max(spec.f1, f2)];
+}
+
+/** Design an analog filter. Result is in rad/s. BP/BS edges may be given in either order. */
 export function designAnalog(spec: IIRSpec): ZPK {
 	const proto = prototype(spec.family, spec.order, {
 		rp: spec.rp,
 		rs: spec.rs,
 		besselNorm: spec.besselNorm
 	});
-	const w1 = 2 * Math.PI * spec.f1;
-	const w2 = 2 * Math.PI * (spec.f2 ?? spec.f1 * 2);
-	return transformPrototype(proto, spec.band, w1, isBand(spec.band) ? w2 : w1);
+	const [f1, f2] = bandEdges(spec);
+	return transformPrototype(proto, spec.band, 2 * Math.PI * f1, 2 * Math.PI * f2);
 }
 
 export interface DigitalIIRResult {
@@ -51,13 +62,17 @@ export interface DigitalIIRResult {
 	warning?: string;
 }
 
-/** Design a digital IIR filter by discretising an analog prototype. */
+/**
+ * Design a digital IIR filter by discretising an analog prototype.
+ * BP/BS edges may be given in either order.
+ */
 export function designDigital(spec: DigitalIIRSpec): DigitalIIRResult {
 	const method = spec.method ?? 'bilinear';
 	const nyq = spec.fs / 2;
 	const clamp = (f: number) => Math.min(Math.max(f, nyq * 1e-6), nyq * 0.999999);
-	const f1 = clamp(spec.f1);
-	const f2 = clamp(spec.f2 ?? spec.f1 * 2);
+	const [e1, e2] = bandEdges(spec);
+	const f1 = clamp(e1);
+	const f2 = clamp(e2);
 	const warp = method === 'bilinear' && spec.prewarp !== false;
 	const w1 = warp ? prewarp(f1, spec.fs) : 2 * Math.PI * f1;
 	const w2 = warp ? prewarp(f2, spec.fs) : 2 * Math.PI * f2;
@@ -110,6 +125,23 @@ export function estimateFromSpecs(
 	const fromW = (w: number) =>
 		spec.fs ? (spec.fs / Math.PI) * Math.atan(w / (2 * spec.fs)) : w / (2 * Math.PI);
 	const arr = (v: number | [number, number]): [number, number] => (Array.isArray(v) ? v : [v, v]);
+	if (isBand(spec.band)) {
+		// A reversed pair gives a negative bandwidth B: the selectivity below hides
+		// it behind |·|, but the mapped-back edges come out as f1 > f2.
+		const [fp1, fp2] = arr(spec.fp);
+		const [fs1, fs2] = arr(spec.fstop);
+		if (!(fp1 < fp2) || !(fs1 < fs2)) {
+			return {
+				order: 1,
+				f1: Math.min(fp1, fp2),
+				f2: Math.max(fp1, fp2),
+				selectivity: NaN,
+				capped: false,
+				error:
+					'The lower band edge must be below the upper band edge (f₁ < f₂ for both the passband and the stopband).'
+			};
+		}
+	}
 	let [p1, p2] = arr(spec.fp).map(toW);
 	const [s1, s2] = arr(spec.fstop).map(toW);
 	if (spec.band === 'bandstop' && p1 < s1 && s2 < p2) {

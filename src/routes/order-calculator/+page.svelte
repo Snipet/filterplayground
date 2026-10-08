@@ -10,7 +10,7 @@
 	import Tex from '$lib/components/content/Tex.svelte';
 	import CodeBlock from '$lib/components/content/CodeBlock.svelte';
 	import { freqFormat, seriesColor } from '$lib/components/plot/scales';
-	import { evaluate, linspace, logspace } from '$lib/dsp/response';
+	import { linspace, logspace } from '$lib/dsp/response';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import type { AnalogFamily } from '$lib/dsp/analog';
 	import type { BandType } from '$lib/dsp/types';
@@ -22,6 +22,9 @@
 		firResults,
 		iirResults,
 		isBand as isBandType,
+		magnitudeDb,
+		narrowestTransition,
+		orderPassbandHz,
 		selectivity,
 		transitionHz,
 		validateSpec,
@@ -56,6 +59,11 @@
 	const error = $derived(validateSpec(spec));
 
 	const iir = $derived(error ? [] : iirResults(spec));
+	// passband edges that set the order: band-stop ones slid towards the stopband (as SciPy)
+	const orderPass = $derived(error ? spec.fp : orderPassbandHz(spec));
+	const passMoved = $derived(
+		orderPass.some((f, i) => Math.abs(f - spec.fp[i]) > 1e-6 * spec.fp[i])
+	);
 	const fir = $derived(!error && domain === 'digital' ? firResults(spec) : null);
 
 	// ---------- examples ----------
@@ -145,14 +153,18 @@
 		if (error) return [];
 		const sel = selectivity(spec);
 		const k1 = discrimination(rp, rs);
-		const tw = transitionHz(spec);
+		const tr = narrowestTransition(spec);
+		const tw = tr.hz;
 		const out: Stat[] = [
 			{
 				label: 'Selectivity Ωs = 1/k',
 				value: trimNumber(sel, 5),
 				hint:
 					'Stopband edge of the equivalent normalised low-pass prototype (passband edge = 1)' +
-					(domain === 'digital' ? ', after bilinear prewarping' : '')
+					(domain === 'digital' ? ', after bilinear prewarping' : '') +
+					(passMoved
+						? `. Band-stop passband edges first moved to ${hz(orderPass[0])} and ${hz(orderPass[1])} to maximise Ωs, as SciPy does (${trimNumber(selectivity(spec, true), 5)} with the edges as entered)`
+						: '')
 			},
 			{
 				label: 'Discrimination 1/k₁',
@@ -164,7 +176,8 @@
 				value:
 					domain === 'digital'
 						? `${formatSI(tw, 'Hz', 4)} = ${trimNumber(tw / fs, 4)}·fs`
-						: `${formatSI(tw, 'Hz', 4)} (${trimNumber(Math.log2(sel), 3)} oct)`
+						: `${formatSI(tw, 'Hz', 4)} (${trimNumber(tr.octaves, 3)} oct)`,
+				hint: isBand ? `Narrowest transition: ${hz(tr.edges[0])} → ${hz(tr.edges[1])}` : undefined
 			}
 		];
 		if (best)
@@ -215,7 +228,7 @@
 			.filter((r) => shown[r.family])
 			.map((r) => ({
 				x: grid,
-				y: evaluate(r.filter, grid).magDb,
+				y: magnitudeDb(r.filter, grid),
 				label: `${r.name.split(' (')[0]} (N = ${r.order}${r.capped ? ', fails' : ''})`,
 				color: seriesColor(r.index),
 				dash: r.capped ? '6 4' : undefined,
@@ -250,10 +263,12 @@
 		r.f2 !== undefined
 			? `${formatSI(r.f1, 'Hz', 5)} – ${formatSI(r.f2, 'Hz', 5)}`
 			: formatSI(r.f1, 'Hz', 5);
-	const passOk = (v: number) => v <= rp + 1e-6;
-	const stopOk = (v: number) => v >= rs - 1e-2;
+	// NaN = the response could not be evaluated: never a pass
+	const passOk = (v: number) => Number.isFinite(v) && v <= rp + 1e-6;
+	const stopOk = (v: number) => !Number.isNaN(v) && v >= rs - 1e-2;
 	const shortName = (n: string) => n.split(' (')[0];
-	const db = (v: number) => (Number.isFinite(v) ? `${trimNumber(v, 4)} dB` : '∞ dB');
+	const db = (v: number) =>
+		Number.isFinite(v) ? `${trimNumber(v, 4)} dB` : Number.isNaN(v) ? '—' : '∞ dB';
 
 	// ---------- SciPy ----------
 	const scipy = $derived.by(() => {
@@ -482,6 +497,9 @@
 				(Butterworth, Bessel, Legendre, Gaussian, critical) are scaled so the loss at the passband
 				edge is exactly Rp; Chebyshev II is placed so it is exactly Rs at its stopband edge.
 				Sections = biquads (+ a first-order section for odd orders).
+				{#if passMoved}As in SciPy, band-stop passband edges are first moved towards the stopband as
+					far as that raises Ωs — here to {hz(orderPass[0])} and {hz(orderPass[1])} — so the filter meets
+					Rp over a wider passband than asked.{/if}
 				{#if domain === 'digital'}Mult. = multiplications per sample: 5 per biquad, 3 per
 					first-order section.{/if}
 			</p>
@@ -652,7 +670,10 @@
 			/> and
 			<Tex math={'B=\\omega_{p2}-\\omega_{p1}'} /> gives <Tex
 				math={'\\Omega_s=\\min_i |\\omega_{si}^2-\\omega_0^2|/(B\\,\\omega_{si})'}
-			/> (the reciprocal for band-stop). For a digital filter every edge is first
+			/> (the reciprocal for band-stop). For band-stop edges SciPy, and this page, first move each passband
+			edge towards the stopband as far as that raises <Tex math={'\\Omega_s'} />: the passband only
+			gets wider, so the specification is still met and the order can only drop. The selectivity
+			shown above is this optimised value. For a digital filter every edge is first
 			<strong>prewarped</strong>,
 			<Tex math={'\\omega = 2f_s\\tan(\\pi f/f_s)'} />, so that the bilinear transform lands it back
 			exactly where you asked.
@@ -693,11 +714,16 @@
 			</table>
 		</div>
 		<p>
-			<Tex math={'K'} /> is the complete elliptic integral of the first kind. Because arccosh grows like
-			a logarithm,
-			<Tex math={'\\operatorname{arccosh}(1/k)\\approx\\ln(2/k)'} /> is much larger than <Tex
-				math={'\\log(1/k)'}
-			/> when the transition is narrow, which is why Chebyshev beats Butterworth. The SciPy functions
+			<Tex math={'K'} /> is the complete elliptic integral of the first kind. With
+			<Tex math={'k_1\\ll 1'} /> the two numerators are nearly equal,
+			<Tex math={'\\operatorname{arccosh}(1/k_1)\\approx\\ln(2/k_1)=\\ln(1/k_1)+\\ln 2'} />, so
+			Butterworth needs about <Tex math={'\\operatorname{arccosh}\\Omega_s/\\ln\\Omega_s'} /> times the
+			Chebyshev order. For a narrow transition (<Tex math={'\\Omega_s=1/k\\to 1'} />)
+			<Tex math={'\\operatorname{arccosh}\\Omega_s\\approx\\sqrt{2(\\Omega_s-1)}'} /> is much larger than
+			<Tex math={'\\ln\\Omega_s\\approx\\Omega_s-1'} /> — 6.5 times at Ωs = 1.05 — which is why Chebyshev
+			beats Butterworth, and by more the sharper the transition. For a wide transition
+			<Tex math={'\\operatorname{arccosh}\\Omega_s\\approx\\ln(2\\Omega_s)'} /> and the advantage shrinks
+			(1.3 times at Ωs = 10). The SciPy functions
 			<code>buttord</code>, <code>cheb1ord</code>, <code>cheb2ord</code> and
 			<code>ellipord</code> implement exactly these formulas; the table above agrees with them.
 		</p>

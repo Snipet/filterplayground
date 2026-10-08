@@ -82,7 +82,7 @@
 					integer
 					onchange={(v) => (hil.N = v % 2 ? v : v + 1)}
 				/>
-				<WindowPicker bind:value={hil.win} label="Window (window method)" />
+				<WindowPicker bind:value={hil.win} label="Window (window method)" N={hil.N} />
 				<Slider
 					label="Band edge (equiripple)"
 					bind:value={hil.edge}
@@ -109,7 +109,7 @@
 					onchange={(v) => (dif.L = v % 2 ? v : v + 1)}
 					help="Type IV uses one more tap."
 				/>
-				<WindowPicker bind:value={dif.win} />
+				<WindowPicker bind:value={dif.win} N={dif.L} />
 			</ControlGroup>
 			<ControlGroup title="Demo">
 				<Segmented
@@ -135,7 +135,15 @@
 			<ControlGroup title="Pulse">
 				<Slider label="Samples per symbol" bind:value={rc.sps} min={2} max={16} integer />
 				<Slider label="Roll-off β" bind:value={rc.beta} min={0} max={1} step={0.01} />
-				<Slider label="Span (symbols)" bind:value={rc.span} min={2} max={24} step={2} integer />
+				<Slider
+					label="Span (symbols)"
+					bind:value={rc.span}
+					min={2}
+					max={24}
+					step={2}
+					integer
+					onchange={(v) => (rc.span = v % 2 ? v + 1 : v)}
+				/>
 			</ControlGroup>
 			<ControlGroup title="Eye diagram">
 				<Segmented
@@ -157,7 +165,15 @@
 					help="GSM: 0.3 · Bluetooth: 0.5"
 				/>
 				<Slider label="Samples per symbol" bind:value={gau.sps} min={2} max={16} integer />
-				<Slider label="Span (symbols)" bind:value={gau.span} min={2} max={12} step={2} integer />
+				<Slider
+					label="Span (symbols)"
+					bind:value={gau.span}
+					min={2}
+					max={12}
+					step={2}
+					integer
+					onchange={(v) => (gau.span = v % 2 ? v + 1 : v)}
+				/>
 			</ControlGroup>
 		{:else if type === 'savgol'}
 			<ControlGroup title="Fit">
@@ -176,6 +192,10 @@
 					min={0}
 					max={Math.min(10, sg.L - 1)}
 					integer
+					onchange={(v) => {
+						// d ≤ order: keep the Output selector on the derivative actually computed
+						if (sg.deriv > v) sg.deriv = v;
+					}}
 				/>
 				<Segmented
 					label="Output"
@@ -202,7 +222,7 @@
 					onchange={(v) => (hb.N = v % 2 ? v : v + 1)}
 					help="Best as 4K + 3: 7, 11, 15, …"
 				/>
-				<WindowPicker bind:value={hb.win} />
+				<WindowPicker bind:value={hb.win} N={hb.N} />
 				<Slider
 					label="Passband edge (for the ripple stats)"
 					bind:value={hb.fp}

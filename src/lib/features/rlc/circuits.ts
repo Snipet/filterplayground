@@ -167,6 +167,45 @@ export function dampingClass(zeta: number, tol = 2e-3): DampingClass {
 	return zeta < 1 ? 'underdamped' : 'overdamped';
 }
 
+/**
+ * Time constant of the slowest natural mode, i.e. −1 / (real part of the pole
+ * closest to the jω axis). For ζ ≤ 1 this is the envelope 1/(ζω₀); for ζ > 1
+ * it is the slow real pole ω₀(ζ − √(ζ²−1)), written as (ζ + √(ζ²−1))/ω₀ to
+ * avoid cancellation.
+ */
+export function slowTimeConstant(w0: number, zeta: number): number {
+	return zeta <= 1 ? 1 / (zeta * w0) : (zeta + Math.sqrt(zeta * zeta - 1)) / w0;
+}
+
+/** Time constant of the fast real pole −ω₀(ζ + √(ζ²−1)) of an overdamped pair (ζ ≥ 1). */
+export function fastTimeConstant(w0: number, zeta: number): number {
+	return 1 / (w0 * (zeta + Math.sqrt(Math.max(0, zeta * zeta - 1))));
+}
+
+/**
+ * Step overshoot (%) of the unit-DC-gain second-order low-pass ω₀²/(s² + 2ζω₀s + ω₀²):
+ * 100·e^(−πζ/√(1−ζ²)) for ζ < 1, zero otherwise.
+ */
+export function stepOvershoot(zeta: number): number {
+	return zeta < 1 ? 100 * Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta)) : 0;
+}
+
+/**
+ * Magnitude peak of the second-order low-pass ω₀²/D(s) or high-pass s²/D(s),
+ * D(s) = s² + (ω₀/Q)s + ω₀². Peaking exists only for Q > 1/√2: the gain is
+ * Q/√(1 − 1/(4Q²)) at ω₀·√(1 − 1/(2Q²)) (low-pass) or ω₀/√(1 − 1/(2Q²))
+ * (high-pass, the same curve mirrored about ω₀). Returns null otherwise.
+ */
+export function resonancePeak(
+	band: 'lowpass' | 'highpass',
+	w0: number,
+	q: number
+): { gain: number; w: number } | null {
+	if (!(q > Math.SQRT1_2)) return null;
+	const r = Math.sqrt(1 - 1 / (2 * q * q));
+	return { gain: q / Math.sqrt(1 - 1 / (4 * q * q)), w: band === 'lowpass' ? w0 * r : w0 / r };
+}
+
 /** Transfer function v_out / v_in of a circuit as a ZPK (rad/s). */
 export function circuitZpk(id: CircuitId, R: number, L: number, C: number): ZPK {
 	const info = circuitInfo(id);

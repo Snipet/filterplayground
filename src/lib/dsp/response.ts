@@ -51,18 +51,15 @@ export function unwrap(phase: readonly number[]): number[] {
 
 /** H(jω) for an analog ZPK, ω in rad/s. */
 export function freqsZpk(zpk: ZPK, w: readonly number[]): Complex[] {
+	// zero and pole factors are interleaved so high-order band filters evaluated far
+	// from their poles do not overflow before the division brings the value back
+	const n = Math.max(zpk.z.length, zpk.p.length);
 	return w.map((wi) => {
-		let re = zpk.k;
-		let im = 0;
-		for (const z of zpk.z) {
-			const fre = -z.re;
-			const fim = wi - z.im;
-			const nre = re * fre - im * fim;
-			im = re * fim + im * fre;
-			re = nre;
+		let h: Complex = { re: zpk.k, im: 0 };
+		for (let i = 0; i < n; i++) {
+			if (i < zpk.z.length) h = mul(h, { re: -zpk.z[i].re, im: wi - zpk.z[i].im });
+			if (i < zpk.p.length) h = div(h, { re: -zpk.p[i].re, im: wi - zpk.p[i].im });
 		}
-		let h: Complex = { re, im };
-		for (const p of zpk.p) h = div(h, { re: -p.re, im: wi - p.im });
 		return h;
 	});
 }
@@ -141,22 +138,26 @@ export function freqzSos(sos: SOS, w: readonly number[]): Complex[] {
 	});
 }
 
-/** Group delay (samples) of a polynomial in z⁻¹: Re{Σ k b_k e^{-jωk} / Σ b_k e^{-jωk}}. */
+/**
+ * Group delay (samples) of a polynomial in z⁻¹: Re{Σ k b_k e^{-jωk} / Σ b_k e^{-jωk}}.
+ * NaN only where rounding makes the ratio meaningless. Both tests are relative, so
+ * the result does not depend on the polynomial's overall scale (gain).
+ */
 function polyGroupDelay(b: readonly number[], wi: number): number {
 	const nb = b.map((v, k) => v * k);
 	const num = dtft(nb, wi);
 	const den = dtft(b, wi);
 	const d2 = abs2(den);
-	if (
-		d2 <
-		1e-24 *
-			Math.max(
-				1,
-				b.reduce((s, v) => s + v * v, 0)
-			)
-	)
-		return NaN;
-	return (num.re * den.re + num.im * den.im) / d2;
+	// Horner's rounding error in the denominator is a few eps·Σ|b_k|: a value that small
+	// is noise (a root on the unit circle). Above it, even the tiny |A(e^{jω})| of a
+	// narrow-band IIR denominator gives the group delay to a few per cent or better.
+	const scale = b.reduce((s, v) => s + Math.abs(v), 0);
+	if (d2 === 0 || Math.sqrt(d2) < 4 * Number.EPSILON * scale) return NaN;
+	const tau = (num.re * den.re + num.im * den.im) / d2;
+	// e^{jω} itself is only on the unit circle to ~eps; next to a root on the circle
+	// (|N/D| ≈ 1/distance) that shifts the ratio by ≈ eps·|N/D|².
+	if (Number.EPSILON * (abs2(num) / d2) > 0.25 * Math.max(1, Math.abs(tau))) return NaN;
+	return tau;
 }
 
 export function groupDelayTf(tf: TF, w: readonly number[]): number[] {

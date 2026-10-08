@@ -18,14 +18,18 @@
 	import {
 		ANALOG_COLOR,
 		METHODS,
+		bandEdgeError,
 		digitalFrequency,
 		discretizeWith,
 		mapLine,
 		mapS,
 		maxDbError,
 		methodInfo,
+		passbandEdges,
 		passbandGrid,
 		sPlaneGrid,
+		timeLength,
+		timeLimits,
 		usesExp,
 		warpedHz,
 		type MethodId,
@@ -34,7 +38,6 @@
 	import { FAMILIES, familyInfo, type AnalogFamily } from '$lib/dsp/analog';
 	import { designAnalog, type IIRSpec } from '$lib/dsp/design';
 	import { evaluate, linspace } from '$lib/dsp/response';
-	import { analogTimeResponse } from '$lib/dsp/time';
 	import { abs, c, type Complex } from '$lib/dsp/complex';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import type { BandType, ZPK } from '$lib/dsp/types';
@@ -92,10 +95,7 @@
 		besselNorm: 'mag'
 	});
 
-	const inputError = $derived.by(() => {
-		if (isBand && !(f1 < f2)) return 'The lower band edge must be below the upper band edge.';
-		return null;
-	});
+	const inputError = $derived(isBand ? bandEdgeError(f1, f2, fs) : null);
 
 	const analog = $derived.by((): ZPK | null => {
 		if (inputError) return null;
@@ -147,9 +147,12 @@
 	});
 
 	// ----- per-method table -----
+	// Chebyshev II is specified by its stopband edge(s): its passband ends at the −3 dB points
+	const passEdges = $derived(analog ? passbandEdges(analog, family, band, e1, e2) : [e1, e2]);
+	const pass = $derived(passbandGrid(band, passEdges[0], passEdges[1], fs));
+	const edgeHeading = $derived(family === 'cheby2' ? 'Error at stopband edge' : 'Error at edge');
 	const rows = $derived.by(() => {
 		if (!analog) return [];
-		const pass = passbandGrid(band, e1, e2, fs);
 		const edges = isBand ? [e1, e2] : [e1];
 		return METHODS.map((m) => {
 			const r = results.get(m.id);
@@ -273,20 +276,16 @@
 	}
 
 	// ----- time response -----
-	const timeLimits = $derived.by((): [number, number] | undefined => {
-		if (!analog) return undefined;
-		try {
-			const n = 256;
-			const imp = analogTimeResponse(analog, 'impulse', (n - 1) / fs, n).y.map((v) =>
-				Math.abs(v / fs)
-			);
-			const stp = analogTimeResponse(analog, 'step', (n - 1) / fs, n).y.map(Math.abs);
-			const m = Math.max(...imp, ...stp, 1e-6);
-			return [-1.6 * m, 1.6 * m];
-		} catch {
-			return undefined;
-		}
-	});
+	const shownResults = $derived(shown.map((m) => results.get(m.id) as MethodResult));
+	// the card's sample count, computed here so the y-limits cover exactly what is drawn
+	const timeN = $derived(
+		timeLength(
+			shownResults.map((r) => r.zpk),
+			fs,
+			analog ?? undefined
+		)
+	);
+	const timeYLimits = $derived(analog ? timeLimits(analog, shownResults, fs, timeN) : undefined);
 
 	const familyOptions = FAMILIES.map((f) => ({ value: f.id, label: f.name }));
 	const FS_PRESETS = [1000, 8000, 16000, 44100, 48000, 96000];
@@ -333,6 +332,11 @@
 			{:else}
 				<Slider label="Cutoff fc" bind:value={f1} min={1} max={nyq * 0.99} log unit="Hz" />
 			{/if}
+			<p class="small muted tight">
+				For {info.name}, {isBand ? 'each band edge' : 'the cutoff'} is the {family === 'bessel'
+					? '−3 dB frequency'
+					: info.cutoffMeaning}.
+			</p>
 			{#if info.usesRp}
 				<Slider label="Passband ripple Rp" bind:value={rp} min={0.01} max={6} log unit="dB" />
 			{/if}
@@ -416,7 +420,9 @@
 
 		<Card
 			title="Method comparison"
-			subtitle="Errors are |digital − analog| in dB. The passband is the analog design's passband below Nyquist; the edge error is measured at the band edge(s)."
+			subtitle={family === 'cheby2'
+				? `Errors are |digital − analog| in dB. Chebyshev II is specified by its stopband edge(s), so the passband is where the analog gain is within 3 dB of its peak (−3 dB at ${(isBand ? passEdges : passEdges.slice(0, 1)).map(hz).join(', ')}), below Nyquist; the edge error is measured at the stopband edge(s), where the analog gain is −Rs.`
+				: "Errors are |digital − analog| in dB. The passband is the analog design's passband below Nyquist; the edge error is measured at the band edge(s)."}
 		>
 			<div class="table-wrap">
 				<table>
@@ -425,7 +431,7 @@
 							<th>Method</th>
 							<th>Stability</th>
 							<th class="num">Max passband error</th>
-							<th class="num">Error at edge</th>
+							<th class="num">{edgeHeading}</th>
 							<th class="num">Gain at fs/2</th>
 						</tr>
 					</thead>
@@ -452,6 +458,11 @@
 					</tbody>
 				</table>
 			</div>
+			{#if !pass.length}
+				<p class="small muted">
+					The analog passband lies entirely above fs/2, so there is no passband error to compare.
+				</p>
+			{/if}
 		</Card>
 
 		<Card
@@ -637,13 +648,15 @@
 		</Card>
 
 		<TimeCard
-			entries={shown.map((m) => ({
-				filter: { kind: 'digital' as const, fs, zpk: (results.get(m.id) as MethodResult).zpk },
+			entries={shown.map((m, i) => ({
+				filter: { kind: 'digital' as const, fs, zpk: shownResults[i].zpk },
 				label: m.name,
 				color: m.color
 			}))}
+			{fs}
 			analog={[{ zpk: analog, label: 'Analog T·h(nT)', color: ANALOG_COLOR, dash: '6 4' }]}
-			yLimits={timeLimits}
+			n={timeN}
+			yLimits={timeYLimits}
 			subtitle="Impulse invariance matches the sampled analog impulse response exactly; the others only approximate it. An unstable result grows without bound."
 		/>
 	{/if}

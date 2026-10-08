@@ -5,7 +5,7 @@
 	import Segmented from '$lib/components/controls/Segmented.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { eSeriesNeighbours, rcCutoff, rcOther, tauFromCutoff, cutoffFromTau } from '../math';
+	import { rcCutoff, rcNearestPart, rcOther, tauFromCutoff, cutoffFromTau } from '../math';
 
 	let { id, title }: { id: string; title: string } = $props();
 
@@ -31,13 +31,14 @@
 	const suggestions = $derived.by(() => {
 		if (solve === 'fc') return [];
 		const target = solve === 'R' ? res.R : res.C;
+		const other = solve === 'R' ? res.C : res.R;
 		return (['E12', 'E24'] as const).map((s) => {
-			const n = eSeriesNeighbours(target, s);
-			const f = solve === 'R' ? rcCutoff(n.nearest, res.C) : rcCutoff(res.R, n.nearest);
-			const err = Math.round(((f - res.fc) / res.fc) * 1e4) / 1e4 || 0;
+			const n = rcNearestPart(target, other, res.fc, s);
+			// errPct is already in per cent: round to 0.01 %
+			const err = Math.round(n.errPct * 100) / 100 || 0;
 			return {
 				label: `Nearest ${s} ${solve}`,
-				value: `${formatSI(n.nearest, solve === 'R' ? 'Ω' : 'F', 3)} → ${formatSI(f, 'Hz', 4)} (${err >= 0 ? '+' : ''}${trimNumber(err, 2)} %)`
+				value: `${formatSI(n.part, solve === 'R' ? 'Ω' : 'F', 3)} → ${formatSI(n.fc, 'Hz', 4)} (${err >= 0 ? '+' : ''}${trimNumber(err, 3)} %)`
 			};
 		});
 	});

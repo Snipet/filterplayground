@@ -22,11 +22,13 @@
 		adcDynamicRange,
 		aliasOf,
 		aliasWave,
+		foldStart,
 		foldingCurve,
 		isMonotonicFamily,
 		minOrderMonotonic,
 		monotonicAttenuation,
 		orderVsOsr,
+		toneImages,
 		triangle
 	} from '$lib/features/aliasing/aliasing';
 	import { readSharedState } from '$lib/share';
@@ -197,13 +199,8 @@
 			for (let i = 0; i < grid.length; i++) images[i] += v[i];
 		}
 		const toneLevel = toneOn ? toneAmp * aaMag([fTone])[0] : 0;
-		const tx: number[] = [];
-		for (let k = -K; k <= K; k++)
-			for (const sgn of [-1, 1]) {
-				const f = sgn * fTone + k * fs;
-				if (Math.abs(f) <= span) tx.push(f);
-			}
-		tx.sort((a, b) => a - b);
+		// the tone may sit far above B, so its images need their own k range
+		const tx = toneImages(fTone, fs, span);
 		const ty = tx.map(() => toneLevel);
 		const db = magMode === 'db';
 		const fmt = db ? (v: number) => `${trimNumber(v, 3)} dB` : (v: number) => trimNumber(v, 3);
@@ -297,24 +294,46 @@
 	const statsB = $derived.by((): Stat[] => {
 		const fs = fsB;
 		const att = (f: number) => -20 * Math.log10(aaMag([f])[0]);
+		// |H| within rounding of 1 must not print as e.g. −3.86e−15 dB
+		const dB = (v: number) => `${trimNumber(Math.abs(v) < 1e-9 ? 0 : v, 3)} dB`;
 		const out: Stat[] = [{ label: 'Nyquist fs/2', value: hz(fs / 2) }];
+		// null: no overlap; 0: B ≥ fs, the first image reaches DC
+		const fold = foldStart(fs, bw);
 		out.push({
 			label: 'Signal band',
-			value: bw <= fs / 2 ? `fits (B ≤ fs/2)` : `folds above ${hz(fs - bw, 3)}`,
-			status: bw <= fs / 2 ? 'good' : 'warning',
-			hint: 'A band-limited signal survives sampling only if B ≤ fs/2'
+			value:
+				fold === null
+					? 'fits (B ≤ fs/2)'
+					: fold > 0
+						? `folds above ${hz(fold, 3)}`
+						: 'all of 0…fs/2 aliased (B ≥ fs)',
+			status: fold === null ? 'good' : fold > 0 ? 'warning' : 'critical',
+			hint:
+				fold === 0
+					? 'The first image (fs − B … fs + B) reaches DC, so every frequency up to fs/2 is corrupted'
+					: 'A band-limited signal survives sampling only if B ≤ fs/2'
 		});
 		if (aaOn && aa.zpk) {
 			out.push({
 				label: 'AA loss at B',
-				value: `${trimNumber(att(bw), 3)} dB`,
+				value: dB(att(bw)),
 				hint: 'Passband droop of the anti-alias filter at the top of the signal band'
 			});
-			out.push({
-				label: 'AA rejection at fs − B',
-				value: `${trimNumber(att(Math.max(fs - bw, 1e-9)), 3)} dB`,
-				hint: 'Lowest frequency that folds back into the signal band'
-			});
+			// lowest input frequency that folds back into the band: fs − B while B ≤ fs/2;
+			// beyond that everything above fs/2 folds, so the edge is fs/2 itself
+			out.push(
+				fold === null
+					? {
+							label: 'AA rejection at fs − B',
+							value: dB(att(fs - bw)),
+							hint: 'Lowest frequency that folds back into the signal band'
+						}
+					: {
+							label: 'AA rejection at fs/2',
+							value: dB(att(fs / 2)),
+							hint: 'B > fs/2: everything above fs/2 folds back into the band, so the folding starts right at fs/2 (fs − B is itself in band)'
+						}
+			);
 		}
 		if (toneOn) {
 			const ta = partB.toneAlias;

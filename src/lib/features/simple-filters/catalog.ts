@@ -141,8 +141,9 @@ export function cutoff3dB(tf: TF, fs: number, kind: 'lp' | 'hp'): number | null 
 }
 
 const hz = (f: number | null) => (f === null || !Number.isFinite(f) ? '—' : formatSI(f, 'Hz', 4));
+/** dB value; anything below −250 dB is an exact zero lost to rounding or toDb's floor, so −∞. */
 const db = (v: number) =>
-	Number.isFinite(v) ? `${trimNumber(v, 4)} dB` : v < 0 ? '−∞ dB' : '∞ dB';
+	Number.isFinite(v) && v > -250 ? `${trimNumber(v, 4)} dB` : v < 0 ? '−∞ dB' : '∞ dB';
 const samplesAndTime = (n: number, fs: number) =>
 	Number.isFinite(n) ? `${trimNumber(n, 4)} samples (${formatSI(n / fs, 's', 3)})` : '∞';
 
@@ -721,9 +722,10 @@ const comb: SimpleFilter = {
 						fb: []
 					}
 				: { ff: [{ delay: 0, coef: 1 }], fb: [{ delay: D, coef: g }] },
+			// ring buffer of exactly D samples: read the slot before overwriting it, so it is D samples old
 			code: ff
-				? `y = x + ${cn(g)}f * xd[(i + N - ${D}) % N];`
-				: `y = x + ${cn(g)}f * yd[(i + N - ${D}) % N];`,
+				? `y = x + ${cn(g)}f * xd[i];  xd[i] = x;  i = (i + 1) % ${D};   /* float xd[${D}] = {0}; */`
+				: `y = x + ${cn(g)}f * yd[i];  yd[i] = y;  i = (i + 1) % ${D};   /* float yd[${D}] = {0}; */`,
 			stats,
 			vlines: teeth,
 			n: ff
@@ -933,7 +935,7 @@ const notch: SimpleFilter = {
 					{ delay: 2, coef: -a[2] }
 				]
 			},
-			code: `y = ${cn(g)}f*(x + ${cn(-2 * c)}f*x1 + x2) + ${cn(-a[1])}f*y1 + ${cn(-a[2])}f*y2;`,
+			code: `y = ${cn(g)}f*(x + ${cn(-2 * c)}f*x1 + x2) + ${cn(-a[1])}f*y1 + ${cn(-a[2])}f*y2;  x2 = x1; x1 = x; y2 = y1; y1 = y;`,
 			stats: [
 				{ label: 'Pole radius r', value: trimNumber(r, 6) },
 				{ label: 'Notch depth', value: '−∞ dB (zeros on |z| = 1)' },
@@ -1134,6 +1136,12 @@ const diff: SimpleFilter = {
 			code = `y = x - x1;  x1 = x;   /* ×fs for units per second */`;
 		}
 		const tf = { b, a: [1] };
+		// |H| at DC and Nyquist are plain sums of the taps (z = ±1): no trigonometry, so the
+		// exact zeros of the differences stay exact instead of becoming −6000 or −318 dB
+		const edgeGain = (z: 1 | -1) => {
+			const g = Math.abs(b.reduce((s, c, k) => s + c * z ** k, 0));
+			return g < 1e-12 ? `−∞ dB (zero at z = ${z === 1 ? '1' : '−1'})` : db(20 * Math.log10(g));
+		};
 		const f10 = fs / 10;
 		const ideal = (2 * Math.PI * f10) / fs;
 		const err = (Math.pow(10, gainDbAt(tf, fs, f10) / 20) / ideal - 1) * 100;
@@ -1143,8 +1151,8 @@ const diff: SimpleFilter = {
 			diagram,
 			code,
 			stats: [
-				{ label: 'Gain at Nyquist', value: db(gainDbAt(tf, fs, fs / 2)) },
-				{ label: 'Gain at DC', value: db(gainDbAt(tf, fs, 0)) },
+				{ label: 'Gain at Nyquist', value: edgeGain(-1) },
+				{ label: 'Gain at DC', value: edgeGain(1) },
 				{
 					label: 'Error vs ideal at fs/10',
 					value: `${err > 0 ? '+' : ''}${trimNumber(err, 3)} %`,

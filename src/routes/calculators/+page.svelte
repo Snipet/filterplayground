@@ -67,9 +67,12 @@
 		<h2>Notes on conventions</h2>
 		<p>
 			All inputs accept SI prefixes: type <code>4k7</code>, <code>10n</code>, <code>2.2µ</code> or
-			<code>1meg</code>; units after the number are ignored. Press <kbd>Enter</kbd> or leave the
-			field to apply; <kbd>↑</kbd>/<kbd>↓</kbd> nudge the value (<kbd>Shift</kbd> for bigger steps).
-			Each card has a stable link (<strong>#</strong>) you can bookmark.
+			<code>1meg</code>. A value is read in the unit shown beside its field, and typing that unit
+			after the number is optional: <code>10 nF</code> is the same as <code>10n</code>, and
+			<code>2 m</code> in the wavelength field is 2 metres (<code>2 mm</code>, <code>2 cm</code>
+			and <code>2 km</code> work too). A different unit is not converted. Press <kbd>Enter</kbd> or
+			leave the field to apply; <kbd>↑</kbd>/<kbd>↓</kbd> nudge the value (<kbd>Shift</kbd> for
+			bigger steps). Each card has a stable link (<strong>#</strong>) you can bookmark.
 		</p>
 		<ul>
 			<li>

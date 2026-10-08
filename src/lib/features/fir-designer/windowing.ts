@@ -67,7 +67,8 @@ export function chebwinFast(M: number, at: number): number[] {
 }
 
 const cache = new Map<string, number[]>();
-const MAX_ENTRIES = 96;
+// room for every length the auto search tries (up to 1023 taps), so redesigns reuse them
+const MAX_ENTRIES = 1100;
 
 /** Symmetric window values, memoised (Dolph–Chebyshev via the fast path). */
 export function cachedWindow(type: WindowType, N: number, param?: number): number[] {
@@ -114,8 +115,14 @@ export function firwinFast(
 		const right = edges[1];
 		const sf = left === 0 ? 0 : right === 1 ? 1 : (left + right) / 2;
 		let s = 0;
-		for (let n = 0; n < numtaps; n++) s += h[n] * Math.cos(Math.PI * (n - alpha) * sf);
-		if (s !== 0) for (let n = 0; n < numtaps; n++) h[n] /= s;
+		let mag = 0;
+		for (let n = 0; n < numtaps; n++) {
+			s += h[n] * Math.cos(Math.PI * (n - alpha) * sf);
+			mag += Math.abs(h[n]);
+		}
+		// as in firwin: an even-length filter passing Nyquist has a forced zero there (type II),
+		// so the gain to normalise is ~0; leave it unscaled rather than blow the taps up
+		if (Math.abs(s) > 1e-9 * mag) for (let n = 0; n < numtaps; n++) h[n] /= s;
 	}
 	return h;
 }

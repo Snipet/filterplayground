@@ -1,3 +1,81 @@
+<script lang="ts" module>
+	import type { WindowSpec } from '$lib/dsp/fir';
+	import { remez } from '$lib/dsp/remez';
+	import { linspace } from '$lib/dsp/response';
+	import { trimNumber } from '$lib/dsp/units';
+	import { scipyWindow, scipyWindowArray } from '$lib/features/fir-designer/recipes';
+	import { amplitude } from './special';
+
+	/** Max |A − 1| of a Hilbert transformer over its band [edge, fs/2 − edge]. */
+	export function hilbertRipple(h: number[], edge: number, fs: number): number {
+		let worst = 0;
+		for (const f of linspace(edge, fs / 2 - edge, 400))
+			worst = Math.max(worst, Math.abs(amplitude(h, f / fs, true) - 1));
+		return worst;
+	}
+
+	export interface EquirippleHilbert {
+		/** Equiripple taps, or null when the design failed (the window design is used). */
+		h: number[] | null;
+		error: string | null;
+		kind?: 'note' | 'warning';
+		converged?: boolean;
+	}
+
+	/**
+	 * Equiripple (Remez) Hilbert transformer of odd length n with band [edge, fs/2 − edge].
+	 * A failed exchange, or taps no better than the window design hw, give h = null.
+	 */
+	export function equirippleHilbert(
+		n: number,
+		edge: number,
+		fs: number,
+		hw: number[]
+	): EquirippleHilbert {
+		const fallback = ' The window design is shown instead.';
+		try {
+			const r = remez(n, [{ f1: edge, f2: fs / 2 - edge, d1: 1, d2: 1, weight: 1 }], fs, {
+				symmetry: 'odd'
+			});
+			// The band is symmetric about fs/4, so the optimal taps vanish at even offsets.
+			// Zeroing what rounding leaves there symmetrises A(f), which cannot raise the error.
+			const h = r.h.map((v, i) => ((i - (n - 1) / 2) % 2 === 0 ? 0 : v));
+			if (r.converged) return { h, error: null, converged: true };
+			const rip = hilbertRipple(h, edge, fs);
+			const rw = hilbertRipple(hw, edge, fs);
+			// not equiripple: keep the taps only while they still beat the window design
+			if (!(rip < rw))
+				return {
+					h: null,
+					error: `The Remez exchange did not converge at N = ${n}: its taps (ripple ±${trimNumber(rip, 3)}) are worse than the window design (±${trimNumber(rw, 3)}).${fallback}`
+				};
+			return rip < 1e-6
+				? {
+						h,
+						kind: 'note',
+						error: `The Remez exchange stopped just short of exact equiripple: at a ripple of ±${trimNumber(rip, 3)} rounding in double precision limits it. The taps are kept: they still beat the window design (±${trimNumber(rw, 3)}).`
+					}
+				: {
+						h,
+						kind: 'warning',
+						error: `The Remez exchange did not converge: the ripple is ±${trimNumber(rip, 3)}, while the optimum is at least ±${trimNumber(r.deltaBound ?? 0, 3)}. The taps are usable but not optimal.`
+					};
+		} catch (e) {
+			return { h: null, error: (e instanceof Error ? e.message : String(e)) + fallback };
+		}
+	}
+
+	/** SciPy code for the window-method design; SciPy has no Welch window, so it is built explicitly. */
+	export function hilbertWindowRecipe(n: number, win: WindowSpec, note = ''): string {
+		const w = scipyWindow(win, n);
+		// only Welch has no SciPy name: build it as an array (same expression as windowValues('welch'))
+		const windowLine = w
+			? `h *= signal.get_window(${w}, N, fftbins=False)`
+			: `h *= ${scipyWindowArray(win, 'N')}   # Welch window (not in SciPy)`;
+		return `import numpy as np\nfrom scipy import signal\n\n${note}N = ${n}\nm = np.arange(N) - (N - 1) // 2\nh = np.zeros(N)\nodd = m % 2 != 0\nh[odd] = 2 / (np.pi * m[odd])             # ideal Hilbert: 2/(πm) for odd m\n${windowLine}\n\nM = (N - 1) // 2\ny = signal.lfilter(h, 1.0, x)\nxa = x[:len(x) - M] + 1j * y[M:]          # analytic signal\nenvelope = np.abs(xa)`;
+	}
+</script>
+
 <script lang="ts">
 	import Card from '$lib/components/layout/Card.svelte';
 	import Plot, { type Series } from '$lib/components/plot/Plot.svelte';
@@ -6,12 +84,9 @@
 	import StatGrid, { type Stat } from '$lib/components/content/StatGrid.svelte';
 	import Callout from '$lib/components/content/Callout.svelte';
 	import ExportPanel from '$lib/components/content/ExportPanel.svelte';
-	import { hilbertFir, type WindowSpec } from '$lib/dsp/fir';
-	import { remez } from '$lib/dsp/remez';
-	import { linspace } from '$lib/dsp/response';
-	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { scipyWindow } from '$lib/features/fir-designer/recipes';
-	import { amEnvelope, amplitude, analyticSpectra, foldedMultiplies } from './special';
+	import { hilbertFir } from '$lib/dsp/fir';
+	import { formatSI } from '$lib/dsp/units';
+	import { amEnvelope, analyticSpectra, foldedMultiplies } from './special';
 
 	interface Props {
 		fs: number;
@@ -27,24 +102,14 @@
 	const n = $derived(N % 2 === 0 ? N + 1 : N);
 	const M = $derived((n - 1) / 2);
 	const hw = $derived(hilbertFir(n, win));
-	const eq = $derived.by(() => {
+	const ripple = (hh: number[]) => hilbertRipple(hh, edge, fs);
+	const eq = $derived.by((): EquirippleHilbert => {
 		if (!(edge > 0 && edge < fs / 4))
 			return {
 				h: null,
 				error: `The band edge must lie between 0 and fs/4 = ${formatSI(fs / 4, 'Hz', 4)}.`
 			};
-		try {
-			const r = remez(n, [{ f1: edge, f2: fs / 2 - edge, d1: 1, d2: 1, weight: 1 }], fs, {
-				symmetry: 'odd'
-			});
-			return {
-				h: r.h,
-				error: r.converged ? null : 'Remez did not converge; the equiripple taps are not optimal.',
-				r
-			};
-		} catch (e) {
-			return { h: null, error: e instanceof Error ? e.message : String(e) };
-		}
+		return equirippleHilbert(n, edge, fs, hw);
 	});
 	const he = $derived(eq.h ?? hw);
 	const h = $derived(method === 'window' ? hw : he);
@@ -115,12 +180,6 @@
 		{ x: demo.n, y: demo.env, label: '|x + j·H{x}|', color: COLOR[method] }
 	]);
 
-	const ripple = (hh: number[]) => {
-		let worst = 0;
-		for (const f of linspace(edge, fs / 2 - edge, 400))
-			worst = Math.max(worst, Math.abs(amplitude(hh, f / fs, true) - 1));
-		return worst;
-	};
 	const stats = $derived.by((): Stat[] => {
 		const fm2 = foldedMultiplies(h);
 		return [
@@ -155,14 +214,23 @@
 	});
 
 	const scipy = $derived.by(() => {
-		if (method === 'equiripple')
-			return `import numpy as np\nfrom scipy import signal\n\nfs = ${fs}\nN = ${n}\n# SciPy returns the +j·sgn(ω) convention: negate for the standard −j·sgn(ω) Hilbert transformer\nh = -signal.remez(N, [${edge}, ${fs / 2 - edge}], [1], type='hilbert', fs=fs)\n\n# analytic signal: delay the real path by M = (N-1)/2 samples\nM = (N - 1) // 2\ny = signal.lfilter(h, 1.0, x)\nxa = x[:len(x) - M] + 1j * y[M:]\nenvelope = np.abs(xa)`;
-		const w = scipyWindow(win, n) ?? "'hamming'";
-		return `import numpy as np\nfrom scipy import signal\n\nN = ${n}\nm = np.arange(N) - (N - 1) // 2\nh = np.zeros(N)\nodd = m % 2 != 0\nh[odd] = 2 / (np.pi * m[odd])             # ideal Hilbert: 2/(πm) for odd m\nh *= signal.get_window(${w}, N, fftbins=False)\n\nM = (N - 1) // 2\ny = signal.lfilter(h, 1.0, x)\nxa = x[:len(x) - M] + 1j * y[M:]          # analytic signal\nenvelope = np.abs(xa)`;
+		if (method === 'equiripple' && eq.h) {
+			const note = eq.converged
+				? ''
+				: '\n# near the double-precision limit SciPy may stop with "Failure to converge"';
+			return `import numpy as np\nfrom scipy import signal\n\nfs = ${fs}\nN = ${n}\n# SciPy returns the +j·sgn(ω) convention: negate for the standard −j·sgn(ω) Hilbert transformer\nh = -signal.remez(N, [${edge}, ${fs / 2 - edge}], [1], type='hilbert', fs=fs)${note}\n\n# analytic signal: delay the real path by M = (N-1)/2 samples\nM = (N - 1) // 2\ny = signal.lfilter(h, 1.0, x)\nxa = x[:len(x) - M] + 1j * y[M:]\nenvelope = np.abs(xa)`;
+		}
+		return hilbertWindowRecipe(
+			n,
+			win,
+			method === 'equiripple'
+				? '# the equiripple (Remez) design failed: these are the window-method taps shown instead\n'
+				: ''
+		);
 	});
 </script>
 
-{#if eq.error}<Callout kind={eq.h ? 'warning' : 'danger'}>{eq.error}</Callout>{/if}
+{#if eq.error}<Callout kind={eq.h ? (eq.kind ?? 'warning') : 'danger'}>{eq.error}</Callout>{/if}
 <StatGrid {stats} />
 
 <ResponseView

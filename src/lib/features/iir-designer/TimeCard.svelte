@@ -29,6 +29,7 @@
 		digitalImpulseResponse,
 		digitalStepResponse,
 		suggestDigitalLength,
+		suggestAnalogDuration,
 		analogTimeResponse
 	} from '$lib/dsp/time';
 	import { trimNumber } from '$lib/dsp/units';
@@ -38,6 +39,8 @@
 		analog?: AnalogTimeRef[];
 		/** Number of samples; suggested from the slowest pole when omitted. */
 		n?: number;
+		/** Sample rate; defaults to the first entry's (needed when there are no entries). */
+		fs?: number;
 		title?: string;
 		subtitle?: string;
 		/** Clamp the auto y-range (useful when an entry is unstable). */
@@ -48,6 +51,7 @@
 		entries,
 		analog = [],
 		n,
+		fs: fsProp,
 		title = 'Time response',
 		subtitle,
 		yLimits,
@@ -56,9 +60,18 @@
 
 	let mode = $state<'impulse' | 'step'>('impulse');
 
-	const fs = $derived(entries[0]?.filter.fs ?? 1);
+	const fs = $derived(fsProp ?? entries[0]?.filter.fs ?? 1);
 	const N = $derived(
-		n ?? Math.max(16, ...entries.map((e) => suggestDigitalLength(e.filter, 1024)))
+		n ??
+			Math.max(
+				// an analog reference alone: enough samples for it to settle
+				...(entries.length === 0
+					? analog.map((a) =>
+							Math.min(1024, Math.max(32, Math.ceil(suggestAnalogDuration(a.zpk) * fs)))
+						)
+					: [16]),
+				...entries.map((e) => suggestDigitalLength(e.filter, 1024))
+			)
 	);
 
 	const series = $derived.by((): Series[] => {

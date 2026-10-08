@@ -17,22 +17,26 @@
 	import TimeCard from '$lib/features/iir-designer/TimeCard.svelte';
 	import {
 		checkSpec,
+		edgeCrossing,
+		estimateCapped,
 		float32Sensitivity,
 		matlabRecipe,
+		restoreSpecs,
 		scipyRecipe,
 		sectionInfo,
-		type RecipeSpec
+		type CappedEstimate,
+		type RecipeSpec,
+		type SpecTable
 	} from '$lib/features/iir-designer/sections';
 	import { FAMILIES, familyInfo, type AnalogFamily, type BesselNorm } from '$lib/dsp/analog';
 	import {
 		designAnalog,
 		designDigital,
-		estimateFromSpecs,
 		type DigitalIIRResult,
 		type SpecEdges
 	} from '$lib/dsp/design';
 	import { sos2tf } from '$lib/dsp/convert';
-	import { evaluate, findCrossing, linspace } from '$lib/dsp/response';
+	import { evaluate } from '$lib/dsp/response';
 	import { prewarp as prewarpRad } from '$lib/dsp/transforms';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import { abs, type Complex } from '$lib/dsp/complex';
@@ -59,7 +63,7 @@
 	let prewarp = $state(true);
 	let overlay = $state<Overlay>('target');
 
-	let specs = $state<Record<BandType, { fp: [number, number]; fs: [number, number] }>>({
+	let specs = $state<SpecTable>({
 		lowpass: { fp: [8000, 8000], fs: [10000, 10000] },
 		highpass: { fp: [4000, 4000], fs: [3000, 3000] },
 		bandpass: { fp: [4000, 8000], fs: [3000, 10000] },
@@ -85,15 +89,17 @@
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
-		if (typeof st.fs === 'number' && st.fs > 0) fs = st.fs;
+		const pos = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+		if (pos(st.fs)) fs = st.fs;
 		if (st.family && FAMILIES.some((f) => f.id === st.family)) family = st.family;
-		if (st.band && st.band in specs) band = st.band;
+		if (st.band && (Object.keys(specs) as unknown[]).includes(st.band)) band = st.band;
 		if (st.mode === 'order' || st.mode === 'spec') mode = st.mode;
-		if (typeof st.order === 'number') order = Math.min(20, Math.max(1, Math.round(st.order)));
-		if (typeof st.f1 === 'number' && st.f1 > 0) f1 = st.f1;
-		if (typeof st.f2 === 'number' && st.f2 > 0) f2 = st.f2;
-		if (typeof st.rp === 'number' && st.rp > 0) rp = st.rp;
-		if (typeof st.rs === 'number' && st.rs > 0) rs = st.rs;
+		if (typeof st.order === 'number' && Number.isFinite(st.order))
+			order = Math.min(20, Math.max(1, Math.round(st.order)));
+		if (pos(st.f1)) f1 = st.f1;
+		if (pos(st.f2)) f2 = st.f2;
+		if (pos(st.rp)) rp = st.rp;
+		if (pos(st.rs)) rs = st.rs;
 		if (st.besselNorm === 'mag' || st.besselNorm === 'phase' || st.besselNorm === 'delay')
 			besselNorm = st.besselNorm;
 		if (st.method === 'bilinear' || st.method === 'matched' || st.method === 'impulse')
@@ -101,7 +107,7 @@
 		if (typeof st.prewarp === 'boolean') prewarp = st.prewarp;
 		if (st.overlay === 'target' || st.overlay === 'prototype' || st.overlay === 'none')
 			overlay = st.overlay;
-		if (st.specs && typeof st.specs === 'object') specs = { ...specs, ...st.specs };
+		specs = restoreSpecs(specs, st.specs);
 	});
 
 	const MAX_ORDER = 20;
@@ -129,10 +135,11 @@
 		return null;
 	});
 
-	const est = $derived.by(() => {
+	const est = $derived.by((): CappedEstimate | null => {
 		if (mode !== 'spec' || specError) return null;
 		try {
-			return estimateFromSpecs(family, specEdges, { besselNorm });
+			// estimated under the page's cap, so the natural frequency is for the order used
+			return estimateCapped(family, specEdges, { besselNorm, maxOrder });
 		} catch (e) {
 			return {
 				order: 1,
@@ -255,6 +262,11 @@
 	// ----- stats -----
 	const sections = $derived(sos.map((s) => sectionInfo(s)));
 	const maxR = $derived(Math.max(0, ...zpk.p.map(abs)));
+	// every method here maps a stable analog pole strictly inside the unit circle: one that
+	// lands on it was rounded there (pole Q beyond what double precision can represent)
+	const roundedOntoCircle = $derived(
+		!!design.r && Math.abs(maxR - 1) < 1e-12 && design.r.analog.p.every((p) => p.re < 0)
+	);
 	const sens = $derived.by(() => {
 		try {
 			return float32Sensitivity(sos);
@@ -273,15 +285,8 @@
 				hint: 'Second-order sections in the exported cascade'
 			}
 		];
-		const grid = linspace(0, nyq, 4001);
-		const r = evaluate(filter, grid);
-		const peak = Math.max(...r.magDb.filter(Number.isFinite));
-		const rel = r.magDb.map((v) => v - peak);
-		if (band === 'lowpass') {
-			const f3 = findCrossing(r.f, rel, -3.0103);
-			out.push({ label: '−3 dB frequency', value: f3 ? formatSI(f3, 'Hz', 4) : '—' });
-		} else if (band === 'highpass') {
-			const f3 = findCrossing([...r.f].reverse(), [...rel].reverse(), -3.0103);
+		if (band === 'lowpass' || band === 'highpass') {
+			const f3 = edgeCrossing(filter, band);
 			out.push({ label: '−3 dB frequency', value: f3 ? formatSI(f3, 'Hz', 4) : '—' });
 		} else {
 			out.push({ label: 'Centre (geometric)', value: formatSI(Math.sqrt(c1 * c2), 'Hz', 4) });
@@ -370,7 +375,9 @@
 		rs,
 		fs,
 		besselNorm,
-		spec: mode === 'spec' ? { fp: specEdges.fp, fstop: specEdges.fstop } : undefined
+		spec: mode === 'spec' ? { fp: specEdges.fp, fstop: specEdges.fstop } : undefined,
+		capped: !!est?.capped,
+		requiredOrder: est?.requiredOrder
 	});
 	const recipes = $derived.by((): Recipe[] => {
 		if (!warped) {
@@ -495,7 +502,8 @@
 				<p class="small muted tight">
 					For {info.name}, the cutoff is the {family === 'bessel'
 						? {
-								phase: 'phase-midpoint frequency',
+								phase:
+									'Butterworth-matched asymptote frequency (≈ phase midpoint, exact for N ≤ 2)',
 								delay: 'unit-delay normalisation frequency',
 								mag: '−3 dB frequency'
 							}[besselNorm]
@@ -572,7 +580,7 @@
 					bind:value={besselNorm}
 					options={[
 						{ value: 'mag', label: '−3 dB at cutoff' },
-						{ value: 'phase', label: 'Phase midpoint at cutoff (SciPy default)' },
+						{ value: 'phase', label: 'Phase-matched: ≈ phase midpoint at cutoff (SciPy default)' },
 						{ value: 'delay', label: 'Unit group delay' }
 					]}
 				/>
@@ -609,14 +617,23 @@
 	{/if}
 	{#if est?.error}
 		<Callout kind="danger">{est.error}</Callout>
-	{:else if est?.capped || (est && est.order > maxOrder)}
+	{:else if est?.capped}
 		<Callout kind="warning" title="Specification not reachable">
-			{info.name} needs more than order {maxOrder} for this specification. Showing order {maxOrder} —
-			try a steeper family or relax the specs.
+			{info.name} needs {est.requiredOrder
+				? `order ${est.requiredOrder}`
+				: `more than order ${maxOrder}`} for this specification. Showing order {maxOrder} — try a steeper
+			family or relax the specs.
 		</Callout>
 	{/if}
 	{#if edgeIssue && !design.error}
 		<Callout kind="warning">{edgeIssue}</Callout>
+	{/if}
+	{#if roundedOntoCircle}
+		<Callout kind="warning" title="Poles rounded onto the unit circle">
+			The analog design is stable, but some of its poles lie closer to the jω axis than double
+			precision can carry through the transform, so they land on |z| = 1 and the filter cannot be
+			realised. Lower the order or relax the ripple and attenuation.
+		</Callout>
 	{/if}
 	{#if design.r?.warning}
 		<Callout kind="warning" title="Impulse invariance">{design.r.warning}</Callout>
@@ -727,10 +744,13 @@
 		/>
 		<p>
 			The infinite analog axis 0…∞ is squeezed into 0…f<sub>s</sub>/2. Near DC the mapping is almost
-			the identity; towards Nyquist it compresses more and more, which is why a bilinear low-pass
-			reaches −∞ dB exactly at f<sub>s</sub>/2 (the analog zeros at infinity land on z = −1). There
-			is <em>no aliasing</em> — every analog frequency maps to exactly one digital one — but the frequency
-			axis is distorted.
+			the identity; towards Nyquist it compresses more and more, until the analog response at ω → ∞
+			lands exactly on f<sub>s</sub>/2. Analog zeros at infinity land on z = −1, so all-pole
+			low-passes (Butterworth, Chebyshev I, Bessel…) and odd-order elliptic and Chebyshev II ones
+			reach −∞ dB exactly at f<sub>s</sub>/2. Even-order elliptic and Chebyshev II low-passes have
+			no zeros at infinity: they end at their finite stopband level −R<sub>s</sub> (−60 dB for the
+			default design). There is <em>no aliasing</em> — every analog frequency maps to exactly one digital
+			one — but the frequency axis is distorted.
 		</p>
 		<p>
 			<strong>Prewarping</strong> fixes the frequencies that matter: design the analog prototype

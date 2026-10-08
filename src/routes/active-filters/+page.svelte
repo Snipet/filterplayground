@@ -21,9 +21,11 @@
 	import { evaluate, findCrossing, logspace } from '$lib/dsp/response';
 	import { formatSI, trimNumber, type ESeries } from '$lib/dsp/units';
 	import {
+		TOPOLOGIES,
 		TOPOLOGY_NAMES,
 		cascadeZpk,
 		designStage,
+		fillNote,
 		monteCarlo,
 		stageSpecs,
 		type StageBand,
@@ -64,11 +66,16 @@
 	let mc = $state(true);
 	let tol = $state(0.05);
 
+	// band-pass doubles the order, so its prototype is limited to N ≤ 6; `order`
+	// keeps the user's value for LP/HP while the controls show and share N
+	const maxOrder = $derived(band === 'bandpass' ? 6 : 10);
+	const N = $derived(Math.min(order, maxOrder));
+
 	const shared = $derived({
 		mode,
 		family,
 		band,
-		order,
+		order: N,
 		fc,
 		f1,
 		f2,
@@ -95,14 +102,16 @@
 		if (st.family && ALLOWED.includes(st.family)) family = st.family;
 		if (st.band && bands.includes(st.band)) band = st.band;
 		if (st.sBand && bands.includes(st.sBand)) sBand = st.sBand;
-		if (pos(st.order)) order = Math.min(10, Math.round(st.order));
+		if (pos(st.order)) order = Math.min(10, Math.max(1, Math.round(st.order)));
 		if (pos(st.fc)) fc = st.fc;
 		if (pos(st.f1)) f1 = st.f1;
 		if (pos(st.f2)) f2 = st.f2;
 		if (pos(st.rp)) rp = st.rp;
 		if (pos(st.f0)) f0 = st.f0;
 		if (pos(st.q)) q = st.q;
-		if (st.topology && st.topology in TOPOLOGY_NAMES) topology = st.topology;
+		// only the selectable topologies (not the internal stage types or inherited keys)
+		const topo = TOPOLOGIES.find((t) => t === st.topology);
+		if (topo) topology = topo;
 		if (pos(st.gain)) gain = st.gain;
 		if (pos(st.baseC)) baseC = st.baseC;
 		if (st.rSeries && series.includes(st.rSeries)) rSeries = st.rSeries;
@@ -113,8 +122,6 @@
 	});
 
 	const effBand = $derived(mode === 'filter' ? band : sBand);
-	const maxOrder = $derived(band === 'bandpass' ? 6 : 10);
-	const N = $derived(Math.min(order, maxOrder));
 
 	// ---------------- design ----------------
 	const result = $derived.by(() => {
@@ -317,12 +324,8 @@
 			xs.push(...grid, NaN);
 			ys.push(...r, NaN);
 		}
-		const iRef = grid.reduce(
-			(best, f, i) =>
-				Math.abs(Math.log(f / fRef)) < Math.abs(Math.log(grid[best] / fRef)) ? i : best,
-			0
-		);
-		const atRef = runs.map((r) => r[iRef]);
+		// same seed, so the same 40 builds as the curves, evaluated exactly at fRef
+		const atRef = monteCarlo(stages, tol, [fRef], 40).map((r) => r[0]);
 		let top = -Infinity;
 		for (const r of runs) for (const v of r) if (Number.isFinite(v)) top = Math.max(top, v);
 		top = Math.ceil(top + 1);
@@ -441,10 +444,13 @@
 				<Segmented label="Response" bind:value={band} options={bandOptions} />
 				<Slider
 					label={band === 'bandpass' ? 'Prototype order N (2N poles)' : 'Order N'}
-					bind:value={order}
+					bind:value={() => N, (v) => (order = v)}
 					min={1}
 					max={maxOrder}
 					integer
+					help={order > maxOrder
+						? `Band-pass is limited to N = ${maxOrder} (${2 * maxOrder} poles).`
+						: undefined}
 				/>
 				{#if band === 'bandpass'}
 					<Slider label="Lower edge f₁" bind:value={f1} min={1} max={100000} log unit="Hz" />
@@ -667,8 +673,8 @@
 								)}){/if}, gain {trimNumber(st.realizedParams.gain, 4)}.
 							{designators[i].opamp}: GBW ≥ {formatSI(st.gbw, 'Hz', 2)} ({st.gbwRule}).
 						</p>
-						{#each st.notes as n (n)}
-							<Callout kind="warning">{n}</Callout>
+						{#each st.noteTemplates as n (n)}
+							<Callout kind="warning">{fillNote(n, designators[i].parts)}</Callout>
 						{/each}
 					</div>
 				</div>
@@ -762,10 +768,12 @@
 		</p>
 		<Tex display math={'S^Q_K = \\frac{K}{Q}\\frac{\\partial Q}{\\partial K} = KQ = 3Q - 1'} />
 		<p>
-			— at Q = 10 a 1 % error in R4/R3 moves Q by 29 %, and K → 3 makes the stage oscillate. In a
-			unity-gain Sallen–Key every passive Q sensitivity is at most ½ in magnitude, and in an MFB
-			stage at most 1; ω₀ sensitivities are ½ or less everywhere. That is why those two are
-			preferred for high Q.
+			— at Q = 10 a 1 % error in the gain K moves Q by about 29 %, and K → 3 makes the stage
+			oscillate. K = 1 + R4/R3 comes from a resistor ratio, whose sensitivity is <Tex
+				math={'S^Q_{R_4/R_3} = (K-1)Q = 2Q - 1'}
+			/>: a 1 % error in R4/R3 still moves Q by about 19 % at Q = 10. In a unity-gain Sallen–Key
+			every passive Q sensitivity is at most ½ in magnitude, and in an MFB stage at most 1; ω₀
+			sensitivities are ½ or less everywhere. That is why those two are preferred for high Q.
 		</p>
 
 		<h3>Multiple feedback (MFB)</h3>
@@ -851,8 +859,9 @@
 					Sallen–Key.
 				</li>
 				<li>
-					Make a narrow band-pass (f₁ = 900 Hz, f₂ = 1.1 kHz) and raise the centre gain until the
-					2Q² limit kicks in.
+					Make a wide band-pass (f₁ = 200 Hz, f₂ = 5 kHz) and raise the centre gain: its low-Q
+					stages hit the 2Q² limit almost at once (their shunt resistor R3 is left out). Then narrow
+					the band to 900 Hz – 1.1 kHz: the stage Q rises and the limit moves far out of reach.
 				</li>
 				<li>
 					Shrink the base capacitor to 100 pF and see the resistor values (and warnings) climb.

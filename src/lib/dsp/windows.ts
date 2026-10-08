@@ -164,7 +164,12 @@ export const WINDOWS: WindowInfo[] = [
 	},
 	{ id: 'cosine', name: 'Cosine (sine)', description: 'Half a sine period. −23 dB sidelobes.' },
 	{ id: 'lanczos', name: 'Lanczos (sinc)', description: 'Central lobe of a sinc function.' },
-	{ id: 'welch', name: 'Welch (parabolic)', description: 'Parabola reaching zero at the ends.' }
+	{
+		id: 'welch',
+		name: 'Welch (parabolic)',
+		description:
+			'Parabola 1 − ((n − M/2)/(M/2 + 1))², M = N − 1. It reaches zero one sample beyond each end, so the end samples are small but not zero (0.22 at N = 16).'
+	}
 ];
 
 export const windowInfo = (id: WindowType): WindowInfo =>
@@ -192,6 +197,28 @@ export function besselI0(x: number): number {
 		if (term < 1e-17 * sum) break;
 	}
 	return sum;
+}
+
+/**
+ * Range of a window's parameter at length N. DPSS needs NW < N/2 (W = NW/N below 0.5
+ * cycles/sample; SciPy raises otherwise): beyond it the cos(2πW) term of the tridiagonal
+ * problem folds W back to 1 − W and silently returns the window for N − NW, and NW = N/2
+ * degenerates to the binomial window. Its max is the largest step multiple below N/2.
+ */
+export function windowParamRange(type: WindowType, N: number): WindowInfo['param'] {
+	const p = windowInfo(type).param;
+	if (!p || type !== 'dpss') return p;
+	// N/2 is a multiple of 0.5, hence of the step
+	const below = Number((Math.round((N / 2 - p.step) / p.step) * p.step).toPrecision(12));
+	return { ...p, max: Math.max(p.min, Math.min(p.max, below)) };
+}
+
+/** The parameter used at length N: the given value (or the default), with DPSS NW kept below N/2. */
+export function windowParamAt(type: WindowType, N: number, param?: number): number | undefined {
+	const r = windowParamRange(type, N);
+	if (!r) return undefined;
+	const v = param ?? r.default;
+	return type === 'dpss' ? Math.min(v, r.max) : v;
 }
 
 export function windowValues(
@@ -342,8 +369,12 @@ function dftReal(p: Float64Array, rot: (k: number) => [number, number]): number[
 	return out;
 }
 
-/** First discrete prolate spheroidal (Slepian) sequence, normalised to peak 1. */
+/**
+ * First discrete prolate spheroidal (Slepian) sequence, normalised to peak 1.
+ * NW must be below N/2; larger values are clamped to the largest valid slider step.
+ */
 export function dpss(N: number, NW: number): number[] {
+	if (NW >= N / 2) NW = windowParamRange('dpss', N)!.max;
 	const W = NW / N;
 	const d = Array.from(
 		{ length: N },

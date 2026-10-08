@@ -38,7 +38,10 @@ function butterBiquad() {
 		fs: 48000
 	});
 	const tf = sos2tf(sos);
-	return { b: list(tf.b), a: list(tf.a) };
+	// b = g·[1, 2, 1]: round g once and double it exactly, so that the printed numerator
+	// keeps its double zero at z = −1 (rounding b₁ on its own splits it into a complex pair)
+	const g = Number(fmt(tf.b[0]));
+	return { b: [g, 2 * g, g].join(', '), a: list(tf.a) };
 }
 
 const ellip = designDigital({

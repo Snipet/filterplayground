@@ -18,10 +18,12 @@ export function formatSI(value: number, unit = '', digits = 3): string {
 	if (!Number.isFinite(value))
 		return `${value > 0 ? '∞' : value < 0 ? '−∞' : '—'}${unit ? ' ' + unit : ''}`;
 	if (value === 0) return `0${unit ? ' ' + unit : ''}`;
-	const abs = Math.abs(value);
+	// pick the prefix from the value as it will be shown: 999.84 at 4 digits stays
+	// "999.8", while 999.96 rounds to 1000 and moves up to "1 k"
+	const abs = Number(Math.abs(value).toPrecision(digits));
 	let [scale, prefix] = PREFIXES[PREFIXES.length - 1];
 	for (const [s, p] of PREFIXES) {
-		if (abs >= s * 0.9995) {
+		if (abs >= s) {
 			scale = s;
 			prefix = p;
 			break;
@@ -73,9 +75,31 @@ const PARSE_PREFIX: Record<string, number> = {
 
 /**
  * Parse "4.7k", "10n", "2.2 µF", "1e3", "1k5" (= 1.5k), "100 Hz".
+ * Pass the field's `unit` so it may be typed after the number even when it starts
+ * with a prefix letter ("2 m" metres, "5 ms" in a millisecond field).
  * Returns NaN if it can't be parsed.
  */
-export function parseSI(input: string): number {
+export function parseSI(input: string, unit?: string): number {
+	if (unit) {
+		// The field's own unit may be typed after the number. Strip it first, so "2 m" in a
+		// metres field is 2, not 2 milli, while "2 mm" still reads as 0.002.
+		const t = input.trim();
+		if (t.endsWith(unit)) {
+			const rest = t.slice(0, -unit.length);
+			const num = rest.trim();
+			// "51/s" is 51 per second, not "5" followed by the unit "1/s": a unit that starts
+			// with a digit needs a space before it ("5 1/s")
+			if (num && !(/^\d/.test(unit) && /\d$/.test(rest))) {
+				// centi is not an engineering prefix but is common for lengths ("34.3 cm");
+				// shifting the exponent keeps it exact (34.3 / 100 = 0.34299999999999997)
+				const cm = num
+					.replace(/[\s,]+/g, '')
+					.match(/^(-?(?:\d+\.?\d*|\.\d+))(?:[eE]([+-]?\d+))?c$/);
+				if (cm) return Number(`${cm[1]}e${Number(cm[2] ?? 0) - 2}`);
+				return parseSI(num);
+			}
+		}
+	}
 	let s = input.trim().replace(/,/g, '').replace(/\s+/g, '');
 	if (!s) return NaN;
 	// strip trailing units

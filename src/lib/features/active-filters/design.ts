@@ -28,6 +28,9 @@ export type Topology = 'sk-unity' | 'sk-equal' | 'mfb';
 /** What a stage is actually built with. */
 export type StageTopology = Topology | 'mfb-bp' | 'rc1';
 
+/** The user-selectable topologies (the other stage types are chosen automatically). */
+export const TOPOLOGIES: readonly Topology[] = ['sk-unity', 'sk-equal', 'mfb'];
+
 export const TOPOLOGY_NAMES: Record<StageTopology, string> = {
 	'sk-unity': 'Sallen–Key, unity gain',
 	'sk-equal': 'Sallen–Key, equal components',
@@ -91,7 +94,13 @@ export interface StageDesign {
 	/** Built from the standard values. */
 	realized: StageTf;
 	realizedParams: { w0: number; q: number; gain: number };
+	/** Design warnings; parts are named by their local role (R1, C2 …). */
 	notes: string[];
+	/**
+	 * The same warnings with every part name written as a `{role}` placeholder,
+	 * so a page that renumbers parts can name them its way (see {@link fillNote}).
+	 */
+	noteTemplates: string[];
 	/** Rough minimum op-amp gain–bandwidth product (Hz). */
 	gbw: number;
 	gbwRule: string;
@@ -146,6 +155,21 @@ export function seriesNeighbours(v: number, s: ESeries): number[] {
 }
 
 const roundR = (v: number, s: ESeries) => (Number.isFinite(v) ? toESeries(v, s) : v);
+
+/**
+ * Resolve the `{role}` placeholders of a note template (e.g. "{C1}/{C2}") with
+ * the given part names; roles without a name keep their local role name.
+ */
+export function fillNote(template: string, names: Record<string, string> = {}): string {
+	return template.replace(/\{([A-Z]+\d+)\}/g, (_, role: string) => names[role] ?? role);
+}
+
+/**
+ * The equal-component Sallen–Key needs K = 3 − 1/Q > 1. Below K − 1 = 10⁻³
+ * (Q < 0.50025) the gain resistor R4 = (K − 1)·R3 would be (nearly) a short
+ * and R3 (nearly) open, i.e. the stage is the unity-gain follower anyway.
+ */
+const skEqualUsable = (q: number) => 2 - 1 / q >= 1e-3;
 
 // ---------------------------------------------------------------------------
 // Realised transfer functions from component values
@@ -230,6 +254,7 @@ interface Raw {
 	/** Values to use for the parts already fixed (capacitors). */
 	fixed: Record<string, number>;
 	gain: number;
+	/** Note templates, part names as {role} placeholders. */
 	notes: string[];
 }
 
@@ -254,15 +279,18 @@ function variants(spec: StageSpec, o: DesignOptions): number[] {
 		0,
 		...Array.from({ length: n }, (_, i) => [i + 1, -(i + 1)]).flat()
 	];
-	if (spec.band !== 'bandpass' && o.topology === 'sk-equal' && spec.q >= 0.5)
+	if (spec.band !== 'bandpass' && o.topology === 'sk-equal' && skEqualUsable(spec.q))
 		return o.rSeries === 'exact' ? [0] : around(6);
 	if (o.cSeries === 'exact') return [0];
 	if (spec.band === 'lowpass') return [0, 1, 2, 3];
 	return around(3);
 }
 
-/** @param variant  optimiser step, see {@link variants} */
-function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
+/**
+ * @param variant  optimiser step, see {@link variants}
+ * @returns null when this variant cannot realise the design (variant 0 always can)
+ */
+function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw | null {
 	const { w0, q, band } = spec;
 	const C = toESeries(o.baseC, o.cSeries);
 	const notes: string[] = [];
@@ -291,13 +319,19 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		// MFB band-pass (C1 = C2 = C by default): R2 = Q(C1+C2)/(ω0C1C2), R1 from |H0|, R3 sets ω0
 		const C1 = seriesStep(C, o.cSeries, variant);
 		const C2 = C;
-		let H0 = Math.abs(o.gain);
-		// R3 ≥ 0 requires |H0| ≤ Q²(C1 + C2)/C2 (= 2Q² for equal capacitors)
+		// R3 ≥ 0 requires |H0| ≤ Q²(C1 + C2)/C2 (= 2Q² for equal capacitors). The
+		// design gain is |H0| capped at 2Q² (then C1 = C2 and R3 is left out); the
+		// optimiser may try another C1 only where that C1 still reaches this gain.
+		const lim = 2 * q * q;
 		const hmax = (q * q * (C1 + C2)) / C2;
+		let H0 = Math.min(Math.abs(o.gain), lim);
+		if (variant !== 0 && (H0 >= lim * (1 - 1e-9) || H0 > hmax * (1 + 1e-9))) return null;
 		let open = false;
 		if (H0 >= hmax * (1 - 1e-9)) {
-			if (H0 > hmax * (1 + 1e-9))
-				notes.push(`Centre gain limited to 2Q² = ${hmax.toPrecision(3)} (R3 omitted).`);
+			if (Math.abs(o.gain) > lim * (1 + 1e-9))
+				notes.push(
+					`Centre gain limited to 2Q² = ${lim.toPrecision(3)} (shunt resistor left open).`
+				);
 			H0 = hmax;
 			open = true;
 		}
@@ -321,9 +355,11 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 	}
 
 	let topology: StageTopology = o.topology;
-	if (topology === 'sk-equal' && q < 0.5 - 1e-12) {
+	if (topology === 'sk-equal' && !skEqualUsable(q)) {
 		notes.push(
-			'Equal-component Sallen–Key needs Q ≥ 0.5 (gain K = 3 − 1/Q ≥ 1); built as unity gain instead.'
+			q < 0.5 - 1e-12
+				? 'Equal-component Sallen–Key needs Q ≥ 0.5 (gain K = 3 − 1/Q ≥ 1); built as unity gain instead.'
+				: `Q = ${Number(q.toPrecision(4))} makes K = 3 − 1/Q = ${(3 - 1 / q).toPrecision(4)} (no gain needed), so the equal-component Sallen–Key is built as the unity-gain circuit.`
 		);
 		topology = 'sk-unity';
 	}
@@ -340,7 +376,7 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 			const R2 = (S + disc) / 2;
 			if (C1 / C2 > 100)
 				notes.push(
-					`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — consider MFB or a different base value.`
+					`Capacitor ratio {C1}/{C2} = ${(C1 / C2).toPrecision(3)} is large — consider MFB or a different base value.`
 				);
 			return {
 				topology,
@@ -381,7 +417,7 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		const R4 = (K - 1) * R3;
 		if (q > 5)
 			notes.push(
-				`Q = ${q.toPrecision(3)}: the gain K must hit ${K.toPrecision(4)} very precisely — Q is extremely sensitive to R3/R4.`
+				`Q = ${q.toPrecision(3)}: the gain K must hit ${K.toPrecision(4)} very precisely — Q is extremely sensitive to {R3}/{R4}.`
 			);
 		const isLp = band === 'lowpass';
 		return {
@@ -412,7 +448,7 @@ function designRaw(spec: StageSpec, o: DesignOptions, variant = 0): Raw {
 		const R1 = R2 / G;
 		if (C1 / C2 > 100)
 			notes.push(
-				`Capacitor ratio C1/C2 = ${(C1 / C2).toPrecision(3)} is large — lower the gain or the Q.`
+				`Capacitor ratio {C1}/{C2} = ${(C1 / C2).toPrecision(3)} is large — lower the gain or the Q.`
 			);
 		return {
 			topology,
@@ -465,6 +501,7 @@ export function designStage(spec: StageSpec, o: DesignOptions): StageDesign {
 	let best: { raw: Raw; values: number[]; score: number } | null = null;
 	for (const k of optimize ? variants(spec, o) : [0]) {
 		const raw = designRaw(spec, o, k);
+		if (!raw) continue;
 		// candidate standard values for each part
 		const choices = raw.parts.map((p) =>
 			p.role in raw.fixed
@@ -499,12 +536,17 @@ export function designStage(spec: StageSpec, o: DesignOptions): StageDesign {
 	const exactTf = stageTf(raw.topology, spec.band, exactVals);
 	const realized = stageTf(raw.topology, spec.band, vals);
 	const realizedParams = tfParams(realized, spec.band);
-	const notes = [...raw.notes];
+	const noteTemplates = [...raw.notes];
 	for (const p of parts) {
-		if (p.kind === 'R' && Number.isFinite(p.value) && (p.value < 100 || p.value > 2e6))
-			notes.push(
-				`${p.role} = ${p.value < 100 ? 'below 100 Ω (loads the op-amp)' : 'above 2 MΩ (noise, bias currents)'} — try a ${p.value < 100 ? 'smaller' : 'larger'} base capacitor.`
-			);
+		if (p.kind !== 'R' || !Number.isFinite(p.value) || (p.value >= 100 && p.value <= 2e6)) continue;
+		const low = p.value < 100;
+		// the gain resistors of the equal-component Sallen–Key do not scale with C:
+		// a tiny R4 = (K − 1)·R3 only means K is barely above 1
+		noteTemplates.push(
+			raw.topology === 'sk-equal' && p.role === 'R4' && low
+				? `{R4} = below 100 Ω: K = ${raw.gain.toPrecision(4)} is barely above 1 — for Q this close to 0.5 the unity-gain Sallen–Key is the practical choice.`
+				: `{${p.role}} = ${low ? 'below 100 Ω (loads the op-amp)' : 'above 2 MΩ (noise, bias currents)'} — try a ${low ? 'smaller' : 'larger'} base capacitor.`
+		);
 	}
 	const f0 = spec.w0 / (2 * Math.PI);
 	let gbw: number;
@@ -540,7 +582,8 @@ export function designStage(spec: StageSpec, o: DesignOptions): StageDesign {
 		exactTf,
 		realized,
 		realizedParams,
-		notes,
+		notes: noteTemplates.map((t) => fillNote(t)),
+		noteTemplates,
 		gbw,
 		gbwRule
 	};

@@ -81,16 +81,15 @@ export function specEdges(s: OrderSpec): SpecEdges {
 export const discrimination = (rp: number, rs: number): number =>
 	Math.sqrt((Math.pow(10, rp / 10) - 1) / (Math.pow(10, rs / 10) - 1));
 
-/**
- * Selectivity of the equivalent low-pass prototype, Ωs ≥ 1 (the stopband edge
- * in units of the passband edge), after bilinear prewarping for digital specs.
- * Band-pass/stop edges are used as given (the designer may adjust them).
- */
-export function selectivity(s: OrderSpec): number {
-	const w = (f: number) => (s.domain === 'digital' ? prewarp(f, s.fs) : 2 * Math.PI * f);
-	const [p1, p2] = s.fp.map(w);
-	const [s1, s2] = s.fst.map(w);
-	switch (s.band) {
+/** Prototype frequency (rad/s) of a band edge: prewarped for digital specs. */
+const toW = (s: OrderSpec, f: number): number =>
+	s.domain === 'digital' ? prewarp(f, s.fs) : 2 * Math.PI * f;
+const fromW = (s: OrderSpec, w: number): number =>
+	s.domain === 'digital' ? (s.fs / Math.PI) * Math.atan(w / (2 * s.fs)) : w / (2 * Math.PI);
+
+/** Ωs of the equivalent low-pass prototype for edges in rad/s (passband edge → 1). */
+function protoSelectivity(band: BandType, [p1, p2]: number[], [s1, s2]: number[]): number {
+	switch (band) {
 		case 'lowpass':
 			return s1 / p1;
 		case 'highpass':
@@ -108,17 +107,84 @@ export function selectivity(s: OrderSpec): number {
 	}
 }
 
-/** Narrowest transition band, Hz. */
-export function transitionHz(s: OrderSpec): number {
+/**
+ * Passband edges (rad/s, prewarped for digital specs) that set the order. For band-stop
+ * specs each passband edge is first slid towards the stopband as far as that raises Ωs, as
+ * SciPy's buttord / cheb1ord / cheb2ord / ellipord do (band_stop_obj): the filter then meets
+ * Rp over a wider passband than asked, and the order can only drop. Otherwise as given.
+ */
+function orderPassband(s: OrderSpec): [number, number] {
+	let [p1, p2] = s.fp.map((f) => toW(s, f));
+	const [s1, s2] = s.fst.map((f) => toW(s, f));
+	if (s.band === 'bandstop' && p1 < s1 && s2 < p2) {
+		const sel = (a: number, b: number) => protoSelectivity('bandstop', [a, b], [s1, s2]);
+		p1 = goldenMax((a) => sel(a, p2), p1, s1 - 1e-9 * s1);
+		p2 = goldenMax((b) => sel(p1, b), s2 + 1e-9 * s2, p2);
+	}
+	return [p1, p2];
+}
+
+/**
+ * Selectivity of the equivalent low-pass prototype, Ωs ≥ 1 (the stopband edge
+ * in units of the passband edge), after bilinear prewarping for digital specs.
+ * This is the Ωs that sets the orders in the table: band-stop passband edges are
+ * first optimised as in SciPy (see {@link orderPassband}); pass `asGiven = true`
+ * for the value with the edges exactly as entered.
+ */
+export function selectivity(s: OrderSpec, asGiven = false): number {
+	const pass = asGiven ? s.fp.map((f) => toW(s, f)) : orderPassband(s);
+	const stop = s.fst.map((f) => toW(s, f));
+	return protoSelectivity(s.band, pass, stop);
+}
+
+/**
+ * Passband edges (Hz) that set the order: the entered ones, except that band-stop
+ * edges are slid towards the stopband as in SciPy (see {@link selectivity}).
+ */
+export function orderPassbandHz(s: OrderSpec): [number, number] {
+	const [p1, p2] = orderPassband(s);
+	return [fromW(s, p1), fromW(s, p2)];
+}
+
+/** Transition bands as [passband edge, stopband edge] pairs (Hz). */
+function transitions(s: OrderSpec): [number, number][] {
+	const [p1, p2] = s.fp;
+	const [s1, s2] = s.fst;
 	switch (s.band) {
 		case 'lowpass':
 		case 'highpass':
-			return Math.abs(s.fst[0] - s.fp[0]);
+			return [[p1, s1]];
 		case 'bandpass':
-			return Math.min(s.fp[0] - s.fst[0], s.fst[1] - s.fp[1]);
 		case 'bandstop':
-			return Math.min(s.fst[0] - s.fp[0], s.fp[1] - s.fst[1]);
+			return [
+				[p1, s1],
+				[p2, s2]
+			];
 	}
+}
+
+/**
+ * Narrowest transition band (in Hz): its width in Hz and in octaves, log2 of the
+ * ratio of its two edges, and the edges themselves (low, high).
+ */
+export function narrowestTransition(s: OrderSpec): {
+	hz: number;
+	octaves: number;
+	edges: [number, number];
+} {
+	let best: { hz: number; octaves: number; edges: [number, number] } | null = null;
+	for (const [p, st] of transitions(s)) {
+		const lo = Math.min(p, st);
+		const hi = Math.max(p, st);
+		const t = { hz: hi - lo, octaves: Math.log2(hi / lo), edges: [lo, hi] as [number, number] };
+		if (!best || t.hz < best.hz || (t.hz === best.hz && t.octaves < best.octaves)) best = t;
+	}
+	return best!;
+}
+
+/** Narrowest transition band, Hz. */
+export function transitionHz(s: OrderSpec): number {
+	return narrowestTransition(s).hz;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,10 +248,29 @@ export function checkGrids(s: OrderSpec, n = 400): { pass: number[]; stop: numbe
 	}
 }
 
+/**
+ * |H| in dB at the frequencies fHz. An analog ZPK is evaluated as a sum of logarithms:
+ * a high-order band design (k ≈ 1e200, N factors |jω − z| of 1e6 and more) overflows the
+ * running product of freqsZpk and would come out as NaN.
+ */
+export function magnitudeDb(filter: Filter, fHz: readonly number[]): number[] {
+	if (filter.kind !== 'analog') return evaluate(filter, fHz).magDb;
+	const { z, p, k } = filter.zpk;
+	const lk = Math.log10(Math.abs(k));
+	return fHz.map((f) => {
+		const w = 2 * Math.PI * f;
+		let l = lk;
+		for (const r of z) l += Math.log10(Math.hypot(r.re, w - r.im));
+		for (const r of p) l -= Math.log10(Math.hypot(r.re, w - r.im));
+		return Math.max(20 * l, -6000); // the floor of toDb (|H| ≥ 1e-300)
+	});
+}
+
+/** Worst passband loss / smallest stopband attenuation (dB) on a grid; NaN if any point fails. */
 function worst(filter: Filter, grid: number[], kind: 'pass' | 'stop'): number {
-	const db = evaluate(filter, grid).magDb;
-	if (kind === 'pass') return -Math.min(...db.filter((v) => !Number.isNaN(v)));
-	return -Math.max(...db.filter((v) => !Number.isNaN(v)));
+	const db = magnitudeDb(filter, grid);
+	if (db.some((v) => Number.isNaN(v))) return NaN;
+	return kind === 'pass' ? -Math.min(...db) : -Math.max(...db);
 }
 
 // The spec-independent prototypes (Bessel, Legendre, Gaussian, …) are slow to
@@ -267,39 +352,11 @@ export interface Estimate {
  * Butterworth / Chebyshev II order gets the cutoff that matches the capped order.
  */
 export function estimate(family: AnalogFamily, s: OrderSpec): Estimate {
-	const digital = s.domain === 'digital';
-	const toW = (f: number) => (digital ? prewarp(f, s.fs) : 2 * Math.PI * f);
-	const fromW = (w: number) =>
-		digital ? (s.fs / Math.PI) * Math.atan(w / (2 * s.fs)) : w / (2 * Math.PI);
-	let [p1, p2] = s.fp.map(toW);
-	const [s1, s2] = s.fst.map(toW);
-	if (s.band === 'bandstop' && p1 < s1 && s2 < p2) {
-		// slide the passband edges towards the stopband for symmetric geometry (as SciPy)
-		const sel = (a: number, b: number) =>
-			Math.min(
-				Math.abs((s1 * (b - a)) / (a * b - s1 * s1)),
-				Math.abs((s2 * (b - a)) / (a * b - s2 * s2))
-			);
-		p1 = goldenMax((a) => sel(a, p2), p1, s1 - 1e-9 * s1);
-		p2 = goldenMax((b) => sel(p1, b), s2 + 1e-9 * s2, p2);
-	}
+	const [p1, p2] = orderPassband(s);
 	const B = p2 - p1;
 	const w02 = p1 * p2;
-	let nat: number;
-	switch (s.band) {
-		case 'lowpass':
-			nat = s1 / p1;
-			break;
-		case 'highpass':
-			nat = p1 / s1;
-			break;
-		case 'bandpass':
-			nat = Math.min(Math.abs((s1 * s1 - w02) / (B * s1)), Math.abs((s2 * s2 - w02) / (B * s2)));
-			break;
-		case 'bandstop':
-			nat = Math.min(Math.abs((B * s1) / (w02 - s1 * s1)), Math.abs((B * s2) / (w02 - s2 * s2)));
-			break;
-	}
+	const stop = s.fst.map((f) => toW(s, f));
+	const nat = protoSelectivity(s.band, [p1, p2], stop);
 	const { N, wn: wnN, capped } = orderFor(family, nat, s.rp, s.rs);
 	const maxN = FAMILIES.find((f) => f.id === family)!.maxOrder;
 	const order = Math.min(N, maxN);
@@ -313,14 +370,14 @@ export function estimate(family: AnalogFamily, s: OrderSpec): Estimate {
 		else if (family === 'cheby2') wn = Math.cosh(Math.acosh(Math.sqrt(gs / gp)) / maxN);
 	}
 	const pair = (W: number): [number, number] => [
-		fromW((-W + Math.sqrt(W * W + 4 * w02)) / 2),
-		fromW((W + Math.sqrt(W * W + 4 * w02)) / 2)
+		fromW(s, (-W + Math.sqrt(W * W + 4 * w02)) / 2),
+		fromW(s, (W + Math.sqrt(W * W + 4 * w02)) / 2)
 	];
 	switch (s.band) {
 		case 'lowpass':
-			return { order, f1: fromW(wn * p1), capped: capped || N > maxN };
+			return { order, f1: fromW(s, wn * p1), capped: capped || N > maxN };
 		case 'highpass':
-			return { order, f1: fromW(p1 / wn), capped: capped || N > maxN };
+			return { order, f1: fromW(s, p1 / wn), capped: capped || N > maxN };
 		case 'bandpass': {
 			const [f1, f2] = pair(wn * B);
 			return { order, f1, f2, capped: capped || N > maxN };
@@ -346,10 +403,13 @@ export function designFor(family: AnalogFamily, s: OrderSpec, est: Estimate): Fi
 	}
 	const nyq = s.fs / 2;
 	const clamp = (f: number) => Math.min(Math.max(f, nyq * 1e-6), nyq * 0.999999);
-	const w1 = prewarp(clamp(est.f1), s.fs);
-	const w2 = prewarp(clamp(f2), s.fs);
+	// The analog filter is built for the normalised rate 2fs = 1 (SciPy likewise designs at
+	// fs = 2), where the prewarped edges are tan(πf/fs); the bilinear transform gives the same
+	// H(z). At the true rate a high-order band design overflows: 2N factors (2fs − p) of ~1e5.
+	const w1 = Math.tan((Math.PI * clamp(est.f1)) / s.fs);
+	const w2 = Math.tan((Math.PI * clamp(f2)) / s.fs);
 	const analog = transformPrototype(proto, s.band, w1, band ? w2 : w1);
-	return { kind: 'digital', fs: s.fs, sos: zpk2sos(bilinear(analog, s.fs)) };
+	return { kind: 'digital', fs: s.fs, sos: zpk2sos(bilinear(analog, 0.5)) };
 }
 
 export function iirResults(s: OrderSpec): IirResult[] {

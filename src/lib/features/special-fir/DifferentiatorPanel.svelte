@@ -6,7 +6,7 @@
 	import ExportPanel from '$lib/components/content/ExportPanel.svelte';
 	import { differentiatorFir, type WindowSpec } from '$lib/dsp/fir';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { scipyWindow } from '$lib/features/fir-designer/recipes';
+	import { scipyWindow, scipyWindowArray } from '$lib/features/fir-designer/recipes';
 	import { denseMag, differentiate } from './special';
 
 	interface Props {
@@ -100,8 +100,17 @@
 		}
 	]);
 
+	// windows SciPy cannot name (Welch), or scales differently (even-length DPSS), are written
+	// out as an explicit array
+	const windowLine = $derived.by(() => {
+		const w = scipyWindow(win, N);
+		const arr = scipyWindowArray(win, 'N', N);
+		if (w && !arr) return `h *= signal.get_window(${w}, N, fftbins=False)`;
+		return `h *= ${arr}   # ${w ? 'DPSS at peak 1 (SciPy scales even lengths lower)' : `${win.type} window (not in SciPy)`}`;
+	});
+
 	const scipy = $derived(
-		`import numpy as np\nfrom scipy import signal\n\nN = ${N}                      # ${N % 2 ? 'odd → type III' : 'even → type IV'}\nt = np.arange(N) - (N - 1) / 2\nwith np.errstate(divide='ignore', invalid='ignore'):\n    h = np.cos(np.pi * t) / t - np.sin(np.pi * t) / (np.pi * t**2)   # ideal jω (per sample)\nh[t == 0] = 0\nh *= signal.get_window(${scipyWindow(win, N) ?? "'hann'"}, N, fftbins=False)\n\n# derivative in units per second: fs * lfilter(h, 1, x), delayed by (N-1)/2 samples\n# fs = ${fs}\n# dxdt = fs * signal.lfilter(h, 1.0, x)`
+		`import numpy as np\nfrom scipy import signal\n\nN = ${N}                      # ${N % 2 ? 'odd → type III' : 'even → type IV'}\nt = np.arange(N) - (N - 1) / 2\nwith np.errstate(divide='ignore', invalid='ignore'):\n    h = np.cos(np.pi * t) / t - np.sin(np.pi * t) / (np.pi * t**2)   # ideal jω (per sample)\nh[t == 0] = 0\n${windowLine}\n\n# derivative in units per second: fs * lfilter(h, 1, x), delayed by (N-1)/2 samples\n# fs = ${fs}\n# dxdt = fs * signal.lfilter(h, 1.0, x)`
 	);
 </script>
 

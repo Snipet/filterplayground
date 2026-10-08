@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodeBlock from './CodeBlock.svelte';
+	import Callout from './Callout.svelte';
 	import * as ex from '$lib/export';
 	import type { SOS, TF, ZPK } from '$lib/dsp/types';
 	import { zpk2sosAnalog } from '$lib/dsp/convert';
@@ -25,6 +26,8 @@
 	let { kind, sos, tf, zpk, fir, fs = 48000, recipes = [], name = 'filter' }: Props = $props();
 	let ctype = $state<ex.CType>('float');
 	let fixedBits = $state(16);
+	// The number field binds null while empty and accepts out-of-range typing: use a clamped copy.
+	const qBits = $derived(ex.clampFixedBits(fixedBits));
 
 	const tabs = $derived.by(() => {
 		const t: { id: string; label: string; code: string; language: string; filename?: string }[] =
@@ -62,7 +65,7 @@
 			t.push({
 				id: 'fir-q',
 				label: 'Fixed point',
-				code: ex.firToFixedC(fir, fixedBits, 'h'),
+				code: ex.firToFixedC(fir, qBits, 'h'),
 				language: 'c'
 			});
 			t.push({
@@ -146,6 +149,7 @@
 	let active = $state<string | null>(null);
 	const current = $derived(tabs.find((t) => t.id === active) ?? tabs[0]);
 	const showCType = $derived(current?.language === 'c');
+	const qFormat = $derived(current?.id === 'fir-q' && fir ? ex.fixedFormat(fir, qBits) : null);
 </script>
 
 <div class="export">
@@ -167,10 +171,31 @@
 				<label><input type="radio" bind:group={ctype} value="double" /> double</label>
 				{#if current.id === 'fir-q'}
 					<label class="bits"
-						>bits <input type="number" min="4" max="32" bind:value={fixedBits} /></label
+						>bits <input
+							type="number"
+							min={ex.FIXED_BITS_MIN}
+							max={ex.FIXED_BITS_MAX}
+							step="1"
+							bind:value={fixedBits}
+							onchange={() => (fixedBits = qBits)}
+						/></label
 					>
 				{/if}
 			</div>
+		{/if}
+		{#if qFormat && (qFormat.intBits > 0 || qFormat.clipped > 0)}
+			<Callout kind={qFormat.clipped > 0 ? 'warning' : 'note'} title="Q format">
+				{#if qFormat.clipped > 0}
+					{qFormat.clipped} tap{qFormat.clipped > 1 ? 's do' : ' does'} not fit a {qFormat.bits}-bit
+					integer even with no fractional bits and {qFormat.clipped > 1 ? 'are' : 'is'} clipped, so the
+					exported filter is wrong. Scale the taps down before quantising.
+				{:else}
+					The largest tap, |h| = {ex.num(qFormat.maxAbs, 4)}, does not fit Q0.{qFormat.bits - 1},
+					which covers [−1, 1). The export therefore uses Q{qFormat.intBits}.{qFormat.frac}: {qFormat.intBits}
+					integer bit{qFormat.intBits > 1 ? 's' : ''} and {qFormat.frac} fractional bits, value = integer
+					/ 2<sup>{qFormat.frac}</sup>.
+				{/if}
+			</Callout>
 		{/if}
 		<CodeBlock code={current.code} language={current.language} filename={current.filename} />
 	{/if}

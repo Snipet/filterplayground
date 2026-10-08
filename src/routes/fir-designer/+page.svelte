@@ -15,7 +15,13 @@
 	import Tex from '$lib/components/content/Tex.svelte';
 	import ExportPanel from '$lib/components/content/ExportPanel.svelte';
 	import BandEditor from '$lib/features/fir-designer/BandEditor.svelte';
-	import { WINDOWS, windowInfo, type WindowType } from '$lib/dsp/windows';
+	import {
+		WINDOWS,
+		windowInfo,
+		windowParamAt,
+		windowParamRange,
+		type WindowType
+	} from '$lib/dsp/windows';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import type { BandType } from '$lib/dsp/types';
 	import {
@@ -37,6 +43,7 @@
 		maskRegions,
 		measureSpec,
 		methodInfo,
+		rescaleFreq,
 		specBands,
 		typeConflicts,
 		validateBands,
@@ -132,6 +139,7 @@
 	});
 
 	const N = $derived(design?.numtaps ?? numtaps);
+	const winRange = $derived(windowParamRange(winType, N));
 	const h = $derived(design?.h ?? [1]);
 	const sym = $derived<Symmetry>(design?.symmetry ?? 'even');
 	const lpType = $derived(linearPhaseType(N, sym));
@@ -144,6 +152,24 @@
 		design && isCustom ? bandErrors(h, design.bands, fs, sym, cfg.relWeight, dense) : []
 	);
 	const { dp } = $derived(deltas(rp, rs));
+	// a gain that reaches zero inside a passband (such as the type II zero at fs/2) makes the
+	// ripple unbounded: below 1e-12 of the peak the measured minimum is only rounding noise
+	const rippleText = $derived(
+		measure
+			? measure.passMin <= 1e-12 * measure.passMax
+				? '∞ dB'
+				: `${trimNumber(measure.rippleDb, 3)} dB`
+			: ''
+	);
+	// what a design that misses the mask actually reaches
+	const missText = $derived.by(() => {
+		if (!measure) return '';
+		const parts: string[] = [];
+		if (!measure.stopOk)
+			parts.push(`${trimNumber(measure.attenDb, 3)} dB attenuation (spec ${rs} dB)`);
+		if (!measure.passOk) parts.push(`${rippleText} ripple (spec ${trimNumber(rp, 3)} dB)`);
+		return parts.join(' and ');
+	});
 
 	// ---------------- stats ----------------
 	const stats = $derived.by((): Stat[] => {
@@ -179,7 +205,7 @@
 		if (measure) {
 			out.push({
 				label: 'Passband ripple',
-				value: `${trimNumber(measure.rippleDb, 3)} dB`,
+				value: rippleText,
 				status: measure.passOk ? 'good' : 'warning',
 				hint: `Measured on a dense grid. Spec: ±δp = ±${trimNumber(dp, 3)} around 1 (${rp} dB peak-to-peak)`
 			});
@@ -327,12 +353,12 @@
 	// ---------------- actions ----------------
 	function setFs(v: number) {
 		if (!(v > 0) || v === fs) return;
-		const k = v / fs;
-		for (const key of Object.keys(edges) as BandType[])
-			edges[key] = edges[key].map((e) => Number((e * k).toPrecision(6)));
+		// keeps every edge within the new fs/2 (an edge at fs/2 stays exactly at fs/2)
+		const scale = (e: number) => rescaleFreq(e, fs, v);
+		for (const key of Object.keys(edges) as BandType[]) edges[key] = edges[key].map(scale);
 		for (const b of customBands) {
-			b.f1 = Number((b.f1 * k).toPrecision(6));
-			b.f2 = Number((b.f2 * k).toPrecision(6));
+			b.f1 = scale(b.f1);
+			b.f2 = scale(b.f2);
 		}
 		fs = v;
 	}
@@ -523,15 +549,18 @@
 		{#if usesWindow}
 			<ControlGroup title="Window">
 				<Select label="Window" bind:value={winType} options={windowOptions} />
-				{#if winInfo.param}
+				{#if winRange}
+					<!-- DPSS needs NW < N/2: the range and the value shown follow the current length -->
 					<Slider
-						label={winInfo.param.label}
-						value={winParam ?? winInfo.param.default}
-						min={winInfo.param.min}
-						max={winInfo.param.max}
-						step={winInfo.param.step}
+						label={winRange.label}
+						value={windowParamAt(winType, N, winParam) ?? winRange.default}
+						min={winRange.min}
+						max={winRange.max}
+						step={winRange.step}
 						onchange={(v) => (winParams[winType] = v)}
-						help={winInfo.param.help}
+						help={winRange.max < (winInfo.param?.max ?? Infinity)
+							? `${winRange.help} Must stay below N/2 = ${N / 2}.`
+							: winRange.help}
 					/>
 				{/if}
 			</ControlGroup>
@@ -598,12 +627,12 @@
 					{:else}
 						Relax the ripple or widen the transition band.
 					{/if}
+				{:else if method === 'kaiser' && design.auto.capped}
+					Kaiser's formula asks for {design.auto.estimate} taps, but this method is limited to {info.maxTaps}:
+					at N = {N} the design reaches only {missText}. Widen the transition band or relax Rp/Rs.
 				{:else if method === 'kaiser'}
-					Kaiser's formula is an estimate: at N = {N} the design misses the mask slightly ({measure &&
-					!measure.stopOk
-						? `${trimNumber(measure.attenDb, 3)} dB attenuation`
-						: `${trimNumber(measure?.rippleDb ?? 0, 3)} dB ripple`}). Add a few taps by hand to
-					close the gap.
+					Kaiser's formula is an estimate: at N = {N} the design reaches {missText}. Turn Auto off
+					and add a few taps to close the gap.
 				{/if}
 			</Callout>
 		{/if}
@@ -616,8 +645,14 @@
 		{/if}
 		{#if design.remez && !design.remez.converged}
 			<Callout kind="warning" title="Remez did not converge">
-				The exchange stopped after {design.remez.iterations} iterations without equal ripple. The taps
-				are usable but not optimal — this usually means a band is too narrow or the length too large for
+				The exchange stopped after {design.remez.iterations} iterations without equal ripple. The taps'
+				peak weighted error is {trimNumber(design.remez.maxError ?? design.remez.delta, 3)}, while
+				the optimum is at least {trimNumber(design.remez.deltaBound ?? design.remez.delta, 3)}, so
+				the taps are usable but up to {trimNumber(
+					(design.remez.maxError ?? design.remez.delta) /
+						(design.remez.deltaBound ?? design.remez.delta),
+					3
+				)}× worse than optimal. This usually means a band is too narrow or the length too large for
 				the grid. Try fewer taps or wider bands.
 			</Callout>
 		{/if}
@@ -749,7 +784,7 @@
 					.extremals.length - 1} is the number of cosine{sym === 'odd' ? '/sine' : ''} terms in A(f).
 				{design.remez.converged
 					? `Converged in ${design.remez.iterations} iterations.`
-					: `Stopped after ${design.remez.iterations} iterations without converging.`}
+					: `Stopped after ${design.remez.iterations} iterations without converging, so δ below is the taps' measured peak weighted error (the optimum is at least ${trimNumber(design.remez.deltaBound ?? design.remez.delta, 4)}).`}
 				δ = {trimNumber(design.remez.delta, 4)}{isCustom
 					? ''
 					: ` → passband ±${trimNumber(design.remez.delta, 3)}, stopband ${trimNumber(design.remez.delta / (specBands(spec, fs).bands.find((_, i) => specBands(spec, fs).kinds[i] === 'stop')?.weight ?? 1), 3)}`}.
@@ -824,7 +859,7 @@
 		<p>
 			<code>firwin2</code> samples a piecewise-linear desired response D(f) on a dense grid,
 			attaches the linear phase
-			<Tex math={'e^{-j\omega M}'} />, inverse-FFTs it and keeps (and windows) the first N samples.
+			<Tex math={'e^{-j\\omega M}'} />, inverse-FFTs it and keeps (and windows) the first N samples.
 			Windowing is again a convolution in frequency, so the corners of D(f) are rounded off over
 			about one main-lobe width: a ramp that spans the whole transition band can never reach the
 			stopband target at the stopband edge. Narrowing the ramp leaves room for the smoothing; a
@@ -880,8 +915,11 @@
 			/>; a simpler version of the same law is Kaiser's
 			<Tex
 				math={'N\\approx\\dfrac{-10\\log_{10}(\\delta_p\\delta_s)-13}{14.6\\,\\Delta f/f_s}+1'}
-			/>. With <em>Auto</em> on, this page starts from the estimate and searches for the smallest N that
-			actually passes the mask.
+			/>. With <em>Auto</em> on, this page finds the smallest N that actually passes the mask (the Kaiser
+			method just takes Kaiser's formula). Parks–McClellan is optimal at every length, so it searches
+			from the estimate; the window, least-squares and frequency-sampling methods try every length in
+			turn, because their pass/fail can flip back and forth as N grows (a band edge moves between the
+			peaks and the nulls of the ripple).
 		</p>
 
 		<h3>Linear phase: the four types</h3>
@@ -947,8 +985,10 @@
 					from 60 to 80 dB.
 				</li>
 				<li>
-					Window method with a Rectangular or Hann window: Auto cannot reach 60 dB, because the
-					stopband floor is set by the window's sidelobes, not by N.
+					Window method with the Rectangular window: Auto cannot reach 60 dB even at 1023 taps
+					(about 47 dB). Its sidelobes fall off only 6 dB per octave, so each doubling of N buys
+					only about 6 dB. Hann's fall off 18 dB per octave: it does reach 60 dB, but needs N = 162
+					where Kaiser's formula asks for 89.
 				</li>
 				<li>
 					Pick HP, turn Auto off and choose an even N: the type II zero at fs/2 wrecks the passband.

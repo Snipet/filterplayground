@@ -544,7 +544,11 @@ export function simulateLadder(net: LadderNetwork, fHz: readonly number[]): SimR
 	return { s21, s11 };
 }
 
-/** SPICE netlist of the ladder (AC 2 V source, so the load voltage reads 2·V_L/V_S). */
+/**
+ * SPICE netlist of the ladder. The AC source magnitude is 2·√(RS/RL) V, so the
+ * printed load voltage reads the transducer gain |S21| = 2·√(RS/RL)·|V_L/V_S|
+ * (just 2·V_L/V_S for equal terminations), matching {@link simulateLadder}.
+ */
 export function spiceNetlist(
 	net: LadderNetwork,
 	title: string,
@@ -552,10 +556,13 @@ export function spiceNetlist(
 	fStop: number
 ): string {
 	const num = (v: number) => Number(v.toPrecision(6)).toExponential().replace('e+', 'e');
+	const amp = 2 * Math.sqrt(net.rs / net.rl);
 	const lines: string[] = [
 		`* ${title}`,
-		'* AC magnitude 2 V: the voltage across RL reads 2·VL/VS (0 dB in a matched passband)',
-		'V1 in 0 AC 2',
+		Math.abs(net.rl / net.rs - 1) > 1e-6
+			? '* AC magnitude 2·sqrt(RS/RL) V: vdb across RL reads |S21| (0 dB at the passband peaks)'
+			: '* AC magnitude 2 V: vdb across RL reads 2·VL/VS = |S21| (0 dB at the passband peaks)',
+		`V1 in 0 AC ${Number(amp.toPrecision(6))}`,
 		`RS in n1 ${num(net.rs)}`
 	];
 	let node = 1;

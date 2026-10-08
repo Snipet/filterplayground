@@ -16,6 +16,7 @@
 	import { num } from '$lib/export';
 	import {
 		completeConjugates,
+		formatComplex,
 		formatError,
 		formatReal,
 		parseComplexList,
@@ -157,6 +158,11 @@
 		const db = 20 * Math.log10(m);
 		return Math.abs(db) < 5e-6 ? '0' : trimNumber(db, 4);
 	};
+	/** A conjugate pair listed once: "a ± bj", or "±bj" for a pair on the imaginary axis. */
+	function fmtPair(v: Complex, digits: number): string {
+		const one = fmtC({ re: v.re, im: Math.abs(v.im) }, digits);
+		return one.includes(' + ') ? one.replace(' + ', ' ± ') : `±${one}`;
+	}
 	const fmtGain = (m: number) =>
 		m === Infinity ? '∞' : m === 0 ? '0 (−∞ dB)' : `${trimNumber(m, 4)} (${fmtDb(m)} dB)`;
 
@@ -232,10 +238,7 @@
 			});
 		out.push({
 			label: 'Peak gain',
-			value:
-				p.peak.mag === Infinity
-					? '∞'
-					: `${fmtDb(p.peak.mag)} dB @ ${p.peak.atInfinity ? 'f → ∞' : fmtHz(p.peak.f)}`,
+			value: `${p.peak.mag === Infinity ? '∞' : `${fmtDb(p.peak.mag)} dB`} @ ${p.peak.atInfinity ? 'f → ∞' : fmtHz(p.peak.f)}`,
 			hint: 'Maximum of |H| over frequency'
 		});
 		out.push({
@@ -647,9 +650,7 @@
 								(model.domain === 'digital' ? r.mag >= 1 - 1e-9 : r.value.re >= 0)}
 							<tr>
 								<td class="nowrap">{r.kind === 'pole' ? '× pole' : '○ zero'}</td>
-								<td class="mono small nowrap"
-									>{r.pair ? fmtC(r.value, 6).replace(' + ', ' ± ') : fmtC(r.value, 6)}</td
-								>
+								<td class="mono small nowrap">{r.pair ? fmtPair(r.value, 6) : fmtC(r.value, 6)}</td>
 								<td class="num">{r.multiplicity > 1 ? r.multiplicity : ''}</td>
 								<td class="num">
 									{trimNumber(r.mag, 6)}
@@ -754,7 +755,7 @@
 						>{/if}
 				{:else if reprTab === 'zpk'}
 					<CodeBlock
-						code={`z = [${model.zpk.z.map((v) => fmtC(v, 12).replace(/ /g, '')).join(', ')}]\np = [${model.zpk.p.map((v) => fmtC(v, 12).replace(/ /g, '')).join(', ')}]\nk = ${num(model.zpk.k)}`}
+						code={`z = [${model.zpk.z.map((v) => formatComplex(v, 12)).join(', ')}]\np = [${model.zpk.p.map((v) => formatComplex(v, 12)).join(', ')}]\nk = ${num(model.zpk.k)}`}
 						language={model.domain === 'digital'
 							? 'H(z) = k·Π(z − zᵢ)/Π(z − pᵢ)'
 							: 'H(s) = k·Π(s − zᵢ)/Π(s − pᵢ), rad/s'}
@@ -787,7 +788,9 @@
 						{#if model.domain === 'digital'}Pairing as in scipy.signal.zpk2sos: each pole pair gets
 							the nearest zeros, the poles closest to the unit circle go last, and the overall gain
 							sits in the first section.{:else}Stages ordered by increasing Q (as for an
-							active-filter cascade); the overall gain sits in the first section.{/if}
+							active-filter cascade); the overall gain sits in the first section.{#if model.zpk.z.length > model.zpk.p.length}
+								H(s) is improper (more zeros than poles): the extra zeros share first-order rows or
+								sit in numerator-only rows (a = [0, 0, 1]) at the end.{/if}{/if}
 					</p>
 					{#if form !== 'sos'}<button
 							class="btn small"

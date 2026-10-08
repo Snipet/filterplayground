@@ -43,15 +43,20 @@ export interface Capability {
 	differentiator: boolean;
 }
 
-/** Which classic responses each type can realise (full-band versions for Hilbert/differentiator noted in the UI). */
+/**
+ * Which classic responses each type can realise (full-band versions for Hilbert/differentiator
+ * noted in the UI). The selective shapes are decided by the forced zeros alone: a zero at
+ * z = +1 rules out a passband at DC, one at z = −1 a passband at fs/2. Types III and IV can
+ * therefore be band-pass (and IV high-pass), only with an extra constant 90° phase.
+ */
 export function capabilities(t: LpType): Capability {
 	const f = forcedZeros(t);
 	const anti = isAnti(t);
 	return {
-		lowpass: !anti && !f.plus1,
-		highpass: !anti && !f.minus1,
-		bandpass: !anti,
-		bandstop: !anti && !f.minus1,
+		lowpass: !f.plus1,
+		highpass: !f.minus1,
+		bandpass: true,
+		bandstop: !f.plus1 && !f.minus1,
 		hilbert: anti,
 		differentiator: anti
 	};

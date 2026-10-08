@@ -107,7 +107,9 @@ export function firls(numtaps: number, bands: LsBand[], fs: number): number[] {
 
 /**
  * Frequency-sampling FIR (like scipy.signal.firwin2): piecewise-linear desired
- * gain through (freq, gain) points from 0 to fs/2, then windowed.
+ * gain through (freq, gain) points from 0 to fs/2, then windowed. A frequency listed
+ * twice is a jump in gain: a grid point exactly on it gets the mean of the two gains.
+ * SciPy agrees only when `freq` is float: with ints it truncates the ±eps split (6000 → 5999).
  */
 export function firwin2(
 	numtaps: number,
@@ -122,18 +124,29 @@ export function firwin2(
 	const n = 2 * (nf - 1);
 	const re = new Float64Array(n);
 	const im = new Float64Array(n);
-	const interp = (x: number) => {
-		if (x <= freq[0]) return gain[0];
-		for (let i = 1; i < freq.length; i++) {
-			if (x <= freq[i]) {
-				const t = freq[i] === freq[i - 1] ? 1 : (x - freq[i - 1]) / (freq[i] - freq[i - 1]);
-				return gain[i - 1] + t * (gain[i] - gain[i - 1]);
-			}
+	// split each repeated frequency by ±eps·nyq, as SciPy does
+	const f = freq.slice();
+	const eps = Number.EPSILON * nyq;
+	for (let k = 0; k + 1 < f.length; k++) {
+		if (f[k] === f[k + 1]) {
+			f[k] -= eps;
+			f[k + 1] += eps;
 		}
-		return gain[gain.length - 1];
+	}
+	const last = f.length - 1;
+	// piecewise-linear interpolation, as np.interp
+	const interp = (x: number) => {
+		if (x <= f[0]) return gain[0];
+		if (x >= f[last]) return gain[last];
+		let j = 0;
+		while (f[j + 1] <= x) j++;
+		if (x === f[j]) return gain[j];
+		return ((gain[j + 1] - gain[j]) / (f[j + 1] - f[j])) * (x - f[j]) + gain[j];
 	};
+	// grid as np.linspace(0, nyq, nf)
+	const step = nyq / (nf - 1);
 	for (let k = 0; k < nf; k++) {
-		const x = (k / (nf - 1)) * nyq;
+		const x = k === nf - 1 ? nyq : k * step;
 		const g = interp(x);
 		const ph = (-(numtaps - 1) / 2) * Math.PI * (x / nyq);
 		re[k] = g * Math.cos(ph);

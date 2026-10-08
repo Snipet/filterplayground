@@ -53,9 +53,20 @@
 	});
 
 	const list = $derived(built.list);
+	// When the chosen structure does not apply (FIR ↔ IIR), show its natural counterpart;
+	// `chosen` keeps the user's pick so it comes back with a filter it applies to.
+	const COUNTERPART: Partial<Record<StructureId, StructureId>> = {
+		df1: 'fir',
+		df2: 'fir',
+		tdf2: 'firt',
+		fir: 'df1',
+		firt: 'tdf2'
+	};
+	const applicable = (id: StructureId | undefined) => list.find((s) => s.id === id && s.applicable);
 	const current = $derived(
-		list.find((s) => s.id === chosen && s.applicable) ?? list.find((s) => s.applicable)
+		applicable(chosen) ?? applicable(COUNTERPART[chosen]) ?? list.find((s) => s.applicable)
 	);
+	const chosenInfo = $derived(list.find((s) => s.id === chosen));
 	const diagram = $derived(current?.diagram ? current.diagram() : null);
 
 	// ---------- equivalence ----------
@@ -174,11 +185,14 @@
 				<legend class="visually-hidden">Structure</legend>
 				{#each list as s (s.id)}
 					<label class:disabled={!s.applicable} title={s.reason}>
+						<!-- checked follows what is shown; onclick also catches a click on a substitute that is already checked -->
 						<input
 							type="radio"
 							name="structure"
 							value={s.id}
-							bind:group={chosen}
+							checked={current?.id === s.id}
+							onchange={() => (chosen = s.id)}
+							onclick={() => (chosen = s.id)}
 							disabled={!s.applicable}
 						/>
 						<span
@@ -192,6 +206,12 @@
 					</label>
 				{/each}
 			</fieldset>
+			{#if current && chosenInfo && current.id !== chosen}
+				<p class="small muted desc" role="status">
+					{chosenInfo.name} does not apply here. {chosenInfo.reason ?? ''} Showing {current.name}
+					instead.
+				</p>
+			{/if}
 		</ControlGroup>
 		<ControlGroup title="Step-through input">
 			<Segmented

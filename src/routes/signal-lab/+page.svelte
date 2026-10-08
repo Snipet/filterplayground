@@ -30,7 +30,9 @@
 		impulseTrain,
 		logChirp,
 		normalizePeak,
+		oddTaps,
 		peakOf,
+		playbackGain,
 		pinkNoise,
 		rmsOf,
 		sawtooth,
@@ -94,6 +96,8 @@
 	const nyq = $derived(fs / 2);
 	const isBand = $derived(band === 'bandpass' || band === 'bandstop');
 	const bqInfo = $derived(BIQUAD_TYPES.find((t) => t.id === bqType)!);
+	// an even tap count is rounded up to the next odd one (type I linear phase)
+	const firN = $derived(oddTaps(firTaps));
 
 	// ---------------- filter ----------------
 	let lastPasted: DigitalFilter | null = null;
@@ -143,9 +147,8 @@
 							label: `RBJ ${bqInfo.name}`
 						};
 					case 'fir': {
-						const n = firTaps % 2 === 0 ? firTaps + 1 : firTaps;
 						const h = firwin(
-							n,
+							firN,
 							[Math.min(firFc, nyq * 0.98)],
 							{ type: firWin, param: firWin === 'kaiser' ? 8 : undefined },
 							true,
@@ -154,7 +157,7 @@
 						return {
 							filter: { kind: 'digital', fs, fir: h },
 							error: null,
-							label: `${n}-tap FIR low-pass`
+							label: `${firN}-tap FIR low-pass`
 						};
 					}
 					case 'paste': {
@@ -269,15 +272,19 @@
 	});
 
 	// ---------------- levels ----------------
+	// An unstable filter is never auditioned, even while its output is still small within
+	// the loop; an output that did blow up (or overflow) cannot be played either.
+	const muted = $derived(unstable || !!processed?.blewUp);
+
 	const levels = $derived.by(() => {
 		if (!processed) return null;
 		const pin = peakOf(processed.x);
 		const pout = peakOf(processed.y);
 		const rin = rmsOf(processed.x);
 		const rout = rmsOf(processed.y);
-		const match = matchLoudness && rout > 1e-9 && !processed.blewUp ? rin / rout : 1;
-		const peak = Math.max(pin, pout * match);
-		const g = peak > SAFE_PEAK ? SAFE_PEAK / peak : 1;
+		const match = matchLoudness && rout > 1e-9 && !muted ? rin / rout : 1;
+		// a muted output is not played, so it must not turn the input down
+		const g = playbackGain(pin, pout, match, muted, SAFE_PEAK);
 		return { pin, pout, rin, rout, match, g };
 	});
 
@@ -311,8 +318,9 @@
 				label: 'Playback gain',
 				value: g < 1 ? `${trimNumber(dbfs(g), 3)} dB` : '0 dB',
 				status: g < 1 ? 'warning' : 'good',
-				hint:
-					g < 1
+				hint: muted
+					? 'Output muted: only the input is played, and it needs no limiting'
+					: g < 1
 						? 'Both signals are turned down by the same amount so that no peak exceeds −6 dBFS'
 						: 'No limiting needed: every peak is at or below −6 dBFS'
 			}
@@ -337,7 +345,7 @@
 		const b = new Float32Array(processed.y.length);
 		for (let i = 0; i < a.length; i++) a[i] = processed.x[i] * gA;
 		for (let i = 0; i < b.length; i++)
-			b[i] = processed.blewUp ? 0 : Math.max(-1, Math.min(1, processed.y[i] * gB));
+			b[i] = muted ? 0 : Math.max(-1, Math.min(1, processed.y[i] * gB));
 		return { a, b };
 	}
 
@@ -350,7 +358,7 @@
 	}
 
 	function abToggle() {
-		if (playing === 'none') return;
+		if (playing === 'none' || muted) return;
 		const next = playing === 'input' ? 'output' : 'input';
 		player.setChannel(next === 'input' ? 'A' : 'B');
 		playing = next;
@@ -639,8 +647,9 @@
 					]}
 				/>
 				<p class="small muted desc">
-					Linear phase: a delay of {trimNumber((firTaps - 1) / 2, 4)} samples = {formatSI(
-						(firTaps - 1) / 2 / fs,
+					{#if firN !== firTaps}Using {firN} taps (rounded up to odd, type I).{' '}{/if}Linear
+					phase: a delay of {trimNumber((firN - 1) / 2, 4)} samples = {formatSI(
+						(firN - 1) / 2 / fs,
 						's',
 						3
 					)}.
@@ -679,8 +688,8 @@
 	{/if}
 	{#if unstable}
 		<Callout kind="danger" title="Unstable filter"
-			>This filter has poles on or outside the unit circle; its output grows without bound. Output
-			playback is muted.</Callout
+			>This filter has poles on or outside the unit circle; its output can grow without bound.
+			Output playback is muted.</Callout
 		>
 	{/if}
 
@@ -710,14 +719,14 @@
 				class:primary={playing === 'output'}
 				type="button"
 				onclick={() => start('output')}
-				disabled={!processed || !audioOk || !!processed?.blewUp}
+				disabled={!processed || !audioOk || muted}
 				aria-pressed={playing === 'output'}>▶ Output</button
 			>
 			<button
 				class="btn"
 				type="button"
 				onclick={abToggle}
-				disabled={playing === 'none' || !!processed?.blewUp}
+				disabled={playing === 'none' || muted}
 				title="Switch between input and output without stopping (key B)">⇄ A / B</button
 			>
 			<button class="btn" type="button" onclick={stop} disabled={playing === 'none'}>■ Stop</button>

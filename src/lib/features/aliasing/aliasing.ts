@@ -59,6 +59,35 @@ export function foldingCurve(fs: number, fmax: number): { x: number[]; y: number
 /** Triangular band-limited baseband magnitude, 1 at DC and 0 at |f| ≥ B. */
 export const triangle = (f: number, B: number): number => Math.max(0, 1 - Math.abs(f) / B);
 
+/**
+ * Lowest frequency in 0…fs/2 reached by the first image (fs − B … fs + B) of a
+ * baseband 0…B: null when B ≤ fs/2 (no overlap), fs − B for fs/2 < B < fs, and
+ * 0 when B ≥ fs — the image then reaches DC and all of 0…fs/2 is aliased.
+ */
+export function foldStart(fs: number, B: number): number | null {
+	if (B <= fs / 2) return null;
+	return Math.max(0, fs - B);
+}
+
+/**
+ * A tone at ±f and all its images ±f + k·fs that fall inside [−span, span],
+ * ascending, without duplicates. |k| runs up to (span + |f|)/fs, so tones above
+ * fs still get every image in the window.
+ */
+export function toneImages(f: number, fs: number, span: number): number[] {
+	const af = Math.abs(f);
+	const kMax = Math.floor((span + af) / fs);
+	const out: number[] = [];
+	for (let k = -kMax; k <= kMax; k++)
+		for (const sgn of [-1, 1]) {
+			const v = sgn * af + k * fs;
+			if (Math.abs(v) <= span) out.push(v);
+		}
+	out.sort((a, b) => a - b);
+	// f = 0 or f = fs/2 maps both signs onto the same lines
+	return out.filter((v, i) => i === 0 || v - out[i - 1] > 1e-9 * fs);
+}
+
 // ---------------------------------------------------------------------------
 // Anti-aliasing filter order requirements
 // ---------------------------------------------------------------------------

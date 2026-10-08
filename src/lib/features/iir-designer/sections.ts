@@ -1,13 +1,16 @@
 /**
  * Helpers for the Digital IIR Designer: per-section pole/zero summaries, a
  * coefficient-sensitivity check (one b/a vs. second-order sections in float32),
- * spec-mask verification and SciPy / MATLAB recipes.
+ * spec-mask verification, order estimation under the page's order cap, the
+ * band-edge −3 dB frequency and SciPy / MATLAB recipes.
  */
 import { type Complex, abs } from '$lib/dsp/complex';
 import { sos2tf, tf2zpk } from '$lib/dsp/convert';
 import { roots } from '$lib/dsp/poly';
-import { evaluate, linspace } from '$lib/dsp/response';
-import type { AnalogFamily, BesselNorm } from '$lib/dsp/analog';
+import { evaluate, freqzSos, linspace, logspace, toDb } from '$lib/dsp/response';
+import { type AnalogFamily, type BesselNorm, estimateOrder } from '$lib/dsp/analog';
+import { type OrderEstimate, type SpecEdges, estimateFromSpecs } from '$lib/dsp/design';
+import { prewarp } from '$lib/dsp/transforms';
 import type { BandType, DigitalFilter, SOS } from '$lib/dsp/types';
 import { num } from '$lib/export';
 
@@ -96,6 +99,30 @@ export interface SpecCheck {
 	stopMaxDb: number;
 }
 
+/** Spec-mode band edges (Hz) for each response type. */
+export type SpecTable = Record<BandType, { fp: [number, number]; fs: [number, number] }>;
+
+/**
+ * Validate the spec table of a shared link (links can be edited by hand). Each
+ * band's entry is taken only when fp and fs are both pairs of finite positive
+ * numbers; anything else keeps the band's current edges, and unknown keys are
+ * ignored. Edges that are out of order or above Nyquist are left to the page's
+ * own spec checks.
+ */
+export function restoreSpecs(current: SpecTable, raw: unknown): SpecTable {
+	const pos = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+	const pair = (v: unknown): v is [number, number] =>
+		Array.isArray(v) && v.length === 2 && v.every(pos);
+	const out = { ...current };
+	if (!raw || typeof raw !== 'object') return out;
+	for (const b of Object.keys(current) as BandType[]) {
+		const v = (raw as Record<string, unknown>)[b] as { fp?: unknown; fs?: unknown } | null;
+		if (v && typeof v === 'object' && pair(v.fp) && pair(v.fs))
+			out[b] = { fp: [v.fp[0], v.fp[1]], fs: [v.fs[0], v.fs[1]] };
+	}
+	return out;
+}
+
 /** Evaluate a digital filter over the pass- and stopbands of a spec (edges in Hz). */
 export function checkSpec(
 	filter: DigitalFilter,
@@ -136,6 +163,123 @@ export function checkSpec(
 	return { passMinDb: passMin, passRippleDb: passMax - passMin, stopMaxDb: stopMax };
 }
 
+export interface CappedEstimate extends OrderEstimate {
+	/**
+	 * Order the specification asks for before any cap (what SciPy's *ord functions
+	 * return); undefined when it lies beyond the family's searchable range.
+	 */
+	requiredOrder?: number;
+}
+
+/**
+ * estimateFromSpecs under a lower order cap than the family's own maximum. When
+ * the specification needs more than `maxOrder`, the filter is designed at
+ * maxOrder with its natural frequencies recomputed for that order, so the
+ * passband edge still sits at exactly −Rp (the rule estimateOrder applies at the
+ * family cap). Without this, Butterworth and Chebyshev II would be designed at
+ * the lower order with a natural frequency meant for the higher one.
+ */
+export function estimateCapped(
+	family: AnalogFamily,
+	spec: SpecEdges,
+	opts: { besselNorm?: BesselNorm; maxOrder?: number } = {}
+): CappedEstimate {
+	const o = { besselNorm: opts.besselNorm };
+	const est = estimateFromSpecs(family, spec, o);
+	if (est.error) return est;
+	const sel = est.selectivity;
+	const needed = estimateOrder(family, sel, spec.rp, spec.rs, o);
+	const requiredOrder = needed.capped ? undefined : needed.N;
+	const cap = Math.max(1, Math.floor(opts.maxOrder ?? Infinity));
+	if (!(est.order > cap)) return { ...est, requiredOrder };
+	// The natural frequency scales the prototype: ω = wn at the passband edge
+	// (low-pass), 1/wn (high-pass), and the band-pass (band-stop) bandwidth by
+	// wn (1/wn) around the same centre. Rescale the edges by wn(cap)/wn(order).
+	const rho =
+		estimateOrder(family, sel, spec.rp, spec.rs, o, cap).wn /
+		estimateOrder(family, sel, spec.rp, spec.rs, o, est.order).wn;
+	const fs = spec.fs;
+	const toW = (f: number) => (fs ? prewarp(f, fs) : 2 * Math.PI * f);
+	const fromW = (w: number) => (fs ? (fs / Math.PI) * Math.atan(w / (2 * fs)) : w / (2 * Math.PI));
+	let f1: number;
+	let f2: number | undefined;
+	if (spec.band === 'lowpass') f1 = fromW(toW(est.f1) * rho);
+	else if (spec.band === 'highpass') f1 = fromW(toW(est.f1) / rho);
+	else {
+		const w1 = toW(est.f1);
+		const w2 = toW(est.f2 ?? est.f1);
+		const W = spec.band === 'bandpass' ? (w2 - w1) * rho : (w2 - w1) / rho;
+		const r = Math.sqrt(W * W + 4 * w1 * w2);
+		f1 = fromW((r - W) / 2);
+		f2 = fromW((r + W) / 2);
+	}
+	return { ...est, order: cap, f1, f2, capped: true, requiredOrder };
+}
+
+/**
+ * The −3 dB frequency (or any `levelDb` relative to the peak) of a digital low-
+ * or high-pass: the crossing at the band edge, found coming in from the stopband
+ * so that passband ripple deeper than the level is skipped, then refined by
+ * bisection on single-frequency evaluations. A linear grid alone is too coarse
+ * for low cut-offs (6 Hz steps at 48 kHz). null if the level is never crossed.
+ */
+export function edgeCrossing(
+	filter: DigitalFilter,
+	band: 'lowpass' | 'highpass',
+	levelDb = -10 * Math.log10(2)
+): number | null {
+	const nyq = filter.fs / 2;
+	// log spacing resolves low cut-offs, linear spacing the region near Nyquist
+	const grid = [...logspace(nyq * 1e-6, nyq, 2000), ...linspace(0, nyq, 2001)].sort(
+		(a, b) => a - b
+	);
+	// magnitude only (evaluate() would also compute the group delay)
+	const sos = filter.sos;
+	const magDb = (f: number[]): number[] =>
+		sos
+			? freqzSos(
+					sos,
+					f.map((v) => (2 * Math.PI * v) / filter.fs)
+				).map((h) => toDb(abs(h)))
+			: evaluate(filter, f).magDb;
+	const db = (f: number) => magDb([f])[0];
+	const r = magDb(grid);
+	let iPeak = -1;
+	for (let i = 0; i < r.length; i++)
+		if (Number.isFinite(r[i]) && (iPeak < 0 || r[i] > r[iPeak])) iPeak = i;
+	if (iPeak < 0) return null;
+	// refine the peak between its grid neighbours (golden-section search)
+	let a = grid[Math.max(0, iPeak - 1)];
+	let b = grid[Math.min(grid.length - 1, iPeak + 1)];
+	const g = (Math.sqrt(5) - 1) / 2;
+	for (let i = 0; i < 60 && b - a > 1e-12 * nyq; i++) {
+		const x1 = b - g * (b - a);
+		const x2 = a + g * (b - a);
+		if (db(x1) < db(x2)) a = x1;
+		else b = x2;
+	}
+	const peak = Math.max(r[iPeak], db((a + b) / 2));
+	const above = (v: number) => v - peak >= levelDb;
+	// LP: the last fall below the level; HP: the first rise above it
+	let lo = -1;
+	if (band === 'lowpass') {
+		for (let i = grid.length - 1; i > 0 && lo < 0; i--)
+			if (above(r[i - 1]) && !above(r[i])) lo = i - 1;
+	} else {
+		for (let i = 1; i < grid.length && lo < 0; i++) if (!above(r[i - 1]) && above(r[i])) lo = i - 1;
+	}
+	if (lo < 0) return null;
+	let fa = grid[lo];
+	let fb = grid[lo + 1];
+	const aAbove = above(r[lo]);
+	for (let i = 0; i < 100 && fb - fa > 1e-12 * fb; i++) {
+		const m = (fa + fb) / 2;
+		if (above(db(m)) === aAbove) fa = m;
+		else fb = m;
+	}
+	return (fa + fb) / 2;
+}
+
 // ---------------------------------------------------------------------------
 // Code recipes
 // ---------------------------------------------------------------------------
@@ -152,6 +296,10 @@ export interface RecipeSpec {
 	besselNorm: BesselNorm;
 	/** Specification mode: also show the *ord call. */
 	spec?: { fp: number | [number, number]; fstop: number | [number, number] };
+	/** Specification mode: `order` is a cap, below what the specification needs. */
+	capped?: boolean;
+	/** With `capped`: the order the specification asks for, if known. */
+	requiredOrder?: number;
 }
 
 const fmt = (v: number) => num(v, 10);
@@ -183,8 +331,16 @@ export function scipyRecipe(r: RecipeSpec): string | null {
 			cheby2: `signal.cheb2ord(${wp}, ${ws}, ${fmt(r.rp)}, ${fmt(r.rs)}, fs=fs)`,
 			ellip: `signal.ellipord(${wp}, ${ws}, ${fmt(r.rp)}, ${fmt(r.rs)}, fs=fs)`
 		};
-		if (ordFn[r.family])
-			ord = `# Order and natural frequencies from the specification\n# (gives N = ${r.order}; the Wn below is what this page uses):\n# N, Wn = ${ordFn[r.family]}\n`;
+		const fn = ordFn[r.family];
+		if (fn && r.capped) {
+			const needs = r.requiredOrder ? `gives N = ${r.requiredOrder}` : 'gives a higher order';
+			ord =
+				`# Order and natural frequencies from the specification:\n# N, Wn = ${fn}\n` +
+				`# ${needs}, more than this page's maximum. The call below designs at\n` +
+				`# N = ${r.order} with the Wn this page computed for that order: the passband\n` +
+				`# edge stays exact and the stopband attenuation falls short of the spec.\n`;
+		} else if (fn)
+			ord = `# Order and natural frequencies from the specification\n# (gives N = ${r.order}; the Wn below is what this page uses):\n# N, Wn = ${fn}\n`;
 	}
 	return `import numpy as np
 from scipy import signal

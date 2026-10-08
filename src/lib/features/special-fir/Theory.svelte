@@ -137,7 +137,8 @@
 		equal (δ<sub>p</sub> = δ<sub>s</sub>). As the decimate-by-2 (or interpolate-by-2) stage of a
 		multirate chain, its polyphase form needs only about N/4 multiplies per output sample (N/8 per
 		input sample), one branch being a pure delay × ½. Choose N = 4K + 3; with N = 4K + 1 the
-		outermost taps are zero.
+		outermost taps are zero. (A window that is itself zero at its ends, such as Hann or Blackman,
+		zeroes them at any N.)
 	</p>
 {:else if type === 'cic'}
 	<h3>CIC filters</h3>
@@ -152,9 +153,10 @@
 	/>
 	<p>
 		It needs no multipliers and no coefficient storage, which is why it is the first stage of almost
-		every sigma-delta ADC and digital down-converter. Its nulls at multiples of fs/(R·M) fall
-		exactly on the frequencies that alias onto DC after decimation, giving the best rejection near
-		them. The prices: a DC gain of
+		every sigma-delta ADC and digital down-converter. Its nulls at multiples of fs/(R·M) include
+		every multiple of fs/R, exactly the frequencies that alias onto DC after decimation, giving the
+		best rejection near them. With M = 1 these are all of its nulls; M = 2 adds nulls at the odd
+		multiples of fs/(2R), which fold onto fs_out/2. The prices: a DC gain of
 		<Tex math={'(RM)^N'} /> (so registers must grow by <Tex math={'\\lceil N\\log_2(RM)\\rceil'} /> bits
 		— wrap-around in the integrators is harmless with two's complement), a sinc<sup>N</sup> passband droop
 		that a compensating FIR usually corrects, and poor rejection of the alias bands' edges when the band

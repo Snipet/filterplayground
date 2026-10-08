@@ -251,6 +251,14 @@ function poleQ(p: Complex): number {
  * (the usual ordering for active-filter cascades). Each stage is proper.
  */
 export function analogStages(zpk: ZPK): AnalogStage[] {
+	return groupAnalog(zpk).stages;
+}
+
+/**
+ * The stages of {@link analogStages}, plus the zeros no stage could take (only an
+ * improper H(s) has them): each extra group is a conjugate pair or one real zero.
+ */
+function groupAnalog(zpk: ZPK): { stages: AnalogStage[]; extra: Complex[][] } {
 	const pSplit = splitConj(zpk.p);
 	const zSplit = splitConj(zpk.z);
 	const groups: { poles: Complex[]; zeros: Complex[] }[] = [];
@@ -307,17 +315,42 @@ export function analogStages(zpk: ZPK): AnalogStage[] {
 			return { poles: g.poles, zeros: g.zeros, w0, q, order };
 		});
 	stages.sort((a, b) => (a.order !== b.order ? a.order - b.order : a.q - b.q));
-	return stages;
+	const extra = groups.filter((g) => g.poles.length === 0).map((g) => g.zeros);
+	return { stages, extra };
 }
 
 /**
  * Analog ZPK → SOS (descending powers of s). First-order stages use a0 = 0.
- * The overall gain is placed in the first section.
+ * The overall gain is placed in the first section. The extra zeros of an improper
+ * H(s) go into first-order stages while their numerator has room (up to s²), and
+ * the rest into numerator-only rows (a = [0, 0, 1]), so the rows always multiply
+ * back to H(s).
  */
 export function zpk2sosAnalog(zpk: ZPK): SOS {
-	const stages = analogStages(zpk);
-	if (stages.length === 0) return [[0, 0, zpk.k, 0, 0, 1]];
-	const sos = stages.map((st) => {
+	const { stages, extra } = groupAnalog(zpk);
+	const rows = stages.map((st) => ({ poles: st.poles, zeros: [...st.zeros] }));
+	const loose: Complex[][] = [];
+	for (const zs of extra) {
+		// nearest first-order stage whose numerator still has room
+		let host: (typeof rows)[number] | undefined;
+		let hostD = Infinity;
+		for (const r of rows) {
+			if (r.poles.length !== 1 || r.zeros.length + zs.length > 2) continue;
+			const d = Math.hypot(r.poles[0].re - zs[0].re, r.poles[0].im - zs[0].im);
+			if (d < hostD) {
+				hostD = d;
+				host = r;
+			}
+		}
+		if (host) host.zeros.push(...zs);
+		else loose.push(zs);
+	}
+	// numerator-only rows: a conjugate pair each, real zeros two at a time
+	const reals = loose.filter((zs) => zs.length === 1).map((zs) => zs[0]);
+	for (const zs of loose) if (zs.length === 2) rows.push({ poles: [], zeros: zs });
+	for (let i = 0; i < reals.length; i += 2) rows.push({ poles: [], zeros: reals.slice(i, i + 2) });
+	if (rows.length === 0) return [[0, 0, zpk.k, 0, 0, 1]];
+	const sos = rows.map((st) => {
 		const a = sectionPoly(st.poles);
 		const b = sectionPoly(st.zeros);
 		const a3 = [...new Array(3 - a.length).fill(0), ...a];

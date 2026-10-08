@@ -14,14 +14,18 @@
 	import { FAMILIES, familyInfo, type AnalogFamily, type BesselNorm } from '$lib/dsp/analog';
 	import { designAnalog, estimateFromSpecs, type SpecEdges } from '$lib/dsp/design';
 	import { analogStages, zpk2tfAnalog } from '$lib/dsp/convert';
-	import { evaluate, logspace, findCrossing } from '$lib/dsp/response';
-	import { analogTimeResponse } from '$lib/dsp/time';
+	import { evaluate, logspace } from '$lib/dsp/response';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { format as fmtC } from '$lib/dsp/complex';
 	import type { BandType } from '$lib/dsp/types';
 	import { specRegions } from '$lib/specmask';
 	import { readSharedState } from '$lib/share';
 	import { onMount } from 'svelte';
+	import {
+		bandEdge3dB,
+		clampOrder,
+		formatRoot,
+		stepOvershoot
+	} from '$lib/features/analog-designer/analysis';
 
 	let family = $state<AnalogFamily>('butter');
 	let band = $state<BandType>('lowpass');
@@ -48,7 +52,7 @@
 		if (st.family && FAMILIES.some((f) => f.id === st.family)) family = st.family;
 		if (st.band && st.band in specs) band = st.band;
 		if (st.mode === 'order' || st.mode === 'spec') mode = st.mode;
-		if (typeof st.order === 'number') order = Math.max(1, Math.round(st.order));
+		if (typeof st.order === 'number') order = clampOrder(st.order, family);
 		if (typeof st.f1 === 'number' && st.f1 > 0) f1 = st.f1;
 		if (typeof st.f2 === 'number' && st.f2 > 0) f2 = st.f2;
 		if (typeof st.rp === 'number' && st.rp > 0) rp = st.rp;
@@ -73,9 +77,16 @@
 		mode === 'spec' ? estimateFromSpecs(family, specEdges, { besselNorm }) : null
 	);
 
-	const N = $derived(est ? est.order : order);
+	const N = $derived(est ? est.order : clampOrder(order, family));
 	const c1 = $derived(est ? est.f1 : f1);
 	const c2 = $derived(est ? (est.f2 ?? f2) : f2);
+
+	// reversed (or equal) edges are a mistake: the design and its plots are not shown
+	const edgeError = $derived(
+		mode === 'order' && isBand && !(f1 < f2)
+			? 'The lower band edge must be below the upper band edge.'
+			: null
+	);
 
 	const zpk = $derived(
 		designAnalog({ family, band, order: N, f1: c1, f2: c2, rp, rs, besselNorm })
@@ -107,15 +118,16 @@
 		const out: Stat[] = [
 			{ label: 'Order', value: String(N), hint: 'Number of poles of the low-pass prototype' }
 		];
-		if (band === 'lowpass') {
-			const f3 = findCrossing(r.f, rel, -3.0103);
-			out.push({ label: '−3 dB frequency', value: f3 ? formatSI(f3, 'Hz', 4) : '—' });
-		} else if (band === 'highpass') {
-			// first crossing coming down from high frequencies
-			const revF = [...r.f].reverse();
-			const revM = [...rel].reverse();
-			const f3 = findCrossing(revF, revM, -3.0103);
-			out.push({ label: '−3 dB frequency', value: f3 ? formatSI(f3, 'Hz', 4) : '—' });
+		if (band === 'lowpass' || band === 'highpass') {
+			const f3 = bandEdge3dB(r.f, rel, band, zpk);
+			out.push({
+				label: '−3 dB frequency',
+				value: f3 ? formatSI(f3, 'Hz', 4) : '—',
+				hint:
+					info.usesRp && rp > 3.0103
+						? 'With Rp > 3 dB the passband ripple also dips below −3 dB; this is the crossing at the band edge.'
+						: undefined
+			});
 		} else {
 			out.push({ label: 'Centre (geometric)', value: formatSI(centre, 'Hz', 4) });
 			out.push({ label: 'Bandwidth', value: formatSI(Math.abs(c2 - c1), 'Hz', 4) });
@@ -130,12 +142,8 @@
 				status: worst >= rs - 1e-6 ? 'good' : 'warning'
 			});
 		}
-		const step = analogTimeResponse(zpk, 'step', undefined, 800);
-		const final = step.y[step.y.length - 1];
-		if (band === 'lowpass' && Math.abs(final) > 1e-6) {
-			const over = (Math.max(...step.y) / final - 1) * 100;
-			out.push({ label: 'Step overshoot', value: `${trimNumber(Math.max(0, over), 3)} %` });
-		}
+		const over = band === 'lowpass' ? stepOvershoot(zpk) : null;
+		if (over !== null) out.push({ label: 'Step overshoot', value: `${trimNumber(over, 3)} %` });
 		if (band === 'lowpass') {
 			const gd0 = evaluate(filter, [c1 / 1000]).groupDelay[0];
 			out.push({ label: 'Group delay (DC)', value: formatSI(gd0, 's', 4) });
@@ -191,7 +199,12 @@
 >
 	{#snippet controls()}
 		<ControlGroup title="Filter">
-			<Select label="Family" bind:value={family} options={familyOptions} />
+			<Select
+				label="Family"
+				bind:value={family}
+				options={familyOptions}
+				onchange={(f) => (order = clampOrder(order, f))}
+			/>
 			<Segmented
 				label="Response type"
 				bind:value={band}
@@ -227,7 +240,8 @@
 				<p class="small muted">
 					For {info.name}, the cutoff is the {family === 'bessel'
 						? {
-								phase: 'phase-midpoint frequency',
+								phase:
+									'Butterworth-matched asymptote frequency (≈ phase midpoint, exact for N ≤ 2)',
 								delay: 'unit-delay normalisation frequency',
 								mag: '−3 dB frequency'
 							}[besselNorm]
@@ -304,7 +318,7 @@
 					bind:value={besselNorm}
 					options={[
 						{ value: 'mag', label: '−3 dB at cutoff' },
-						{ value: 'phase', label: 'Phase midpoint at cutoff (SciPy default)' },
+						{ value: 'phase', label: 'Phase-matched: ≈ phase midpoint at cutoff (SciPy default)' },
 						{ value: 'delay', label: 'Unit group delay (delay = 1/(2π fc))' }
 					]}
 				/>
@@ -315,7 +329,9 @@
 		</ControlGroup>
 	{/snippet}
 
-	{#if est?.error}
+	{#if edgeError}
+		<Callout kind="danger">{edgeError}</Callout>
+	{:else if est?.error}
 		<Callout kind="danger">{est.error}</Callout>
 	{:else if est?.capped}
 		<Callout kind="warning" title="Specification not reachable">
@@ -324,70 +340,70 @@
 		</Callout>
 	{/if}
 
-	<StatGrid {stats} />
+	{#if !edgeError}
+		<StatGrid {stats} />
 
-	<ResponseView filters={[{ filter }]} {regions} {vlines} />
+		<ResponseView filters={[{ filter }]} {regions} {vlines} />
 
-	<Card
-		title="Cascade stages"
-		subtitle="The filter factored into first- and second-order sections, ordered by increasing Q — how you would build it from op-amp stages."
-	>
-		<div class="table-wrap">
-			<table>
-				<thead>
-					<tr>
-						<th>#</th>
-						<th>Order</th>
-						<th>Kind</th>
-						<th class="num">f₀</th>
-						<th class="num">Q</th>
-						<th>Poles (rad/s)</th>
-						<th>Zeros (rad/s)</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each stages as st, i (i)}
+		<Card
+			title="Cascade stages"
+			subtitle="The filter factored into first- and second-order sections, ordered by increasing Q — how you would build it from op-amp stages."
+		>
+			<div class="table-wrap">
+				<table>
+					<thead>
 						<tr>
-							<td>{i + 1}</td>
-							<td>{st.order}</td>
-							<td>{stageKind(st)}</td>
-							<td class="num">{formatSI(st.w0 / (2 * Math.PI), 'Hz', 4)}</td>
-							<td class="num">{st.order === 2 ? trimNumber(st.q, 4) : '—'}</td>
-							<td class="mono small"
-								>{st.poles
-									.filter((p) => p.im >= 0)
-									.map((p) => (Math.abs(p.im) > 0 ? fmtC(p, 5).replace(' + ', ' ± ') : fmtC(p, 5)))
-									.join(', ')}</td
-							>
-							<td class="mono small"
-								>{st.zeros.length
-									? st.zeros
-											.filter((z) => z.im >= 0)
-											.map((z) =>
-												Math.abs(z.im) > 0 ? fmtC(z, 5).replace(' + ', ' ± ') : fmtC(z, 5)
-											)
-											.join(', ')
-									: '—'}</td
-							>
+							<th>#</th>
+							<th>Order</th>
+							<th>Kind</th>
+							<th class="num">f₀</th>
+							<th class="num">Q</th>
+							<th>Poles (rad/s)</th>
+							<th>Zeros (rad/s)</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-		<p class="small muted">
-			Overall gain k = {trimNumber(zpk.k, 6)}. Q = |p| / (2·|Re p|) for each complex pole pair.
-		</p>
-	</Card>
+					</thead>
+					<tbody>
+						{#each stages as st, i (i)}
+							<tr>
+								<td>{i + 1}</td>
+								<td>{st.order}</td>
+								<td>{stageKind(st)}</td>
+								<td class="num">{formatSI(st.w0 / (2 * Math.PI), 'Hz', 4)}</td>
+								<td class="num">{st.order === 2 ? trimNumber(st.q, 4) : '—'}</td>
+								<td class="mono small"
+									>{st.poles
+										.filter((p) => p.im >= 0)
+										.map((p) => formatRoot(p))
+										.join(', ')}</td
+								>
+								<td class="mono small"
+									>{st.zeros.length
+										? st.zeros
+												.filter((z) => z.im >= 0)
+												.map((z) => formatRoot(z))
+												.join(', ')
+										: '—'}</td
+								>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<p class="small muted">
+				Overall gain k = {trimNumber(zpk.k, 6)}. Q = |p| / (2·|Re p|) for each complex pole pair.
+			</p>
+		</Card>
 
-	<Card title="Export">
-		<ExportPanel
-			kind="analog"
-			{zpk}
-			{tf}
-			recipes={[{ label: 'SciPy', code: scipy }]}
-			name="analog_filter"
-		/>
-	</Card>
+		<Card title="Export">
+			<ExportPanel
+				kind="analog"
+				{zpk}
+				{tf}
+				recipes={[{ label: 'SciPy', code: scipy }]}
+				name="analog_filter"
+			/>
+		</Card>
+	{/if}
 
 	{#snippet theory()}
 		<h2>How analog filters are designed</h2>
@@ -407,17 +423,18 @@
 					></tr
 				>
 				<tr
-					><td>Chebyshev I</td><td><Tex math={'\\dfrac{1}{1+\\varepsilon^2 T_N^2(\\omega)}'} /></td
+					><td>Chebyshev I</td><td
+						><Tex math={'\\dfrac{1}{1+\\varepsilon_p^2 T_N^2(\\omega)}'} /></td
 					><td>Equiripple passband; poles on an ellipse.</td></tr
 				>
 				<tr
 					><td>Chebyshev II</td><td
-						><Tex math={'\\dfrac{1}{1+\\dfrac{1}{\\varepsilon^2 T_N^2(1/\\omega)}}'} /></td
+						><Tex math={'\\dfrac{1}{1+\\dfrac{\\varepsilon_s^2}{T_N^2(1/\\omega)}}'} /></td
 					><td>Flat passband, equiripple stopband with jω-axis zeros.</td></tr
 				>
 				<tr
 					><td>Elliptic</td><td
-						><Tex math={'\\dfrac{1}{1+\\varepsilon^2 R_N^2(\\xi,\\omega)}'} /></td
+						><Tex math={'\\dfrac{1}{1+\\varepsilon_p^2 R_N^2(\\xi,\\omega)}'} /></td
 					><td>Equiripple in both bands; the steepest possible transition.</td></tr
 				>
 				<tr
@@ -435,9 +452,14 @@
 		<p>
 			Here <Tex math={'T_N'} /> is the Chebyshev polynomial (<Tex
 				math={'T_N(x)=\\cos(N\\arccos x)'}
-			/> for |x| ≤ 1),
-			<Tex math={'\\varepsilon=\\sqrt{10^{R_p/10}-1}'} /> sets the ripple, and <Tex math={'R_N'} /> is
-			a Chebyshev rational function built from Jacobi elliptic functions.
+			/> for |x| ≤ 1) and <Tex math={'R_N'} /> is a Chebyshev rational function built from Jacobi elliptic
+			functions. <Tex math={'\\varepsilon_p=\\sqrt{10^{R_p/10}-1}'} /> sets the passband ripple <Tex
+				math="R_p"
+			/> and <Tex math={'\\varepsilon_s=\\sqrt{10^{R_s/10}-1}'} /> the stopband attenuation <Tex
+				math="R_s"
+			/>. Chebyshev II is normalised at its stopband edge, so its attenuation at ω = 1 is exactly <Tex
+				math="R_s"
+			/>.
 		</p>
 		<h3>Frequency transformations</h3>
 		<p>

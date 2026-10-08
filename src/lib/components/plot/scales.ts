@@ -83,9 +83,13 @@ export function logTicks(d0: number, d1: number, pixelWidth: number): LogTicks {
 	else if (pxPerDecade > 130) labelled = [...major, ...minor.filter((v) => leading(v) === 3)];
 	// thin out labels when decades are cramped
 	if (pxPerDecade < 40) labelled = major.filter((_, i) => i % Math.ceil(40 / pxPerDecade) === 0);
-	// with less than one decade visible, fall back to linear-style labels
-	if (major.length + labelled.length < 2) {
-		labelled = linearTicks(d0, d1, Math.max(2, Math.floor(pixelWidth / 80)));
+	// with less than one decade visible (at most one power of ten, fewer than two labels),
+	// fall back to linear-style labels
+	if (labelled.length < 2 && major.length < 2) {
+		let count = Math.max(2, Math.floor(pixelWidth / 80));
+		labelled = linearTicks(d0, d1, count);
+		// a nice step can exceed half the span; refine until at least two labels fit
+		while (labelled.length < 2 && count < 8) labelled = linearTicks(d0, d1, ++count);
 		minor.length = 0;
 		minor.push(...labelled);
 	}
@@ -93,6 +97,18 @@ export function logTicks(d0: number, d1: number, pixelWidth: number): LogTicks {
 }
 
 const leading = (v: number) => Math.round(v / Math.pow(10, Math.floor(Math.log10(v) + 1e-9)));
+
+/** dB → linear magnitude; huge ±dB sentinels become 0 / Infinity (Plot clamps to the domain). */
+export const dbToMag = (db: number): number => Math.pow(10, db / 20);
+/** Linear magnitude → dB, flooring non-positive values at −240 dB. */
+export const magToDb = (mag: number): number => 20 * Math.log10(Math.max(mag, 1e-12));
+/** Copy of a dB-valued region / marker placed on a linear magnitude axis. */
+export const regionToMag = <R extends { y0: number; y1: number }>(r: R): R => ({
+	...r,
+	y0: dbToMag(r.y0),
+	y1: dbToMag(r.y1)
+});
+export const markerToMag = <M extends { y: number }>(m: M): M => ({ ...m, y: dbToMag(m.y) });
 
 export const defaultFormat = (v: number): string => trimNumber(v, 4);
 export const freqFormat = (v: number): string => formatFreqTick(v);

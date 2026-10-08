@@ -2,9 +2,24 @@
  * Pure math behind the engineering calculators. Every function takes and
  * returns SI units (Hz, s, Ω, F, H, V, W, rad) unless the name says otherwise.
  */
-import { E_SERIES } from '$lib/dsp/units';
+import { E_SERIES, parseSI } from '$lib/dsp/units';
 
 const TAU = 2 * Math.PI;
+
+// ---------------------------------------------------------------------------
+// Field entry
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a field entry in the field's own unit. A trailing `unit` symbol is the unit, never a
+ * prefix, and is stripped before the SI-prefix parse; the letter before it is the prefix. With
+ * unit 'm': "2 m" and "2m" → 2, "2 mm" → 0.002, "2 km" → 2000, "34 cm" → 0.34 (centi is accepted
+ * in front of the unit only). A unit that starts with a digit (1/s) needs a space before it.
+ * Anything else is plain parseSI, so "4k7" and "10 nF" (unit 'F') parse as before.
+ */
+export function parseQuantity(text: string, unit = ''): number {
+	return parseSI(text, unit || undefined);
+}
 
 // ---------------------------------------------------------------------------
 // Decibels and levels
@@ -16,6 +31,8 @@ export const dbToAmp = (db: number): number => Math.pow(10, db / 20);
 /** Power ratio → dB: 10·log10(r). */
 export const powToDb = (r: number): number => 10 * Math.log10(r);
 export const dbToPow = (db: number): number => Math.pow(10, db / 10);
+/** A dB value for display: rounding residue (|L| < 1e-9 dB, e.g. 9.6e-16 for 1 mW) becomes 0. */
+export const snapDb = (db: number): number => (Math.abs(db) < 1e-9 ? 0 : db);
 
 /** 0 dBu: the voltage that dissipates 1 mW in 600 Ω, √0.6 ≈ 0.7746 V rms. */
 export const DBU_REF = Math.sqrt(0.6);
@@ -65,7 +82,9 @@ export function levelsFromVrms(vrms: number): Levels {
 		dBu: ampToDb(vrms / DBU_REF),
 		dBm50: powToDb(p50 / 1e-3),
 		p50,
-		dBm600: powToDb(p600 / 1e-3),
+		// = 10·log10(p600/1 mW), which is dBu exactly (0 dBu = 1 mW in 600 Ω); computed
+		// the same way so the two agree to the last bit
+		dBm600: ampToDb(vrms / DBU_REF),
 		p600
 	};
 }
@@ -286,6 +305,21 @@ export function eSeriesNeighbours(value: number, series: SeriesName): Neighbours
 		errAbove: err(above),
 		errNearest: err(nearest)
 	};
+}
+
+/**
+ * Nearest preferred value for the computed R (or C) of an RC section, the cutoff (Hz) it
+ * gives with the other component, and that cutoff's error relative to the target in per cent.
+ */
+export function rcNearestPart(
+	exact: number,
+	other: number,
+	fcTarget: number,
+	series: SeriesName
+): { part: number; fc: number; errPct: number } {
+	const part = eSeriesNeighbours(exact, series).nearest;
+	const fc = rcCutoff(part, other);
+	return { part, fc, errPct: ((fc - fcTarget) / fcTarget) * 100 };
 }
 
 // ---------------------------------------------------------------------------

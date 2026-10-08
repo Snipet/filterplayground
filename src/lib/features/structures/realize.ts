@@ -49,15 +49,30 @@ export interface Ops {
 	delay: number;
 }
 
-/** Normalise and trim: a₀ = 1, trailing exact zeros removed from a. */
+/** Coefficients this far below the largest one in their polynomial are round-off. */
+export const ROUNDOFF_TOL = 1e-14;
+
+/**
+ * Set round-off-level coefficients (|c| ≤ ROUNDOFF_TOL·max|c|) to exactly 0, e.g.
+ * a₁ = −2cos(π/2) ≈ −1.2·10⁻¹⁶ of a biquad at f₀ = fs/4. Left in place, such a
+ * coefficient is a spurious pole near z = 0 whose huge partial-fraction residue
+ * cancels catastrophically in the parallel form.
+ */
+export function snapRoundoff(v: readonly number[]): number[] {
+	const max = Math.max(0, ...v.map(Math.abs));
+	return v.map((c) => (Math.abs(c) <= ROUNDOFF_TOL * max ? 0 : c));
+}
+
+/** Normalise and trim: a₀ = 1, round-off-level coefficients set to 0, trailing zeros removed. */
 export function normalizeTf(
 	b: readonly number[],
 	a: readonly number[]
 ): { b: number[]; a: number[] } {
 	const a0 = a[0];
 	if (!a0) throw new Error('a₀ must be non-zero');
-	const bn = b.map((v) => v / a0);
-	let an = a.map((v) => v / a0);
+	const bn = snapRoundoff(b.map((v) => v / a0));
+	let an = snapRoundoff(a.map((v) => v / a0));
+	an[0] = 1;
 	while (an.length > 1 && an[an.length - 1] === 0) an = an.slice(0, -1);
 	let bt = [...bn];
 	while (bt.length > 1 && bt[bt.length - 1] === 0) bt = bt.slice(0, -1);
@@ -179,9 +194,13 @@ export interface ParallelForm {
 
 /**
  * Partial-fraction expansion grouped into real first/second-order sections.
- * Throws if the poles are repeated.
+ * Throws if the poles are repeated. Round-off-level coefficients are zeroed
+ * first (see snapRoundoff); a denominator that reduces to 1 leaves only the
+ * direct (FIR) part.
  */
-export function parallelForm(b: readonly number[], a: readonly number[]): ParallelForm {
+export function parallelForm(bIn: readonly number[], aIn: readonly number[]): ParallelForm {
+	const { b, a } = normalizeTf(bIn, aIn);
+	if (a.length === 1) return { sections: [], direct: b };
 	const pf = residuez(b, a);
 	if (pf.repeated)
 		throw new Error('The parallel form needs distinct poles; this filter has repeated poles.');

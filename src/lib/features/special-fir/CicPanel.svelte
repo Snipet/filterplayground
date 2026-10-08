@@ -94,7 +94,10 @@
 		{
 			label: 'First null',
 			value: formatSI(fs / (R * M), 'Hz', 4),
-			hint: 'Nulls at every multiple of fs/(R·M) — exactly the frequencies that fold to DC'
+			hint:
+				M === 1
+					? 'Nulls at every multiple of fs/R — exactly the frequencies that fold to DC'
+					: `Nulls at every multiple of fs/(R·M): the multiples of fs/R among them fold to DC, the others to ${M === 2 ? 'fs_out/2' : `multiples of fs_out/${M}`}`
 		},
 		{
 			label: `Droop at ${formatSI(fc, 'Hz', 3)}`,

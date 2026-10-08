@@ -145,6 +145,18 @@ export function foldedMultiplies(h: readonly number[]): {
 	return { direct: N, nonzero, folded };
 }
 
+/**
+ * Why a half-band filter's outermost taps are zero, if they are: 'length' when N = 4K + 1
+ * (they sit at even offsets from the centre, on zeros of the sinc, for any window);
+ * 'window' when N = 4K + 3 but the window itself is zero at its ends (Hann, Blackman, …).
+ * In the 'window' case the next taps in fall on sinc zeros too, so N − 4 taps do the work.
+ */
+export function halfbandEndZeros(h: readonly number[]): 'length' | 'window' | null {
+	if (h.length % 4 === 1) return 'length';
+	const peak = Math.max(...h.map(Math.abs)) || 1;
+	return Math.abs(h[0]) <= 1e-12 * peak ? 'window' : null;
+}
+
 const rms = (a: readonly number[]) => {
 	let s = 0;
 	let c = 0;

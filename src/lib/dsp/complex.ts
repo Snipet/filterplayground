@@ -58,10 +58,10 @@ export function sqrt(a: Complex): Complex {
 	if (a.im === 0) {
 		return a.re >= 0 ? { re: Math.sqrt(a.re), im: 0 } : { re: 0, im: Math.sqrt(-a.re) };
 	}
-	const m = abs(a);
-	const re = Math.sqrt((m + a.re) / 2);
-	const im = Math.sign(a.im) * Math.sqrt((m - a.re) / 2);
-	return { re, im };
+	// t = √((|re| + |a|)/2) never cancels; the other component follows from 2·re·im = a.im
+	const t = Math.sqrt((Math.abs(a.re) + abs(a)) / 2);
+	if (a.re >= 0) return { re: t, im: a.im / (2 * t) };
+	return { re: Math.abs(a.im) / (2 * t), im: Math.sign(a.im) * t };
 }
 
 export function pow(a: Complex, n: number): Complex {

@@ -25,12 +25,15 @@
 		type PhaseApprox,
 		asymptote,
 		autoRange,
+		closedLoopStability,
+		dcGainDb,
 		exact,
 		factorLabel,
 		freeSlot,
+		gainMargins,
 		logGrid,
+		loopMargins,
 		makeFactor,
-		margins,
 		slopes,
 		totalAsymptote,
 		totalExact,
@@ -82,10 +85,19 @@
 	}
 
 	// ---------------- analysis ----------------
-	const baseRange = $derived(autoRange(factors));
-	const marg = $derived(loop ? margins(factors, baseRange[0] / 100, baseRange[1] * 100) : null);
+	// margins are searched well beyond the corners: a high loop gain can put f_gc decades above them
+	const marg = $derived(loop ? loopMargins(factors) : null);
+	// exact verdict (closed-loop poles, or a Nyquist count with a delay), not the signs of the margins
+	const stab = $derived(loop ? closedLoopStability(factors, marg ?? undefined) : null);
+	const gms = $derived(marg ? gainMargins(marg) : null);
+	// gain margin(s) to report: for a stable loop how far the gain may rise (and, when it is
+	// conditionally stable, how far it may fall); otherwise the phase crossover nearest 0 dB
+	const gmMain = $derived(gms ? (stab?.stable ? gms.up : gms.nearest) : null);
+	const gmDown = $derived(gms && stab?.stable ? gms.down : null);
 	// widen the view to show the reported crossovers (not every phase crossing: with a delay there are infinitely many)
-	const range = $derived(autoRange(factors, marg ? [marg.pm?.f ?? NaN, marg.gm?.f ?? NaN] : []));
+	const range = $derived(
+		autoRange(factors, marg ? [marg.pm?.f ?? NaN, gmMain?.f ?? NaN, gmDown?.f ?? NaN] : [])
+	);
 
 	/** Log grid plus every breakpoint so the asymptotes have sharp corners. */
 	const grid = $derived.by(() => {
@@ -158,13 +170,14 @@
 		marg
 			? [
 					...(marg.pm ? [{ value: marg.pm.f, label: 'f_gc' }] : []),
-					...(marg.gm ? [{ value: marg.gm.f, label: 'f_pc' }] : [])
+					...[gmMain, gmDown].flatMap((c) => (c ? [{ value: c.f, label: 'f_pc' }] : []))
 				]
 			: []
 	);
 
 	const sl = $derived(slopes(factors));
-	const dcDb = $derived(factors.reduce((s, f) => s + (f.type === 'gain' ? f.gainDb : 0), 0));
+	// K·Π ω_u^(−n): cancelling powers of s still leave a constant
+	const dcDb = $derived(dcGainDb(factors));
 
 	const maxErr = $derived.by(() => {
 		let best = 0;
@@ -207,7 +220,7 @@
 		];
 		if (marg) {
 			const pm = marg.pm;
-			const gm = marg.gm;
+			const gm = gmMain;
 			out.push({
 				label: 'Gain crossover',
 				value: pm ? formatSI(pm.f, 'Hz', 4) : 'none',
@@ -233,22 +246,63 @@
 			out.push({
 				label: 'Gain margin',
 				value: gm ? `${trimNumber(gm.margin, 3)} dB` : '∞',
-				status: gm ? (gm.margin >= 6 ? 'good' : gm.margin > 0 ? 'warning' : 'critical') : 'good',
-				hint: '−|L| in dB at f_pc. ≥ 6 dB is a common target.'
+				status:
+					stab?.stable === false
+						? 'critical'
+						: gm
+							? gm.margin >= 6
+								? 'good'
+								: gm.margin > 0
+									? 'warning'
+									: 'critical'
+							: 'good',
+				hint: '−|L| in dB at f_pc: how far the gain can rise. ≥ 6 dB is a common target.'
 			});
+			if (gmDown)
+				out.push({
+					label: 'Gain-reduction margin',
+					value: `${trimNumber(gmDown.margin, 3)} dB`,
+					status: gmDown.margin <= -6 ? 'good' : 'warning',
+					hint: `|L| > 1 at the phase crossover at ${formatSI(gmDown.f, 'Hz', 4)}: lowering the gain this far makes the loop unstable (conditionally stable)`
+				});
 		}
 		return out;
 	});
 
-	const hasRhpPole = $derived(factors.some((f) => f.type === 'realPole' && f.rhp));
 	const verdict = $derived.by(() => {
-		if (!marg) return null;
-		if (!marg.pm)
-			return 'The loop gain never crosses 0 dB in this range, so there is no phase margin to read.';
-		const ok = marg.pm.margin > 0 && (!marg.gm || marg.gm.margin > 0);
-		return ok
-			? 'Both margins are positive: for a loop gain with no right-half-plane poles the closed loop 1/(1 + L) is stable.'
-			: 'A margin is negative: the closed loop is unstable (for a loop gain with no right-half-plane poles).';
+		if (!marg || !stab) return null;
+		const out: string[] = [];
+		if (!marg.pm) out.push('|L| never crosses 0 dB, so there is no phase margin to read.');
+		// with a delay the closed loop has infinitely many poles, so they are counted, not computed
+		const nyq =
+			stab.method === 'nyquist'
+				? ', by the Nyquist criterion (a delay leaves no polynomial to solve)'
+				: '';
+		if (stab.stable && gmDown) {
+			const up = gmMain
+				? `, as does raising it by more than ${trimNumber(gmMain.margin, 3)} dB`
+				: '';
+			out.push(
+				`The closed loop 1/(1 + L) is stable, but only conditionally: |L| > 1 at a phase crossover, so lowering the loop gain by more than ${trimNumber(-gmDown.margin, 3)} dB makes it unstable${up}. A negative gain margin on its own does not mean instability.`
+			);
+		} else if (stab.stable) {
+			out.push(
+				stab.method === 'poles'
+					? 'The closed loop 1/(1 + L) is stable: every closed-loop pole (root of 1 + L(s) = 0) is in the left half-plane.'
+					: `The closed loop 1/(1 + L) is stable: none of its poles is in the right half-plane${nyq}.`
+			);
+		} else if (stab.stable === false) {
+			const n = stab.rhp;
+			out.push(
+				n === Infinity
+					? 'The closed loop 1/(1 + L) is unstable: with a delay, |L| ≥ 1 at high frequency puts infinitely many closed-loop poles in the right half-plane.'
+					: `The closed loop 1/(1 + L) is unstable: ${n} closed-loop ${n === 1 ? 'pole is' : 'poles are'} in the right half-plane${nyq}.`
+			);
+		} else
+			out.push(
+				'The closed loop is on the edge of stability: L(jω) passes through −1, putting a closed-loop pole on the imaginary axis.'
+			);
+		return out.join(' ');
 	});
 
 	const tex = $derived(transferTex(factors));
@@ -266,26 +320,26 @@
 		step: 'second-order factors step by ±180° at f_n'
 	};
 
-	// one row per factor for the summary table
+	// one row per factor for the summary table; sⁿ has no corner: its slope (20n dB/dec)
+	// and phase (n·90°) are the same at every frequency, f_u is only where it is 0 dB
 	const summary = $derived(
 		factors.map((fc) => {
-			if (fc.type === 'gain' || fc.type === 'delay')
+			if (fc.type === 'gain' || fc.type === 'delay' || fc.type === 'power')
 				return { fc, corner: null, slope: 0, err: 0, ph: exact(fc, 1).deg };
 			const e = exact(fc, fc.f);
 			const a = asymptote(fc, fc.f, approx);
 			const slope =
-				fc.type === 'power'
-					? 20 * fc.n
-					: fc.type === 'realPole'
-						? -20
-						: fc.type === 'realZero'
-							? 20
-							: fc.type === 'complexPole'
-								? -40
-								: 40;
+				fc.type === 'realPole'
+					? -20
+					: fc.type === 'realZero'
+						? 20
+						: fc.type === 'complexPole'
+							? -40
+							: 40;
 			return { fc, corner: fc.f, slope, err: e.db - a.db, ph: e.deg };
 		})
 	);
+	const hasPower = $derived(factors.some((fc) => fc.type === 'power'));
 </script>
 
 <ToolLayout
@@ -360,14 +414,16 @@
 	<StatGrid {stats} />
 
 	{#if loop && verdict}
-		<Callout
-			kind={marg?.pm && marg.pm.margin > 0 && (!marg.gm || marg.gm.margin > 0) ? 'note' : 'warning'}
-			title="Closed-loop stability"
-		>
+		<Callout kind={stab?.stable ? 'note' : 'warning'} title="Closed-loop stability">
 			{verdict}
-			{#if hasRhpPole}<strong>
-					L has a right-half-plane pole, so the margins alone don't decide stability — use the
-					Nyquist criterion.</strong
+			{#if stab?.openRhp}<strong>
+					L itself has {stab.openRhp === 1
+						? 'a right-half-plane pole'
+						: `${stab.openRhp} right-half-plane poles`}, so the margins alone don't decide
+					stability: by the Nyquist criterion L(jω) must encircle −1 counter-clockwise {stab.openRhp ===
+					1
+						? 'once'
+						: `${stab.openRhp} times`}.</strong
 				>{/if}
 		</Callout>
 	{/if}
@@ -456,7 +512,11 @@
 							</td>
 							<td class="num">{row.corner ? formatSI(row.corner, 'Hz', 3) : '—'}</td>
 							<td class="num"
-								>{row.corner ? `${row.slope > 0 ? '+' : ''}${row.slope} dB/dec` : '—'}</td
+								>{row.corner
+									? `${row.slope > 0 ? '+' : ''}${row.slope} dB/dec`
+									: row.fc.type === 'power'
+										? 'none'
+										: '—'}</td
 							>
 							<td class="num"
 								>{row.corner ? `${row.err > 0 ? '+' : ''}${trimNumber(row.err, 3)} dB` : '—'}</td
@@ -464,15 +524,19 @@
 							<td class="num"
 								>{row.corner
 									? `${trimNumber(row.ph, 4)}°`
-									: row.fc.type === 'gain'
-										? `${row.ph}°`
-										: '−360°·f·T'}</td
+									: row.fc.type === 'delay'
+										? '−360°·f·T'
+										: `${row.ph}°`}</td
 							>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
+		{#if hasPower}<p class="small muted note">
+				sⁿ has no corner: it adds 20n dB/decade to the slope and n·90° to the phase at every
+				frequency, passing through 0 dB at f<sub>u</sub>.
+			</p>{/if}
 	</Card>
 
 	{#snippet theory()}
@@ -601,6 +665,13 @@
 			design targets are PM ≥ 45° and GM ≥ 6 dB. Phase margin also predicts damping: PM ≈ 100·ζ
 			degrees for a dominant second-order closed loop.
 		</p>
+		<p>
+			The converse does not hold. A <strong>conditionally stable</strong> loop has |L| &gt; 1 at a
+			phase crossover (a negative gain margin) and is still stable; for it, <em>lowering</em> the gain
+			is what destabilises the loop. The verdict above is therefore decided from the closed-loop poles,
+			the roots of 1 + L(s) = 0 (or by the Nyquist criterion when there is a delay), not from the signs
+			of the margins.
+		</p>
 
 		<Callout kind="try">
 			<ul>
@@ -613,12 +684,12 @@
 					towards +90° and centres on the geometric mean √(f<sub>z</sub>·f<sub>p</sub>).
 				</li>
 				<li>
-					Load <em>Integrator + pole</em> with open-loop analysis on, then raise the 0 dB frequency of
-					1/s: the crossover moves up and the phase margin falls.
+					Load <em>Integrator + two poles</em> (open-loop analysis turns on), then raise the 0 dB frequency
+					of 1/s: the crossover moves up and the phase margin falls.
 				</li>
 				<li>
 					Load <em>Loop with time delay</em> and lengthen T: the magnitude is untouched but the phase
-					curve dives and the gain margin disappears.
+					curve dives; near T ≈ 1.9 ms both margins reach zero and the closed loop goes unstable.
 				</li>
 				<li>
 					Toggle <em>Right half-plane</em> on a real zero: the magnitude plot does not change at all,
@@ -648,15 +719,11 @@
 {/snippet}
 
 {#snippet magOverlay(ctx: PlotContext)}
-	{#if marg?.gm}
-		{@render marginMark(
-			ctx,
-			marg.gm.f,
-			0,
-			-marg.gm.margin,
-			`GM ${trimNumber(marg.gm.margin, 3)} dB`
-		)}
-	{/if}
+	{#each [gmMain, gmDown] as c, i (i)}
+		{#if c}
+			{@render marginMark(ctx, c.f, 0, -c.margin, `GM ${trimNumber(c.margin, 3)} dB`)}
+		{/if}
+	{/each}
 {/snippet}
 
 {#snippet phaseOverlay(ctx: PlotContext)}

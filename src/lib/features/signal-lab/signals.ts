@@ -277,6 +277,25 @@ export function rmsOf(x: ArrayLike<number>): number {
 
 export const dbfs = (v: number): number => 20 * Math.log10(Math.max(v, 1e-12));
 
+/**
+ * One playback gain for input and output (so that their level difference stays real),
+ * small enough that no played peak exceeds `safePeak`. `match` is the loudness-matching
+ * gain on the output. A muted output is not played, so it does not count.
+ */
+export function playbackGain(
+	pin: number,
+	pout: number,
+	match: number,
+	outputMuted: boolean,
+	safePeak: number
+): number {
+	const peak = outputMuted ? pin : Math.max(pin, pout * match);
+	return peak > safePeak ? safePeak / peak : 1;
+}
+
+/** Length of the linear-phase FIR low-pass actually built: an even count is rounded up to odd (type I). */
+export const oddTaps = (n: number): number => (n % 2 === 0 ? n + 1 : n);
+
 /** Scale in place so that the peak equals `peak`. */
 export function normalizePeak(x: Float64Array, peak: number): Float64Array {
 	const p = peakOf(x);

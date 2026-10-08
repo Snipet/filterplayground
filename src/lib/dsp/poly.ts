@@ -118,16 +118,18 @@ export function roots(pIn: readonly number[] | readonly Complex[]): Complex[] {
 	}
 	const n = p.length - 1;
 	if (n === 0) return out;
-	// normalise to monic
-	const lead = p[0];
-	p = p.map((v) => div(v, lead));
 	if (n === 1) {
-		out.push(c(-p[1].re, -p[1].im));
+		out.push(div(c(-p[1].re, -p[1].im), p[0]));
 		return out;
 	}
 	if (n === 2) {
-		out.push(...quadraticRoots(p[1], p[2]));
-		return out;
+		// normalise to monic
+		const lead = p[0];
+		const qr = quadraticRoots(div(p[1], lead), div(p[2], lead));
+		if (qr.every((r) => Number.isFinite(r.re) && Number.isFinite(r.im))) {
+			out.push(...qr);
+			return out;
+		}
 	}
 
 	out.push(...aberth(p));
@@ -135,84 +137,156 @@ export function roots(pIn: readonly number[] | readonly Complex[]): Complex[] {
 }
 
 /**
- * Aberth–Ehrlich iteration on a monic complex polynomial (flat arrays, no
- * allocation in the inner loop). Each root is frozen once its step is below
- * 1e-14 relative, then all roots get a few Newton polishing steps.
+ * Aberth–Ehrlich iteration on a complex polynomial (flat arrays, no allocation in
+ * the inner loop). Each root is frozen once its step is below 1e-14 relative, then
+ * all roots get a few Newton polishing steps.
+ *
+ * Overflow safety: the coefficients are scaled to max |c_k| = 1 and the
+ * logarithmic derivative p'/p is evaluated by Horner only for |z| ≤ 1. For |z| > 1
+ * it uses the reversed polynomial q(w) = wⁿ·p(1/w) at w = 1/z, where
+ * p'/p = w·(n − w·q'(w)/q(w)) (as in MPSolve), so no intermediate exceeds
+ * ~n²·max|c_k| whatever |z| is, and every complex division is Smith-scaled.
+ * Without this, |p'|² overflows for a root near 1e15 (an FIR with a near-zero end
+ * tap), a long FIR, or a high-order analog polynomial in rad/s, and the iterate
+ * never moves. An iterate whose step is still non-finite is re-seeded on the
+ * initial circle rather than left where it is.
  */
-function aberth(p: Complex[], maxIter = 600): Complex[] {
+function aberth(p: readonly Complex[], maxIter = 600): Complex[] {
 	const n = p.length - 1;
-	const cr = Float64Array.from(p, (v) => v.re);
-	const ci = Float64Array.from(p, (v) => v.im);
+	let m = 0;
+	for (const v of p) m = Math.max(m, abs(v));
+	// non-finite coefficients have no meaningful roots
+	if (!Number.isFinite(m)) return Array.from({ length: n }, () => c(NaN, NaN));
+	const cr = Float64Array.from(p, (v) => v.re / m);
+	const ci = Float64Array.from(p, (v) => v.im / m);
 	const zr = new Float64Array(n);
 	const zi = new Float64Array(n);
 	const done = new Uint8Array(n);
 	// Initial guesses on a circle whose radius is the geometric mean of root magnitudes,
-	// with an irrational angular offset to break symmetry.
-	const r0 = Math.pow(Math.hypot(cr[n], ci[n]), 1 / n) || 1;
+	// |c_n / c_0|^(1/n), with an irrational angular offset to break symmetry.
+	let r0 = Math.exp((Math.log(Math.hypot(cr[n], ci[n])) - Math.log(Math.hypot(cr[0], ci[0]))) / n);
+	if (!(r0 > 0 && Number.isFinite(r0))) r0 = 1;
 	for (let k = 0; k < n; k++) {
 		const t = (2 * Math.PI * k) / n + 0.4;
 		zr[k] = r0 * Math.cos(t);
 		zi[k] = r0 * Math.sin(t);
 	}
-	// Horner for p and p' at (xr, xi); results in ev[0..3]
-	const ev = new Float64Array(4);
-	const evalP = (xr: number, xi: number) => {
-		let pr = cr[0];
-		let pi = ci[0];
+	// Restart a stalled iterate on the initial circle at a fresh (golden-ratio) angle.
+	let reseeds = 0;
+	const reseed = (i: number) => {
+		const t = 2 * Math.PI * ((++reseeds * 0.6180339887498949) % 1) + 0.4;
+		zr[i] = r0 * Math.cos(t);
+		zi[i] = r0 * Math.sin(t);
+	};
+	// Smith division (ar + j·ai) / (br + j·bi) → (qr, qi); never forms |b|².
+	let qr = 0;
+	let qi = 0;
+	const cdiv = (ar: number, ai: number, br: number, bi: number) => {
+		if (Math.abs(br) >= Math.abs(bi)) {
+			const r = bi / br;
+			const d = br + bi * r;
+			qr = (ar + ai * r) / d;
+			qi = (ai - ar * r) / d;
+		} else {
+			const r = br / bi;
+			const d = br * r + bi;
+			qr = (ar * r + ai) / d;
+			qi = (ai * r - ar) / d;
+		}
+	};
+	// p'/p at (xr, xi) → ev[0..1]; ev[2] = log|p(x) / m|. Returns false if p(x) = 0.
+	const ev = new Float64Array(3);
+	const evalP = (xr: number, xi: number): boolean => {
+		let pr: number;
+		let pi: number;
 		let dr = 0;
 		let di = 0;
-		for (let k = 1; k <= n; k++) {
-			const ndr = dr * xr - di * xi + pr;
-			di = dr * xi + di * xr + pi;
+		if (xr * xr + xi * xi <= 1) {
+			// Horner for p and p'
+			pr = cr[0];
+			pi = ci[0];
+			for (let k = 1; k <= n; k++) {
+				const ndr = dr * xr - di * xi + pr;
+				di = dr * xi + di * xr + pi;
+				dr = ndr;
+				const npr = pr * xr - pi * xi + cr[k];
+				pi = pr * xi + pi * xr + ci[k];
+				pr = npr;
+			}
+			if (pr === 0 && pi === 0) return false;
+			cdiv(dr, di, pr, pi);
+			ev[0] = qr;
+			ev[1] = qi;
+			ev[2] = Math.log(Math.hypot(pr, pi));
+			return true;
+		}
+		// Horner for q and q' (coefficients in reverse order) at w = 1/x
+		cdiv(1, 0, xr, xi);
+		const wr = qr;
+		const wi = qi;
+		pr = cr[n];
+		pi = ci[n];
+		for (let k = n - 1; k >= 0; k--) {
+			const ndr = dr * wr - di * wi + pr;
+			di = dr * wi + di * wr + pi;
 			dr = ndr;
-			const npr = pr * xr - pi * xi + cr[k];
-			pi = pr * xi + pi * xr + ci[k];
+			const npr = pr * wr - pi * wi + cr[k];
+			pi = pr * wi + pi * wr + ci[k];
 			pr = npr;
 		}
-		ev[0] = pr;
-		ev[1] = pi;
-		ev[2] = dr;
-		ev[3] = di;
+		if (pr === 0 && pi === 0) return false;
+		// t = w·q'/q, p'/p = w·(n − t)
+		cdiv(dr, di, pr, pi);
+		const ur = n - (wr * qr - wi * qi);
+		const ui = -(wr * qi + wi * qr);
+		ev[0] = wr * ur - wi * ui;
+		ev[1] = wr * ui + wi * ur;
+		ev[2] = Math.log(Math.hypot(pr, pi)) + n * Math.log(Math.hypot(xr, xi));
+		return true;
 	};
 	let remaining = n;
 	for (let it = 0; it < maxIter && remaining > 0; it++) {
 		for (let i = 0; i < n; i++) {
 			if (done[i]) continue;
-			evalP(zr[i], zi[i]);
-			const [pr, pi, dr, di] = ev;
-			if (pr === 0 && pi === 0) {
+			const xr = zr[i];
+			const xi = zi[i];
+			// p(z_i) = 0, or p'/p overflows (|p/p'| is far below the spacing of doubles)
+			if (!evalP(xr, xi) || !Number.isFinite(ev[0]) || !Number.isFinite(ev[1])) {
 				done[i] = 1;
 				remaining--;
 				continue;
 			}
-			const dd = dr * dr + di * di;
-			if (dd === 0) continue;
-			// ratio = p / p'
-			const rr = (pr * dr + pi * di) / dd;
-			const ri = (pi * dr - pr * di) / dd;
 			// sum = Σ_{j≠i} 1/(z_i − z_j)
 			let sr = 0;
 			let si = 0;
 			for (let j = 0; j < n; j++) {
 				if (j === i) continue;
-				const er = zr[i] - zr[j];
-				const ei = zi[i] - zi[j];
-				const e2 = er * er + ei * ei;
-				if (e2 === 0) continue;
-				sr += er / e2;
-				si -= ei / e2;
+				const er = xr - zr[j];
+				const ei = xi - zi[j];
+				if (Math.abs(er) >= Math.abs(ei)) {
+					if (er === 0) continue;
+					const r = ei / er;
+					const inv = 1 / (er + ei * r);
+					sr += inv;
+					si -= r * inv;
+				} else {
+					const r = er / ei;
+					const inv = 1 / (er * r + ei);
+					sr += r * inv;
+					si -= inv;
+				}
 			}
-			// w = ratio / (1 − ratio·sum)
-			const denR = 1 - (rr * sr - ri * si);
-			const denI = -(rr * si + ri * sr);
-			const d2 = denR * denR + denI * denI;
-			if (d2 === 0) continue;
-			const wr = (rr * denR + ri * denI) / d2;
-			const wi = (ri * denR - rr * denI) / d2;
-			if (!Number.isFinite(wr) || !Number.isFinite(wi)) continue;
-			zr[i] -= wr;
-			zi[i] -= wi;
-			if (Math.hypot(wr, wi) <= 1e-14 * Math.max(1e-300, Math.hypot(zr[i], zi[i]))) {
+			// Aberth step w = 1 / (p'/p − sum)
+			cdiv(1, 0, ev[0] - sr, ev[1] - si);
+			const nr = xr - qr;
+			const ni = xi - qi;
+			if (!Number.isFinite(nr) || !Number.isFinite(ni)) {
+				reseed(i);
+				continue;
+			}
+			zr[i] = nr;
+			zi[i] = ni;
+			if (Math.hypot(qr, qi) <= 1e-14 * Math.max(1e-300, Math.hypot(nr, ni))) {
 				done[i] = 1;
 				remaining--;
 			}
@@ -222,17 +296,15 @@ function aberth(p: Complex[], maxIter = 600): Complex[] {
 	const out: Complex[] = [];
 	for (let i = 0; i < n; i++) {
 		for (let k = 0; k < 3; k++) {
-			evalP(zr[i], zi[i]);
-			const [pr, pi, dr, di] = ev;
-			const dd = dr * dr + di * di;
-			if (dd === 0) break;
-			const sr = (pr * dr + pi * di) / dd;
-			const si = (pi * dr - pr * di) / dd;
-			const before = Math.hypot(pr, pi);
-			evalP(zr[i] - sr, zi[i] - si);
-			if (Math.hypot(ev[0], ev[1]) <= before) {
-				zr[i] -= sr;
-				zi[i] -= si;
+			if (!evalP(zr[i], zi[i])) break;
+			const before = ev[2];
+			cdiv(1, 0, ev[0], ev[1]);
+			const nr = zr[i] - qr;
+			const ni = zi[i] - qi;
+			if (!Number.isFinite(nr) || !Number.isFinite(ni)) break;
+			if (!evalP(nr, ni) || ev[2] <= before) {
+				zr[i] = nr;
+				zi[i] = ni;
 			} else break;
 		}
 		out.push(c(zr[i], zi[i]));

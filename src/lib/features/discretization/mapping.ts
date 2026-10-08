@@ -4,10 +4,19 @@
  * s-plane grid visualisation).
  */
 import { type Complex, abs, c, div, exp, add, scale, sub } from '$lib/dsp/complex';
+import type { AnalogFamily } from '$lib/dsp/analog';
 import { designAnalog, type IIRSpec } from '$lib/dsp/design';
 import { bilinear, discretize, prewarp } from '$lib/dsp/transforms';
-import { evaluate, linspace, logspace } from '$lib/dsp/response';
+import { evaluate, findCrossing, linspace, logspace } from '$lib/dsp/response';
+import {
+	analogTimeResponse,
+	digitalImpulseResponse,
+	digitalStepResponse,
+	suggestDigitalLength,
+	suggestAnalogDuration
+} from '$lib/dsp/time';
 import type { BandType, ZPK } from '$lib/dsp/types';
+import { formatSI } from '$lib/dsp/units';
 
 export type MethodId =
 	'bilinear-prewarp' | 'bilinear' | 'matched' | 'impulse' | 'backward-euler' | 'forward-euler';
@@ -217,6 +226,19 @@ export function mapLine(method: MethodId, pts: Complex[], fs: number): Complex[]
 // Comparison metrics
 // ---------------------------------------------------------------------------
 
+/**
+ * Why band edges f1, f2 (Hz) cannot be designed at fs, or null. The design
+ * uses each edge clamped to 0.99·fs/2, so two edges at or above that would
+ * collapse into a zero-width band (gain 0, poles on the jω axis).
+ */
+export function bandEdgeError(f1: number, f2: number, fs: number): string | null {
+	if (!(f1 < f2)) return 'The lower band edge must be below the upper band edge.';
+	const top = 0.99 * (fs / 2);
+	if (!(Math.min(f1, top) < Math.min(f2, top)))
+		return `Both band edges are at or above 0.99·fs/2 = ${formatSI(top, 'Hz', 4)}, so clamping them leaves a band of zero width. Lower f₁ or raise fs.`;
+	return null;
+}
+
 /** Frequencies (Hz) inside the passband of an analog design, below Nyquist. */
 export function passbandGrid(
 	band: BandType,
@@ -242,6 +264,47 @@ export function passbandGrid(
 	}
 }
 
+const HALF_POWER_DB = -10 * Math.log10(2);
+
+/**
+ * Walk on a log grid from a stopband edge `from` towards the passband `to` and
+ * return where the analog gain first reaches −3 dB (`from` itself if it already does).
+ */
+function halfPowerFrom(analog: ZPK, from: number, to: number): number {
+	const f = logspace(from, to, 2000);
+	const db = evaluate({ kind: 'analog', zpk: analog }, f).magDb;
+	if (db[0] >= HALF_POWER_DB) return from;
+	return findCrossing(f, db, HALF_POWER_DB) ?? from;
+}
+
+/**
+ * Edges (Hz) bounding the passband of an analog design, for passbandGrid. These
+ * are the design edges f1, f2, except for Chebyshev II: its edges are stopband
+ * edges (gain −Rs), so its passband ends at the −3 dB points of the response,
+ * found between each stopband edge and the passband (unity gain).
+ */
+export function passbandEdges(
+	analog: ZPK,
+	family: AnalogFamily,
+	band: BandType,
+	f1: number,
+	f2: number
+): [number, number] {
+	if (family !== 'cheby2') return [f1, f2];
+	switch (band) {
+		case 'lowpass':
+			return [halfPowerFrom(analog, f1, f1 / 1e4), f2];
+		case 'highpass':
+			return [halfPowerFrom(analog, f1, f1 * 1e4), f2];
+		case 'bandpass': {
+			const f0 = Math.sqrt(f1 * f2);
+			return [halfPowerFrom(analog, f1, f0), halfPowerFrom(analog, f2, f0)];
+		}
+		case 'bandstop':
+			return [halfPowerFrom(analog, f1, f1 / 1e4), halfPowerFrom(analog, f2, f2 * 1e4)];
+	}
+}
+
 /** Largest |dB difference| between digital and analog over frequencies f. */
 export function maxDbError(analog: ZPK, digital: ZPK, fs: number, f: number[]): number {
 	if (!f.length) return NaN;
@@ -253,4 +316,57 @@ export function maxDbError(analog: ZPK, digital: ZPK, fs: number, f: number[]): 
 		if (Number.isFinite(e) && e > m) m = e;
 	}
 	return m;
+}
+
+// ---------------------------------------------------------------------------
+// Time responses
+// ---------------------------------------------------------------------------
+
+/** Samples drawn for the time responses of these digital results (TimeCard's default length). */
+export function timeLength(digital: ZPK[], fs: number, analog?: ZPK): number {
+	// with no digital result enabled the analog reference alone sets the length
+	const fromAnalog =
+		analog && digital.length === 0
+			? Math.min(1024, Math.max(32, Math.ceil(suggestAnalogDuration(analog) * fs)))
+			: 16;
+	return Math.max(
+		fromAnalog,
+		...digital.map((zpk) => suggestDigitalLength({ kind: 'digital', fs, zpk }, 1024))
+	);
+}
+
+/**
+ * y-range clamp for the time-response plot of `results` over n samples. Only
+ * an unstable result needs one (it would flatten everything else), so this is
+ * undefined when all are stable; otherwise ±1.6× the largest |value| of the
+ * analog reference (T·h(nT) and step) and of the stable results, impulse and
+ * step, over the same n samples that are drawn.
+ */
+export function timeLimits(
+	analog: ZPK,
+	results: MethodResult[],
+	fs: number,
+	n: number
+): [number, number] | undefined {
+	if (results.every((r) => r.stable)) return undefined;
+	let m = 1e-6;
+	const take = (y: ArrayLike<number>, scale = 1) => {
+		for (let i = 0; i < y.length; i++) {
+			const v = Math.abs(y[i] * scale);
+			if (v > m && Number.isFinite(v)) m = v;
+		}
+	};
+	try {
+		take(analogTimeResponse(analog, 'impulse', (n - 1) / fs, n).y, 1 / fs);
+		take(analogTimeResponse(analog, 'step', (n - 1) / fs, n).y);
+	} catch {
+		/* analog reference unavailable */
+	}
+	for (const r of results) {
+		if (!r.stable) continue;
+		const f = { kind: 'digital' as const, fs, zpk: r.zpk };
+		take(digitalImpulseResponse(f, n));
+		take(digitalStepResponse(f, n));
+	}
+	return [-1.6 * m, 1.6 * m];
 }

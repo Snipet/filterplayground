@@ -3,9 +3,10 @@
  * people paste them from Python, MATLAB, JSON, C or papers.
  *
  * Accepted everywhere: commas, whitespace, newlines and `;` as separators,
- * brackets of any kind, `np.array(...)` wrappers, `name =` assignments,
- * comments (`#`, `%`, `//`), MATLAB `...` continuations, the Unicode minus sign,
- * scientific notation and simple fractions such as `1/3`.
+ * brackets of any kind, `np.array(...)` wrappers, `name =` assignments, Python
+ * `import` lines, comments (`#`, `%`, `//` and C block comments), MATLAB `...`
+ * continuations, the Unicode minus sign, scientific notation, C float suffixes
+ * (`0.5f`) and simple fractions such as `1/3`.
  */
 import type { Complex } from '$lib/dsp/complex';
 
@@ -43,11 +44,16 @@ function clean(text: string): string {
 	return (
 		text
 			.replace(/[−‒–﹣－]/g, '-') // unicode minus / dashes
+			.replace(/\/\*[\s\S]*?\*\//g, blank) // C block comments
 			.replace(/(#|%|\/\/)[^\n]*/g, blank) // comments
+			.replace(/^[ \t]*(?:import|from)\b[^\n]*/gm, blank) // Python imports
 			.replace(/\.\.\./g, '   ') // MATLAB continuation
-			// np.array(, numpy.asarray(, array(, dtype=float …
-			.replace(/\b(?:np|numpy)\s*\.\s*(?:as)?array\b/gi, blank)
-			.replace(/\b(?:as)?array\b/gi, blank)
+			// C float / long double suffix: 0.25f, 1.0F, 1e-3L
+			.replace(/(?<![\w.])((?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)[fFlL]\b/g, '$1 ')
+			// np.array(, numpy.asarray(, array(, dtype=float … The call's `(` goes too, so
+			// that it does not count as a bracket level (see scan).
+			.replace(/\b(?:np|numpy)\s*\.\s*(?:as)?array\b(?:\s*\()?/gi, blank)
+			.replace(/\b(?:as)?array\b(?:\s*\()?/gi, blank)
 			.replace(/\bdtype\s*=\s*[\w.]+/gi, blank)
 			// `name =` assignments (not ==); also C declarations like `double b[3] =`
 			.replace(
@@ -63,13 +69,19 @@ interface Word {
 }
 
 interface Scan {
-	/** Rows of words; rows are split by `;`, newlines and closing inner brackets. */
+	/**
+	 * Rows of words; rows are split by `;`, closing inner brackets and newlines
+	 * (except inside an inner bracket, where a row may wrap over several lines).
+	 */
 	rows: Word[][][];
 }
 
 /**
  * Split cleaned text into rows → items → words. Items are separated by commas
  * and row separators; words inside an item are separated by whitespace.
+ * Inside an inner bracket (depth ≥ 2) the bracket itself delimits the row, so a
+ * newline there is plain whitespace: NumPy wraps long rows (`[[ 1.5e-05 3.1e-05\n
+ * -1.77e+00 7.85e-01]\n [...]]`) and indented JSON puts one number per line.
  */
 function scan(text: string): Scan {
 	const rows: Word[][][] = [];
@@ -89,7 +101,7 @@ function scan(text: string): Scan {
 	while (i < text.length) {
 		const ch = text[i];
 		if (ch === '\n') {
-			endRow();
+			if (depth < 2) endRow();
 			i++;
 		} else if (ch === ';') {
 			endRow();

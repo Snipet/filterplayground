@@ -57,11 +57,18 @@ export const slotColor = (slot: number): string => `var(--s${slot + 1})`;
 /** Highest usable centre frequency for a sample rate. */
 export const maxFreq = (fs: number): number => 0.49 * fs;
 
+/**
+ * The centre frequency a band actually runs at: its own f, limited to
+ * maxFreq(fs). The band keeps its f, so raising fs again restores it.
+ */
+export const effectiveFreq = (b: EqBand, fs: number): number =>
+	Math.min(Math.max(b.f, 1), maxFreq(fs));
+
 /** One RBJ biquad row [b0, b1, b2, 1, a1, a2] for a band. */
 export function bandSection(b: EqBand, fs: number): number[] {
 	return biquad({
 		type: b.type as BiquadType,
-		f0: Math.min(Math.max(b.f, 1), maxFreq(fs)),
+		f0: effectiveFreq(b, fs),
 		fs,
 		q: b.q,
 		gainDb: b.gain
@@ -77,11 +84,14 @@ export function cascade(bands: readonly EqBand[], fs: number): SOS {
 
 /**
  * Magnitude (dB) of the analog RBJ prototype of a band at frequency f (Hz) —
- * the response the digital band would have without bilinear warping.
+ * the response the digital band would have without bilinear warping. Pass the
+ * sample rate to use the centre frequency the digital band runs at
+ * (effectiveFreq), so that the two differ by the warping alone.
  */
-export function analogBandDb(b: EqBand, f: number): number {
+export function analogBandDb(b: EqBand, f: number, fs?: number): number {
 	const A = Math.pow(10, b.gain / 40);
-	const w = f / Math.max(b.f, 1e-9); // normalised frequency, s = jw
+	const f0 = fs ? effectiveFreq(b, fs) : b.f;
+	const w = f / Math.max(f0, 1e-9); // normalised frequency, s = jw
 	const Q = b.q;
 	// numerator and denominator as (re, im) of polynomials in s = jw
 	let nr: number, ni: number, dr: number, di: number;
@@ -164,6 +174,17 @@ export function markerLevel(b: EqBand, ownDbAtF0: number): number {
 export function gainFromLevel(b: EqBand, level: number): number {
 	const g = b.type === 'lowshelf' || b.type === 'highshelf' ? 2 * level : level;
 	return Math.round(Math.max(-MAX_GAIN, Math.min(MAX_GAIN, g)) * 10) / 10;
+}
+
+/**
+ * Gain (dB) of a gain-type band whose handle has been dragged `dLevel` dB up
+ * (negative: down) since the drag started at gain `startGain`. Relative to the
+ * start, so a handle drawn clamped to the visible range keeps its off-scale
+ * gain when it is only dragged sideways.
+ */
+export function draggedGain(b: EqBand, startGain: number, dLevel: number): number {
+	if (dLevel === 0) return startGain;
+	return gainFromLevel(b, markerLevel({ ...b, gain: startGain }, 0) + dLevel);
 }
 
 export type PresetBand = Omit<EqBand, 'id' | 'slot' | 'enabled'>;

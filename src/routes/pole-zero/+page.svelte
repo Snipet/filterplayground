@@ -1220,9 +1220,10 @@
 					version.
 				</li>
 				<li>
-					In the s-plane <em>Resonant pair</em>, sweep ζ from 0.7 to 0 and on to negative values:
-					the step response goes from no overshoot to sustained ringing to exponential growth as the
-					poles cross the jω axis.
+					In the s-plane <em>Resonant pair</em>, sweep ζ from 1 down to 0 and on to negative values:
+					the step response goes from no overshoot (ζ = 1, critically damped: a double real pole)
+					through about 5 % overshoot at ζ ≈ 0.7 to sustained ringing at ζ = 0, then to exponential
+					growth as the poles cross the jω axis.
 				</li>
 				<li>
 					Load <em>Moving average</em> and delete one zero: the comb notch disappears and the causal poles

@@ -35,9 +35,13 @@
 			/>
 			<p>
 				Group delay is the delay of a narrow-band envelope; phase delay is the delay of the carrier.
-				They are equal and constant for a pure delay and for linear-phase FIRs (<Tex
-					math={t`\tau=M/2`}
-				/> samples). Digital values are in samples — divide by f<sub>s</sub> for seconds. A factor
+				They are equal and constant (<Tex math={t`\tau=M/2`} /> samples) for a pure delay and for a symmetric
+				(type I, II) FIR as long as its amplitude A(ω) stays positive from DC up, e.g. across a low-pass
+				passband. Every linear-phase FIR has <Tex math={t`\tau_g=M/2`} />, but with <Tex
+					math={t`\varphi=\beta-\omega M/2`}
+				/> the phase delay is <Tex math={t`\tau_p=M/2-\beta/\omega`} />: β starts at 0 (types I, II)
+				or π/2 (types III, IV) when A(ω) &gt; 0 just above DC, and each sign change of A(ω) adds a π
+				step. Digital values are in samples — divide by f<sub>s</sub> for seconds. A factor
 				<Tex math={t`(1-re^{j\theta}z^{-1})`} /> contributes the following (a pole contributes the negative):
 			</p>
 			<Tex

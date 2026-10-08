@@ -2,11 +2,13 @@
  * Window explorer helpers: spectra in bins, slicing/decimation for plotting,
  * and the two-tone spectral-leakage experiment.
  */
-import { fftReal, nextPow2 } from '$lib/dsp/fft';
+import { fftInPlace, fftReal, nextPow2 } from '$lib/dsp/fft';
 import {
 	WINDOWS,
 	windowInfo,
 	windowMetrics,
+	windowParamAt,
+	windowParamRange,
 	windowValues,
 	type WindowMetrics,
 	type WindowType
@@ -18,9 +20,16 @@ export interface WindowChoice {
 	param?: number;
 }
 
+/** Slider range of a window's parameter at length N (DPSS needs NW < N/2). */
+export const paramRange = windowParamRange;
+
+/** The parameter actually used at length N: the chosen value (or the default), kept in range. */
+export const effectiveParam = (c: WindowChoice, N: number): number | undefined =>
+	windowParamAt(c.type, N, c.param);
+
 /** Window values; Dolph–Chebyshev via the table-driven fast path (same values as the shared chebwin). */
 export function makeWindow(c: WindowChoice, N: number, periodic: boolean): number[] {
-	const p = windowInfo(c.type).param ? (c.param ?? windowInfo(c.type).param!.default) : undefined;
+	const p = effectiveParam(c, N);
 	if (c.type === 'chebyshev' && N > 1)
 		return periodic ? chebwinFast(N + 1, p!).slice(0, N) : chebwinFast(N, p!);
 	return windowValues(c.type, N, p, periodic);
@@ -94,6 +103,19 @@ export type MetricKey =
 	| 'coherentGain'
 	| 'scallopLossDb';
 
+/**
+ * Item with the smallest key. NaN (not measured) is skipped and −∞ counts as the
+ * smallest, which a plain `a − b` sort gets wrong (−∞ − −∞ is NaN).
+ */
+export function lowest<T>(items: readonly T[], key: (t: T) => number): T | undefined {
+	let best: T | undefined;
+	for (const it of items) {
+		const v = key(it);
+		if (!Number.isNaN(v) && (best === undefined || v < key(best))) best = it;
+	}
+	return best;
+}
+
 export function sortRows(rows: MetricsRow[], key: MetricKey | 'name', dir: 1 | -1): MetricsRow[] {
 	return [...rows].sort((a, b) => {
 		if (key === 'name') return dir * a.name.localeCompare(b.name);
@@ -133,8 +155,69 @@ export function twoTones(s: ToneSetup, weak = true): number[] {
 	);
 }
 
+// FFT of the conjugate chirp for the last (length, DFT size) pair: the leakage demo
+// transforms several signals of the same length in a row.
+let chirpCache: { key: string; re: Float64Array; im: Float64Array } | null = null;
+
 /**
- * Windowed, zero-padded magnitude spectrum in dB, scaled so a unit-amplitude
+ * DFT of a real sequence zero-padded to exactly L ≥ x.length points, bins
+ * k = 0..⌊L/2⌋. A radix-2 FFT when L is a power of two, Bluestein's chirp-z
+ * algorithm otherwise (X[k] = c[k]·Σ x[n]c[n]·c*[k−n], c[m] = e^(−jπm²/L)), so
+ * an N-point DFT really samples at the N bins — not on a denser power-of-2 grid.
+ */
+export function dftReal(x: readonly number[], L: number): { re: Float64Array; im: Float64Array } {
+	const K = Math.floor(L / 2);
+	if (L === nextPow2(L)) {
+		const { re, im } = fftReal(x, L);
+		return { re: re.slice(0, K + 1), im: im.slice(0, K + 1) };
+	}
+	const N = x.length;
+	const M = nextPow2(N + K); // linear convolution of N inputs with lags −(N−1)..K
+	// chirp phase πm²/L, with m² reduced mod 2L so large m keep full precision
+	const theta = (m: number) => (Math.PI * ((m * m) % (2 * L))) / L;
+	const key = `${N}:${L}`;
+	if (chirpCache?.key !== key) {
+		const re = new Float64Array(M);
+		const im = new Float64Array(M);
+		for (let m = 0; m <= K; m++) {
+			re[m] = Math.cos(theta(m));
+			im[m] = Math.sin(theta(m));
+		}
+		for (let m = 1; m < N; m++) {
+			re[M - m] = Math.cos(theta(m));
+			im[M - m] = Math.sin(theta(m));
+		}
+		fftInPlace(re, im);
+		chirpCache = { key, re, im };
+	}
+	const are = new Float64Array(M);
+	const aim = new Float64Array(M);
+	for (let n = 0; n < N; n++) {
+		are[n] = x[n] * Math.cos(theta(n));
+		aim[n] = -x[n] * Math.sin(theta(n));
+	}
+	fftInPlace(are, aim);
+	const { re: bre, im: bim } = chirpCache;
+	for (let i = 0; i < M; i++) {
+		const r = are[i] * bre[i] - aim[i] * bim[i];
+		aim[i] = are[i] * bim[i] + aim[i] * bre[i];
+		are[i] = r;
+	}
+	fftInPlace(are, aim, true);
+	const re = new Float64Array(K + 1);
+	const im = new Float64Array(K + 1);
+	for (let k = 0; k <= K; k++) {
+		const c = Math.cos(theta(k));
+		const s = -Math.sin(theta(k));
+		re[k] = are[k] * c - aim[k] * s;
+		im[k] = are[k] * s + aim[k] * c;
+	}
+	return { re, im };
+}
+
+/**
+ * Windowed magnitude spectrum in dB, zero-padded to exactly N·pad points (pad = 1:
+ * the plain N-point DFT, bins at the integers), scaled so a unit-amplitude
  * sinusoid reads 0 dB at its peak (divide by the coherent gain Σw/2).
  */
 export function windowedSpectrum(
@@ -143,14 +226,14 @@ export function windowedSpectrum(
 	pad: number
 ): { bins: number[]; db: number[] } {
 	const N = x.length;
-	const n = nextPow2(Math.max(N, Math.round(N * pad)));
+	const L = Math.max(N, Math.round(N * pad));
 	const xw = x.map((v, i) => v * w[i]);
-	const { re, im } = fftReal(xw, n);
+	const { re, im } = dftReal(xw, L);
 	const norm = w.reduce((s, v) => s + v, 0) / 2;
 	const bins: number[] = [];
 	const db: number[] = [];
-	for (let k = 0; k <= n / 2; k++) {
-		bins.push((k * N) / n);
+	for (let k = 0; k < re.length; k++) {
+		bins.push((k * N) / L);
 		db.push(20 * Math.log10(Math.max(Math.hypot(re[k], im[k]) / norm, 1e-15)));
 	}
 	return { bins, db };

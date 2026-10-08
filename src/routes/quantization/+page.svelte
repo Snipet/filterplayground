@@ -23,6 +23,7 @@
 	import {
 		coupledGrid,
 		directFormGrid,
+		limitCycle,
 		lsb,
 		qName,
 		quantizeCoupled,
@@ -283,8 +284,19 @@
 	const lcFrac = $derived(lcBits - 1);
 	const lcA1 = $derived(-2 * lcR * Math.cos((lcTheta * Math.PI) / 180));
 	const lcA2 = $derived(lcR * lcR);
-	const LC_N = 240;
-	const lc = $derived(zeroInputResponse(lcA1, lcA2, 0.5, lcFrac, lcMode, LC_N));
+	// The steady state comes from exact cycle detection, not from the plotted window, so a
+	// slowly decaying transient (r → 1) is never mistaken for a limit cycle.
+	const lcCycle = $derived(limitCycle(lcA1, lcA2, 0.5, lcFrac, lcMode, { saturate: true }));
+	const LC_MIN = 240;
+	const LC_MAX = 3000;
+	// plot until a few periods of the steady state are visible
+	const lcN = $derived(
+		Math.min(
+			LC_MAX,
+			Math.max(LC_MIN, Math.ceil((lcCycle.onset + Math.max(80, 3 * lcCycle.period)) / 40) * 40)
+		)
+	);
+	const lc = $derived(zeroInputResponse(lcA1, lcA2, 0.5, lcFrac, lcMode, lcN, { saturate: true }));
 	const lcScale = $derived(Math.pow(2, lcFrac));
 	const lcSeries = $derived<Series[]>([
 		{
@@ -303,26 +315,57 @@
 			format: (v) => `${trimNumber(v, 4)} LSB`
 		}
 	]);
-	const lcTail = $derived(lc.quantized.slice(-80).map((v) => Math.abs(v) * lcScale));
-	const lcAmp = $derived(Math.max(...lcTail));
-	const lcBound = $derived(0.5 / (1 - Math.abs(lcA2)));
+	const lcAmp = $derived(lcCycle.amplitude);
+	const lcKind = $derived.by(() => {
+		const s = lcCycle.samples;
+		if (lcCycle.capped || lcAmp === 0) return '';
+		if (lcCycle.period === 1) return 'constant (DC)';
+		if (lcCycle.period === 2 && s[0] === -s[1]) return 'alternating (fs/2)';
+		return `period ${lcCycle.period}`;
+	});
+	// Jackson's effective-value estimate for oscillating (a₂-type) cycles with rounding
+	const lcDeadBand = $derived(0.5 / (1 - Math.abs(lcA2)));
+	// constant / sign-alternating cycles: (1 − |a₁| + a₂)|y| ≤ |e₁ + e₂|, with |eᵢ| ≤ ½ LSB
+	// per rounded product (< 1 LSB when truncating)
+	const lcDcBound = $derived((lcMode === 'round' ? 1 : 2) / (1 - Math.abs(lcA1) + lcA2));
 	const lcStats = $derived<Stat[]>([
 		{ label: 'Coefficients', value: `a₁ = ${trimNumber(lcA1, 4)}, a₂ = ${trimNumber(lcA2, 4)}` },
 		{
-			label: 'Ideal at n = 239',
-			value: `${trimNumber(Math.abs(lc.ideal[LC_N - 1]) * lcScale, 2)} LSB`,
+			label: `Ideal at n = ${lcN - 1}`,
+			value: `${trimNumber(Math.abs(lc.ideal[lcN - 1]) * lcScale, 2)} LSB`,
 			hint: 'The exact response decays geometrically to zero'
 		},
 		{
 			label: 'Sustained oscillation',
-			value: lcAmp > 0 ? `±${trimNumber(lcAmp, 3)} LSB` : 'none (decays to 0)',
+			value: lcCycle.capped
+				? `≥ ±${trimNumber(lcAmp, 3)} LSB (not settled)`
+				: lcAmp === 0
+					? 'none (decays to 0)'
+					: lcCycle.period === 1
+						? `${trimNumber(lcCycle.samples[0], 3)} LSB, ${lcKind}`
+						: `±${trimNumber(lcAmp, 3)} LSB, ${lcKind}`,
 			status: lcAmp > 0 ? 'warning' : 'good',
-			hint: 'Largest |y| over the last 80 samples of the quantised response'
+			hint: lcCycle.capped
+				? 'The quantised state had not repeated within the step budget'
+				: `Exact steady state of the quantised recursion: its state repeats, so y[n] is periodic from n = ${lcCycle.onset} on (period ${lcCycle.period}).`
 		},
+		...(lcMode === 'round'
+			? [
+					{
+						label: 'Dead band (oscillating)',
+						value: `≈ ${trimNumber(lcDeadBand, 3)} LSB`,
+						hint: 'Jackson’s effective-value estimate for oscillating (a₂-type) limit cycles with rounding: |y| ≲ 0.5 / (1 − |a₂|) LSB. An estimate, not a guarantee.'
+					}
+				]
+			: []),
 		{
-			label: 'Dead-band bound',
-			value: `${trimNumber(lcBound, 3)} LSB`,
-			hint: 'Jackson’s bound for rounding: |y| ≤ 0.5 / (1 − |a₂|) LSB'
+			label: 'Bound for DC / fs/2 cycles',
+			value: `${lcMode === 'round' ? '≤' : '<'} ${trimNumber(lcDcBound, 3)} LSB`,
+			hint: `Constant or sign-alternating (a₁-type) limit cycles satisfy (1 − |a₁| + a₂)·|y| ${
+				lcMode === 'round'
+					? '≤ 1 LSB with both products rounded'
+					: '< 2 LSB with both products truncated'
+			}.`
 		}
 	]);
 
@@ -342,11 +385,14 @@ static const double gain = ${num(qSos.gain, 12)};`;
 	});
 	const dfCode = $derived.by(() => {
 		const [fb, fa] = qDf.sets.map((s) => s.format);
+		// full precision: every b_q, a_q value is exactly code / 2^F
 		return `# Direct form, ${bits}-bit coefficients
-# b = gain * b_q, b_q in ${qName(fb)};  a = [1, a_q], a_q in ${qName(fa)}
-gain = ${num(qDf.zpk.k, 12)}
-b_q = [${qDf.tf.b.map((v) => num(v / qDf.zpk.k, 10)).join(', ')}]
-a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
+# b_q: monic numerator in ${qName(fb)}; a_q: a1..a${qDf.aq.length} in ${qName(fa)} (a0 = 1 is implicit)
+gain = ${num(qDf.gain)}
+b_q = [${qDf.bq.map((v) => num(v)).join(', ')}]
+a_q = [${qDf.aq.map((v) => num(v)).join(', ')}]
+b = [gain * v for v in b_q]
+a = [1.0] + a_q`;
 	});
 
 	const familyOptions = [
@@ -708,7 +754,7 @@ a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
 
 	<Card
 		title="Limit cycles"
-		subtitle="Zero-input response of y[n] = −a₁y[n−1] − a₂y[n−2] from y[−1] = 0.5, with every product rounded to the signal word length."
+		subtitle="Zero-input response of the direct form y[n] = −a₁y[n−1] − a₂y[n−2] from y[−1] = 0.5 in a B-bit signal word (Q0.(B−1), full scale ±2^(B−1) LSB): every product is quantised to the word length and the sum saturates at full scale."
 	>
 		<div class="lc-ctl">
 			<Slider label="Pole radius r" bind:value={lcR} min={0.5} max={0.999} step={0.001} />
@@ -732,6 +778,13 @@ a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
 			height={260}
 			exportName="limit-cycle"
 		/>
+		{#if lcCycle.capped || lcCycle.onset + lcCycle.period > lcN}
+			<p class="small muted">
+				The quantised response only settles {lcCycle.capped
+					? 'after more samples than were simulated'
+					: `at n = ${lcCycle.onset}`}, beyond the {lcN} samples plotted.
+			</p>
+		{/if}
 	</Card>
 
 	{#snippet theory()}
@@ -802,17 +855,37 @@ a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
 			/> per quantiser, shaped by the transfer function from that node to the output; poles near the unit
 			circle amplify it (high-Q sections are noisy). Rounding is also a non-linearity: in a recursive
 			section the rounded output can settle into a sustained oscillation even with zero input — a
-			<strong>zero-input limit cycle</strong>. For a second-order section with rounding its
-			amplitude stays within the “dead band” <Tex math={'|y|\\le \\frac{0.5}{1-|a_2|}'} /> LSB, so it
-			is worst for poles close to the unit circle. Magnitude truncation (rounding toward zero) removes
-			energy every step and suppresses these limit cycles (at the cost of a bias); overflow limit cycles
-			are prevented by saturation arithmetic.
+			<strong>zero-input limit cycle</strong>. For a second-order section with rounding, Jackson’s
+			effective-value argument estimates its size: an oscillation can persist where rounding makes
+			a₂y behave as if a₂ were 1 — poles effectively on the unit circle — which happens inside the
+			“dead band” <Tex math={'|y|\\lesssim \\frac{0.5}{1-|a_2|}'} /> LSB, so it is worst for poles close
+			to the unit circle. That is an estimate, not a guarantee: with both products rounded, as in the
+			demo, some oscillations are larger (r = 0.95, θ = 30°, 16 bits: 12 LSB against 5.1). Constant (DC)
+			and sign-alternating (fs/2) limit cycles, the a₁ type, obey a bound of their own, <Tex
+				math={'(1-|a_1|+a_2)\\,|y|\\le 1'}
+			/> LSB with both products rounded (0.5 with a single quantiser after the accumulator). It allows
+			far larger cycles when θ is near 0° or 180°: r = 0.9, θ = 5°, 12 bits locks onto a constant −35
+			LSB, against a dead band of 2.6.
+		</p>
+		<p>
+			Magnitude truncation (rounding toward zero) shrinks every product, but in the direct form that
+			does not shrink the state, because |a₁| = 2r|cos θ| can approach 2. Once |a₁| ≥ 1, y = ±1 LSB
+			is a constant (θ &lt; 90°) or alternating (θ &gt; 90°) limit cycle, since trunc(|a₁|) = 1 and
+			trunc(a₂) = 0, and larger ones exist too (r = 0.8, θ = 15°, 8 bits: −6 LSB, against 1 LSB with
+			rounding). Whether a response gets caught depends on its path. In the normal (coupled) form
+			the state update is a rotation scaled by r &lt; 1, so truncating each state after its
+			accumulator can only shrink the state: zero-input limit cycles cannot exist there (wave
+			digital filters achieve the same through passivity). Truncation also adds a bias. Overflow
+			limit cycles are prevented by saturation arithmetic, which the demo uses.
 		</p>
 		<Callout kind="try">
 			<ul>
 				<li>
-					Lower B from 24 to 12 bits and watch the direct-form poles leave the unit circle while the
-					cascade barely moves.
+					With the default 6th-order elliptic the direct form is unstable at every word length on
+					the slider, even 24 bits (|p| ≈ 1.008; it first turns stable at 26 bits), while the
+					cascade stays within 0.001 dB of the ideal passband. Set the order to 4: the direct form
+					is now stable at 24 bits, and lowering B pushes a pole out of the unit circle at 17 bits
+					while the cascade barely moves.
 				</li>
 				<li>
 					Switch to a 4th-order Butterworth low-pass at 200 Hz and reduce B to 8 bits: even the
@@ -825,8 +898,10 @@ a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
 				</li>
 				<li>In the pole grid, zoom near z = 1 and compare 5-bit direct and coupled forms.</li>
 				<li>
-					In the limit-cycle demo, raise r to 0.99: the oscillation grows to several LSB. Switch the
-					quantiser to magnitude truncation and it disappears.
+					In the limit-cycle demo, rounding leaves a ±5 LSB oscillation; raise r to 0.99 and it
+					grows to ±26 LSB. Switch the quantiser to magnitude truncation and the response now decays
+					to zero — but back at r = 0.95 truncation sticks at a constant −1 LSB, and at r = 0.8, θ =
+					15° at −6 LSB, worse than rounding.
 				</li>
 			</ul>
 		</Callout>

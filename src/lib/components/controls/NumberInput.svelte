@@ -54,8 +54,27 @@
 		return out;
 	}
 
+	// Removing a focused field (its block switching away) fires blur synchronously, before any
+	// teardown: committing then would write the stale text into whatever replaced it. So the
+	// blur commit waits a microtask (still ahead of the click that caused the blur) and is
+	// dropped once the field is gone.
+	let alive = true;
+	$effect(() => () => {
+		alive = false;
+	});
+	const commitOnBlur = () =>
+		queueMicrotask(() => {
+			if (alive) commit();
+		});
+
 	function commit() {
-		const v = parseSI(text);
+		// untouched text is the rounded display: keep the exact value instead of rounding it
+		if (text === fmt(value)) {
+			invalid = false;
+			editing = false;
+			return;
+		}
+		const v = parseSI(text, unit);
 		if (Number.isFinite(v)) {
 			invalid = false;
 			value = clamp(v);
@@ -75,7 +94,7 @@
 			e.preventDefault();
 			const dir = e.key === 'ArrowUp' ? 1 : -1;
 			const mult = e.shiftKey ? 10 : 1;
-			let v = Number.isFinite(parseSI(text)) ? parseSI(text) : value;
+			let v = Number.isFinite(parseSI(text, unit)) ? parseSI(text, unit) : value;
 			if (logStep) v = v * Math.pow(logStep, dir * mult);
 			else v = v + dir * step * mult;
 			value = clamp(Number(v.toPrecision(12)));
@@ -104,7 +123,7 @@
 				editing = true;
 				(e.target as HTMLInputElement).select();
 			}}
-			onblur={commit}
+			onblur={commitOnBlur}
 			onkeydown={onKey}
 			aria-describedby={help ? `${inputId}-help` : undefined}
 		/>

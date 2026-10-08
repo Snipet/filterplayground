@@ -109,14 +109,69 @@ export function toFixed(v: number, bits: number, frac: number): number {
 	return Math.max(min, Math.min(max, Math.round(v * scale)));
 }
 
+/** Word lengths accepted for fixed-point export (sign bit included). */
+export const FIXED_BITS_MIN = 4;
+export const FIXED_BITS_MAX = 32;
+
+/**
+ * Sanitise a fixed-point word length: an integer in [FIXED_BITS_MIN, FIXED_BITS_MAX], or
+ * `fallback` when it is not a finite number (an empty number field binds as null).
+ */
+export function clampFixedBits(bits: number | null | undefined, fallback = 16): number {
+	if (typeof bits !== 'number' || !Number.isFinite(bits)) return fallback;
+	return Math.min(FIXED_BITS_MAX, Math.max(FIXED_BITS_MIN, Math.round(bits)));
+}
+
+export interface FixedFormat {
+	/** Total word length, sign bit included. */
+	bits: number;
+	/** Integer bits besides the sign bit (Q intBits.frac, ARM notation). */
+	intBits: number;
+	/** Fractional bits: value = integer / 2^frac. */
+	frac: number;
+	/** Largest |h|. */
+	maxAbs: number;
+	/** Values that still saturate with frac = 0 (|h| beyond the integer range of the word). */
+	clipped: number;
+}
+
+/**
+ * Q format for a coefficient set: the most fractional bits for which no rounded value
+ * saturates, i.e. Q0.(bits−1) when every |h| < 1, one integer bit per doubling beyond.
+ */
+export function fixedFormat(h: readonly number[], bits = 16): FixedFormat {
+	const b = clampFixedBits(bits);
+	const max = Math.pow(2, b - 1) - 1;
+	const min = -Math.pow(2, b - 1);
+	const saturated = (frac: number) =>
+		h.filter((v) => {
+			const r = Math.round(v * Math.pow(2, frac));
+			return r > max || r < min;
+		}).length;
+	let intBits = 0;
+	while (intBits < b - 1 && saturated(b - 1 - intBits) > 0) intBits++;
+	const frac = b - 1 - intBits;
+	const maxAbs = h.reduce((m, v) => (Number.isFinite(v) ? Math.max(m, Math.abs(v)) : m), 0);
+	return { bits: b, intBits, frac, maxAbs, clipped: saturated(frac) };
+}
+
 export function firToFixedC(h: readonly number[], bits = 16, name = 'h'): string {
-	const frac = bits - 1;
-	const ints = h.map((v) => toFixed(v, bits, frac));
-	const type = bits <= 8 ? 'int8_t' : bits <= 16 ? 'int16_t' : 'int32_t';
+	const { bits: b, intBits, frac, maxAbs, clipped } = fixedFormat(h, bits);
+	const ints = h.map((v) => toFixed(v, b, frac));
+	const type = b <= 8 ? 'int8_t' : b <= 16 ? 'int16_t' : 'int32_t';
 	const rows: string[] = [];
 	for (let i = 0; i < ints.length; i += 8)
 		rows.push('    ' + ints.slice(i, i + 8).join(', ') + ',');
-	return `/* Q${frac} coefficients (value = integer / 2^${frac}) */\n#include <stdint.h>\nstatic const ${type} ${name}[${ints.length}] = {\n${rows.join('\n')}\n};`;
+	const notes = [`/* Q${intBits}.${frac} coefficients, ${b}-bit (value = integer / 2^${frac}) */`];
+	if (intBits > 0)
+		notes.push(
+			`/* max |h| = ${num(maxAbs, 6)} does not fit Q0.${b - 1} [-1, 1), so ${intBits} integer bit${intBits > 1 ? 's are' : ' is'} used */`
+		);
+	if (clipped > 0)
+		notes.push(
+			`/* WARNING: ${clipped} tap${clipped > 1 ? 's exceed' : ' exceeds'} the ${b}-bit range even as integers and ${clipped > 1 ? 'were' : 'was'} clipped */`
+		);
+	return `${notes.join('\n')}\n#include <stdint.h>\nstatic const ${type} ${name}[${ints.length}] = {\n${rows.join('\n')}\n};`;
 }
 
 // ---------------------------------------------------------------------------

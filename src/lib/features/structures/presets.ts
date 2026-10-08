@@ -55,12 +55,15 @@ export interface PresetFilter {
 }
 
 const FS = 48000;
+const pad3 = (v: readonly number[]) => [...v, 0, 0, 0].slice(0, 3);
 
 export function presetFilter(id: PresetId, bq: BiquadSettings): PresetFilter {
 	switch (id) {
 		case 'biquad': {
-			const row = biquad({ type: bq.type, f0: bq.f0, fs: FS, q: bq.q, gainDb: bq.gainDb });
-			const { b, a } = normalizeTf(row.slice(0, 3), row.slice(3, 6));
+			const raw = biquad({ type: bq.type, f0: bq.f0, fs: FS, q: bq.q, gainDb: bq.gainDb });
+			const { b, a } = normalizeTf(raw.slice(0, 3), raw.slice(3, 6));
+			// the section itself without round-off coefficients (a₁ ≈ 10⁻¹⁶ at f₀ = fs/4)
+			const row = [...pad3(b), ...pad3(a)];
 			return { b, a, sos: [row], fs: FS };
 		}
 		case 'butter4':

@@ -440,15 +440,16 @@
 			{:else}
 				<p class="small muted">
 					Each family uses its own textbook meaning of the cutoff: Chebyshev I and elliptic put the
-					end of the ripple band at fc, Chebyshev II puts the start of the stopband (Rs) there, the
-					rest are −3 dB.
+					end of the ripple band at fc, Chebyshev II puts the start of the stopband (Rs) there{#if enabled.bessel},
+						Bessel follows the normalisation chosen below{/if}, and Butterworth, Legendre, Gaussian
+					and critically damped are −3 dB at fc.
 				</p>
 				{#if enabled.bessel}
 					<Select
 						label="Bessel normalisation"
 						bind:value={besselNative}
 						options={[
-							{ value: 'phase', label: 'Phase midpoint at fc (SciPy default)' },
+							{ value: 'phase', label: 'Phase-matched: ≈ phase midpoint at fc (SciPy default)' },
 							{ value: 'delay', label: 'Unit delay: τ(0) = 1/(2π fc)' },
 							{ value: 'mag', label: '−3 dB at fc' }
 						]}
@@ -640,7 +641,8 @@
 			Attenuation is relative to the passband peak. Ripple is measured up to the last passband
 			maximum. Δτ is the spread of group delay from DC to the −3 dB point, also given relative to
 			the DC delay τ(0). Highest Q is the worst pole pair — a measure of how hard the filter is to
-			build accurately.
+			build accurately. The step of an even-order Chebyshev II or elliptic filter jumps to H(∞) at t
+			= 0⁺; when that is already above 10 % (low Rs), the rise time is counted from t = 0.
 		</p>
 	</Card>
 
@@ -769,7 +771,10 @@
 				</li>
 				<li>
 					Raise Rp from 0.1 dB to 3 dB: the Chebyshev I knee sharpens (more attenuation at 2·fc)
-					while its group-delay peak and overshoot grow.
+					while its group-delay peak, highest Q and settling time grow. The overshoot only grows at
+					even orders (N = 6: 18 % → 39 %); at odd orders such as the default N = 5 it shrinks (15 %
+					→ 2 %), because the step settles to the DC gain, which for odd N sits on a ripple peak
+					rather than Rp below one.
 				</li>
 				<li>
 					Switch to “Monotonic” and compare Legendre with Butterworth: same smooth passband, but

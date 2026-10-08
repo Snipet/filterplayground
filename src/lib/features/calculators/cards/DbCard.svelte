@@ -4,7 +4,7 @@
 	import Segmented from '$lib/components/controls/Segmented.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
 	import { trimNumber } from '$lib/dsp/units';
-	import { ampToDb, dbToAmp, powToDb, dbToPow, levelToVrms, levelsFromVrms } from '../math';
+	import { ampToDb, dbToAmp, powToDb, dbToPow, levelToVrms, levelsFromVrms, snapDb } from '../math';
 
 	let { id, title }: { id: string; title: string } = $props();
 
@@ -12,6 +12,7 @@
 	let db = $state(6);
 	let vrms = $state(1);
 
+	// dB fields go through snapDb: rounding residue would otherwise show as e.g. 9.6433e-16
 	const lv = $derived(levelsFromVrms(vrms));
 </script>
 
@@ -90,45 +91,48 @@
 			/>
 			<NumberInput
 				label="dBV (re 1 V)"
-				value={lv.dBV}
+				value={snapDb(lv.dBV)}
 				unit="dBV"
 				onchange={(v) => (vrms = levelToVrms(v, 'dBV'))}
 			/>
 			<NumberInput
 				label="dBu (re 0.775 V)"
-				value={lv.dBu}
+				value={snapDb(lv.dBu)}
 				unit="dBu"
 				onchange={(v) => (vrms = levelToVrms(v, 'dBu'))}
 			/>
 			<NumberInput
 				label="dBm @ 600 Ω"
-				value={lv.dBm600}
+				value={snapDb(lv.dBm600)}
 				unit="dBm"
 				onchange={(v) => (vrms = levelToVrms(v, 'dBm600'))}
 			/>
 			<NumberInput
 				label="dBm @ 50 Ω"
-				value={lv.dBm50}
+				value={snapDb(lv.dBm50)}
 				unit="dBm"
 				onchange={(v) => (vrms = levelToVrms(v, 'dBm50'))}
 			/>
+			<!-- in W with SI prefixes, so "1 mW" or "500 µW" parse as typed (shown as 1 mW…) -->
 			<NumberInput
 				label="Power into 600 Ω"
-				value={lv.p600 * 1e3}
-				unit="mW"
+				value={lv.p600}
+				unit="W"
+				si
 				digits={6}
-				min={1e-15}
+				min={1e-18}
 				logStep={1.1}
-				onchange={(v) => (vrms = Math.sqrt(v * 1e-3 * 600))}
+				onchange={(v) => (vrms = Math.sqrt(v * 600))}
 			/>
 			<NumberInput
 				label="Power into 50 Ω"
-				value={lv.p50 * 1e3}
-				unit="mW"
+				value={lv.p50}
+				unit="W"
+				si
 				digits={6}
-				min={1e-15}
+				min={1e-18}
 				logStep={1.1}
-				onchange={(v) => (vrms = Math.sqrt(v * 1e-3 * 50))}
+				onchange={(v) => (vrms = Math.sqrt(v * 50))}
 			/>
 		</div>
 	{/if}

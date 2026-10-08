@@ -38,7 +38,8 @@ describe('linear-phase: types and forced zeros', () => {
 		expect(at(randomTaps(3, 21, 1), -1)).toBeLessThan(1e-6);
 		expect(at(randomTaps(4, 20, 1), 1)).toBeLessThan(1e-6);
 		expect(capabilities(2).highpass).toBe(false);
-		expect(capabilities(4).highpass).toBe(false); // antisymmetric types are not ordinary selective filters
+		// type IV's only forced zero is at z = +1, so a high-pass is possible (with a constant 90° phase)
+		expect(capabilities(4).highpass).toBe(true);
 		expect(capabilities(1)).toMatchObject({ lowpass: true, highpass: true, bandstop: true });
 	});
 	it('the amplitude is real, signed and matches |H|', () => {

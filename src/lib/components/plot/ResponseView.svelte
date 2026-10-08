@@ -27,7 +27,7 @@
 		suggestDigitalLength
 	} from '$lib/dsp/time';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
-	import { freqFormat, seriesColor } from './scales';
+	import { freqFormat, magToDb, markerToMag, niceStep, regionToMag, seriesColor } from './scales';
 	import type { Complex } from '$lib/dsp/complex';
 
 	interface Props {
@@ -36,6 +36,11 @@
 		fmin?: number;
 		fmax?: number;
 		xScale?: 'log' | 'linear';
+		/**
+		 * dB or linear magnitude axis. A page that passes magMode (usually via bind:) knows
+		 * the active unit and supplies magDomain, regions, markers and reads drag/click y in
+		 * it. Otherwise those are always in dB and are converted for the Linear view.
+		 */
 		magMode?: 'db' | 'linear';
 		magDomain?: [number, number];
 		/** Lowest dB shown by the auto range, relative to the peak. */
@@ -67,7 +72,7 @@
 		fmin,
 		fmax,
 		xScale = $bindable(),
-		magMode = $bindable('db'),
+		magMode = $bindable(),
 		magDomain,
 		dbRange = 120,
 		regions = [],
@@ -124,23 +129,50 @@
 
 	const responses = $derived(filters.map((f) => evaluate(f.filter, grid)));
 
+	// Uncontrolled magMode: the page cannot know the unit, so its overlays stay in dB.
+	let ownMagMode = $state<'db' | 'linear'>('db');
+	const mode = $derived(magMode ?? ownMagMode);
+	// dB overlays shown on the Linear axis are mapped to |H| (and drag/click y back to dB)
+	const toMag = $derived(magMode === undefined && mode === 'linear');
+	const plotRegions = $derived(toMag ? regions.map(regionToMag) : regions);
+	const plotMarkers = $derived(toMag ? markers.map(markerToMag) : markers);
+	const markerDrag = $derived(
+		toMag && onmarkerdrag
+			? (id: string | number, x: number, y: number) => onmarkerdrag(id, x, magToDb(y))
+			: onmarkerdrag
+	);
+	const plotClick = $derived(
+		toMag && onplotclick
+			? (x: number, y: number, ev: MouseEvent) => onplotclick(x, magToDb(y), ev)
+			: onplotclick
+	);
+
 	const colorOf = (i: number) => filters[i]?.color ?? seriesColor(i);
 
 	const magSeries = $derived<Series[]>(
 		responses.map((r, i) => ({
 			x: r.f,
-			y: magMode === 'db' ? r.magDb : r.mag,
+			y: mode === 'db' ? r.magDb : r.mag,
 			label: filters[i].label,
 			color: colorOf(i),
 			dash: filters[i].dash,
 			format:
-				magMode === 'db' ? (v: number) => `${trimNumber(v, 4)} dB` : (v: number) => trimNumber(v, 4)
+				mode === 'db' ? (v: number) => `${trimNumber(v, 4)} dB` : (v: number) => trimNumber(v, 4)
 		}))
 	);
 
 	const magDom = $derived.by((): [number, number] | undefined => {
-		if (magDomain) return magDomain;
-		if (magMode !== 'db') return undefined;
+		if (magDomain && !toMag) return magDomain;
+		if (mode !== 'db') {
+			// 0 … rounded peak, so (like the 10 dB steps below) dragging a handle does not
+			// rescale the axis under the pointer on every move
+			let peak = 0;
+			for (const r of responses)
+				for (const v of r.mag) if (Number.isFinite(v)) peak = Math.max(peak, v);
+			if (!(peak > 0)) return undefined;
+			const step = niceStep(peak, 5);
+			return [0, Math.ceil((peak * 1.02) / step) * step];
+		}
 		let hi = -Infinity;
 		let lo = Infinity;
 		for (const r of responses)
@@ -331,19 +363,19 @@
 			xDomain={range}
 			yDomain={magDom}
 			xLabel="Frequency (Hz)"
-			yLabel={magMode === 'db' ? 'Magnitude (dB)' : 'Magnitude'}
+			yLabel={mode === 'db' ? 'Magnitude (dB)' : 'Magnitude'}
 			xFormat={freqFormat}
 			xTooltipFormat={hzTooltip}
 			height={magHeight}
 			{title}
-			{regions}
+			regions={plotRegions}
 			{vlines}
-			{markers}
-			{onmarkerdrag}
+			markers={plotMarkers}
+			onmarkerdrag={markerDrag}
 			{onmarkerdragend}
 			{onmarkerwheel}
 			{onmarkerselect}
-			{onplotclick}
+			onplotclick={plotClick}
 			exportName="magnitude"
 		>
 			{#snippet toolbar()}
@@ -360,11 +392,12 @@
 					/>
 					<Segmented
 						size="small"
-						bind:value={magMode}
+						value={mode}
 						options={[
 							{ value: 'db', label: 'dB' },
 							{ value: 'linear', label: 'Linear' }
 						]}
+						onchange={(v) => (magMode === undefined ? (ownMagMode = v) : (magMode = v))}
 					/>
 				{/if}
 			{/snippet}

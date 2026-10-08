@@ -161,7 +161,12 @@
 		</table>
 	</div>
 	<p class="small-note">
-		Divide s by ω<sub>−3 dB</sub> for a −3 dB cutoff at 1 rad/s (SciPy <code>norm='mag'</code>);
-		SciPy's default <code>norm='phase'</code> instead places the phase midpoint (−Nπ/4) at the cutoff.
+		Divide the poles by ω<sub>−3 dB</sub> (s → ω<sub>−3 dB</sub>·s) for a −3 dB cutoff at 1 rad/s
+		(SciPy <code>norm='mag'</code>). SciPy's default <code>norm='phase'</code> instead divides them
+		by <Tex math={t`\theta_N(0)^{1/N}`} />, which turns the denominator into <Tex
+			math={t`s^N+\dots+1`}
+		/>, so the high-frequency asymptote 1/s<sup>N</sup> matches a Butterworth filter's at the cutoff.
+		The phase there is close to the midpoint −Nπ/4 but equal to it only for N ≤ 2 (−134.3° instead of
+		−135° at N = 3, −178.2° instead of −180° at N = 4).
 	</p>
 </Section>

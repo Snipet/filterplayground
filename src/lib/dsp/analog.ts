@@ -12,7 +12,7 @@
  *   gaussian  −3 dB at ω = 1 (Taylor approximation of a Gaussian response)
  */
 import { type Complex, abs, c, conj, div, mul, neg, scale } from './complex';
-import { asne, cde, ellipdeg, ellipk, ellipkp, sne } from './elliptic';
+import { asne, cde, ellipdegPair, ellipk, ellipkp, sne } from './elliptic';
 import { cleanRealRoots, polyadd, polyint, polymul, polyval, roots, sortRoots } from './poly';
 import { freqsZpk } from './response';
 import type { ZPK } from './types';
@@ -174,27 +174,27 @@ export function ellipap(N: number, rp: number, rs: number): ZPK {
 		// first-order elliptic degenerates to Chebyshev I
 		return cheb1ap(1, rp);
 	}
-	const ep = Math.sqrt(Math.pow(10, 0.1 * rp) - 1);
-	const es = Math.sqrt(Math.pow(10, 0.1 * rs) - 1);
-	const k1 = ep / es;
-	const k = ellipdeg(N, k1);
+	const { ep, k1, k1p } = ellipModuli(rp, rs);
+	// k and its complement k′ are carried together: k rounds to 1 for high orders
+	// with loose specs, and k1 is ~1e-8 for tight ones (both lose all precision via √(1−k²))
+	const { k, kp } = ellipdegPair(N, k1, k1p);
 	const L = Math.floor(N / 2);
 	const r = N % 2;
 	const z: Complex[] = [];
 	const p: Complex[] = [];
-	const v0 = scale(mul(c(0, -1), asne(c(0, 1 / ep), k1)), 1 / N);
+	const v0 = scale(mul(c(0, -1), asne(c(0, 1 / ep), k1, k1p)), 1 / N);
 	for (let i = 1; i <= L; i++) {
 		const ui = (2 * i - 1) / N;
-		const zeta = cde(c(ui), k).re;
+		const zeta = cde(c(ui), k, kp).re;
 		const zi = c(0, 1 / (k * zeta));
 		z.push(zi, conj(zi));
 		// p = j·cd((ui − j·v0)K, k)
 		const u = c(ui + v0.im, -v0.re); // ui − j·v0
-		const pi = mul(c(0, 1), cde(u, k));
+		const pi = mul(c(0, 1), cde(u, k, kp));
 		p.push(pi, conj(pi));
 	}
 	if (r === 1) {
-		const p0 = mul(c(0, 1), sne(mul(c(0, 1), v0), k));
+		const p0 = mul(c(0, 1), sne(mul(c(0, 1), v0), k, kp));
 		p.push(c(p0.re, 0));
 	}
 	// gain: H(0) = 1 for odd N, 10^(−Rp/20) for even N
@@ -202,14 +202,21 @@ export function ellipap(N: number, rp: number, rs: number): ZPK {
 	const kk = H0 * div(prodNeg(p), prodNeg(z)).re;
 	// ensure poles are in the left half-plane
 	const pl = p.map((q) => (q.re > 0 ? c(-q.re, q.im) : q));
-	return { z: tidy(z), p: tidy(pl), k: kk };
+	// keep tiny real parts: high orders put genuine poles within 1e-14 of the jω axis
+	return { z: tidy(z), p: tidy(pl, false), k: kk };
 }
 
 /** Elliptic selectivity k = ωp/ωs achieved by an order-N design with given ripples. */
 export function ellipSelectivity(N: number, rp: number, rs: number): number {
-	const ep = Math.sqrt(Math.pow(10, 0.1 * rp) - 1);
-	const es = Math.sqrt(Math.pow(10, 0.1 * rs) - 1);
-	return ellipdeg(N, ep / es);
+	const { k1, k1p } = ellipModuli(rp, rs);
+	return ellipdegPair(N, k1, k1p).k;
+}
+
+/** εp, the discrimination modulus k1 = εp/εs and its complement k1′ = √(1 − k1²), without cancellation. */
+function ellipModuli(rp: number, rs: number): { ep: number; k1: number; k1p: number } {
+	const ep2 = Math.expm1(0.1 * rp * Math.LN10);
+	const es2 = Math.expm1(0.1 * rs * Math.LN10);
+	return { ep: Math.sqrt(ep2), k1: Math.sqrt(ep2 / es2), k1p: Math.sqrt((es2 - ep2) / es2) };
 }
 
 /** Coefficients (ascending powers) of the reverse Bessel polynomial θ_N(s). */
@@ -229,7 +236,8 @@ export function reverseBesselCoeffs(N: number): number[] {
 /**
  * Bessel–Thomson prototype.
  *  'delay': unit group delay at DC.
- *  'phase': phase midpoint at ω = 1 (high-frequency asymptote matches 1/sᴺ) — SciPy default.
+ *  'phase': high-frequency asymptote matches 1/sᴺ (a Butterworth of the same order), which puts
+ *           the phase near its midpoint −Nπ/4 at ω = 1 (exactly only for N ≤ 2) — SciPy default.
  *  'mag':   −3 dB at ω = 1.
  */
 export function besselap(N: number, norm: BesselNorm = 'phase'): ZPK {
@@ -449,11 +457,13 @@ export function estimateOrder(
 			return { N, wn, capped };
 		}
 		case 'ellip': {
+			// degree equation N = K(k)K'(k1)/(K'(k)K(k1)); the complements are formed
+			// without cancellation (k1 ≈ 1e-8 for tight specs, k ≈ 1 for narrow transitions)
 			const k = 1 / ws;
-			const k1 = Math.sqrt(gp / gs);
-			const { N, capped } = cap(
-				Math.max(1, Math.ceil((ellipk(k) * ellipkp(k1)) / (ellipkp(k) * ellipk(k1)) - 1e-9))
-			);
+			const kp = Math.sqrt((ws - 1) * (ws + 1)) / ws;
+			const { k1, k1p } = ellipModuli(rp, rs);
+			const ratio = (ellipk(k, kp) * ellipkp(k1)) / (ellipkp(k) * ellipk(k1, k1p));
+			const { N, capped } = cap(Math.max(1, Math.ceil(ratio - 1e-9)));
 			return { N, wn: 1, capped };
 		}
 		default: {
@@ -484,10 +494,10 @@ function prodNeg(rs: Complex[]): Complex {
 	return out;
 }
 
-function tidy(rs: Complex[]): Complex[] {
+function tidy(rs: Complex[], cleanRe = true): Complex[] {
 	return sortRoots(
 		rs.map((r) => {
-			const re = Math.abs(r.re) < 1e-14 * Math.max(1, abs(r)) ? 0 : r.re;
+			const re = cleanRe && Math.abs(r.re) < 1e-14 * Math.max(1, abs(r)) ? 0 : r.re;
 			const im = Math.abs(r.im) < 1e-12 * Math.max(1, abs(r)) ? 0 : r.im;
 			return c(re, im);
 		})

@@ -4,7 +4,14 @@
 	import Tex from '$lib/components/content/Tex.svelte';
 	import { toolBySlug } from '$lib/tools';
 	import { toolHref } from '$lib/paths';
-	import { TERMS, letterOf, matchTerm, slugify, type Term } from '$lib/features/glossary/terms';
+	import {
+		TERMS,
+		highlightRuns,
+		letterOf,
+		matchTerm,
+		slugify,
+		type Term
+	} from '$lib/features/glossary/terms';
 
 	const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -24,20 +31,27 @@
 	const present = $derived(new Set(groups.map((g) => g.letter)));
 
 	/** Split text into plain and highlighted runs for the current query words. */
-	function highlight(text: string): { s: string; hit: boolean }[] {
-		const words = query
-			.trim()
-			.split(/\s+/)
-			.filter((w) => w.length > 0)
-			.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-		if (!words.length) return [{ s: text, hit: false }];
-		const splitter = new RegExp(`(${words.join('|')})`, 'gi');
-		const whole = new RegExp(`^(?:${words.join('|')})$`, 'i');
-		return text
-			.split(splitter)
-			.filter((s) => s.length > 0)
-			.map((s) => ({ s, hit: whole.test(s) }));
-	}
+	const highlight = (text: string) => highlightRuns(text, query);
+
+	/** Height of the sticky search panel; anchor targets scroll to just below it (see CSS). */
+	let finderH = $state(0);
+	let finderEl = $state<HTMLDivElement>();
+	let hashChecked = false;
+
+	// A hash jump made before the first measurement (page load, client-side navigation) used the
+	// fallback offset; if that left the target under the finder (letter row wrapped), redo it.
+	$effect(() => {
+		const finder = finderEl;
+		if (!finderH || !finder || hashChecked) return;
+		hashChecked = true;
+		const el = document.getElementById(location.hash.slice(1)); // ids are ASCII slugs
+		if (!el) return;
+		// wait for --finder-h to reach the DOM before scrolling with it
+		tick().then(() => {
+			const top = el.getBoundingClientRect().top;
+			if (top >= 0 && top < finder.getBoundingClientRect().bottom) el.scrollIntoView();
+		});
+	});
 
 	/** Jump to a term even when the current search hides it. */
 	async function goTo(e: MouseEvent, id: string) {
@@ -57,114 +71,120 @@
 	slug="glossary"
 	related={['formulas', 'calculators', 'analog-designer', 'fir-designer']}
 >
-	<div class="finder">
-		<label class="search">
-			<span class="visually-hidden">Search the glossary</span>
-			<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"
-				><circle
-					cx="8.5"
-					cy="8.5"
-					r="5.5"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.8"
-				/><path
-					d="M13 13l4.5 4.5"
-					stroke="currentColor"
-					stroke-width="1.8"
-					stroke-linecap="round"
-				/></svg
-			>
-			<input
-				type="search"
-				placeholder="Search terms and definitions — e.g. “ripple”, “Q”, “delay”"
-				bind:value={query}
-				onkeydown={(e) => {
-					if (e.key === 'Escape') query = '';
-				}}
-			/>
-		</label>
-		<nav class="letters" aria-label="Jump to letter">
-			{#each LETTERS as L (L)}
-				{#if present.has(L)}
-					<a href="#letter-{L.toLowerCase()}">{L}</a>
-				{:else}
-					<span class="off" aria-hidden="true">{L}</span>
-				{/if}
-			{/each}
-		</nav>
-		<p class="count small muted" aria-live="polite">
-			{#if query.trim()}
-				{filtered.length} of {TERMS.length} terms match “{query.trim()}”.
-			{:else}
-				{TERMS.length} terms. Each has a stable link — click a term's name to copy it from the address
-				bar.
-			{/if}
-		</p>
-	</div>
-
-	{#if filtered.length === 0}
-		<p class="muted empty">
-			Nothing matches “{query}”. Try a shorter word, or look in the
-			<a href={toolHref('formulas')}>formula reference</a>.
-		</p>
-	{/if}
-
-	{#each groups as g (g.letter)}
-		<section
-			class="letter"
-			id="letter-{g.letter.toLowerCase()}"
-			aria-labelledby="letter-{g.letter.toLowerCase()}-h"
-		>
-			<h2 id="letter-{g.letter.toLowerCase()}-h">{g.letter}</h2>
-			<dl>
-				{#each g.terms as t (t.term)}
-					{@const id = slugify(t.term)}
-					<div class="entry" {id} tabindex="-1">
-						<dt>
-							<a class="name" href="#{id}"
-								>{#each highlight(t.term) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
-										>{:else}{part.s}{/if}{/each}</a
-							>
-							{#if t.aka?.length}<span class="aka"
-									>also {#each highlight(t.aka.join(', ')) as part, i (i)}{#if part.hit}<mark
-												>{part.s}</mark
-											>{:else}{part.s}{/if}{/each}</span
-								>{/if}
-						</dt>
-						<dd>
-							<p class="def">
-								{#each highlight(t.def) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
-										>{:else}{part.s}{/if}{/each}
-							</p>
-							{#if t.tex}<div class="tex"><Tex math={`\\displaystyle ${t.tex}`} /></div>{/if}
-							{#if t.see?.length || t.tools?.length}
-								<p class="links small">
-									{#if t.see?.length}
-										<span class="lbl">See also</span>
-										{#each t.see as s, i (s)}{#if i > 0}{', '}{/if}<a
-												href="#{slugify(s)}"
-												onclick={(e) => goTo(e, slugify(s))}>{s}</a
-											>{/each}
-									{/if}
-									{#if t.tools?.length}
-										<span class="lbl tools-lbl">Try</span>
-										{#each t.tools as slug, i (slug)}{#if i > 0}{', '}{/if}<a
-												class="tool"
-												href={toolHref(slug)}>{toolBySlug(slug)?.nav ?? slug}</a
-											>{/each}
-									{/if}
-								</p>
-							{/if}
-						</dd>
-					</div>
+	<div class="page" style:--finder-h={finderH ? `${finderH}px` : undefined}>
+		<div class="finder" bind:this={finderEl} bind:offsetHeight={finderH}>
+			<label class="search">
+				<span class="visually-hidden">Search the glossary</span>
+				<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"
+					><circle
+						cx="8.5"
+						cy="8.5"
+						r="5.5"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.8"
+					/><path
+						d="M13 13l4.5 4.5"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+					/></svg
+				>
+				<input
+					type="search"
+					placeholder="Search terms and definitions — e.g. “ripple”, “Q”, “delay”"
+					bind:value={query}
+					onkeydown={(e) => {
+						if (e.key === 'Escape') query = '';
+					}}
+				/>
+			</label>
+			<nav class="letters" aria-label="Jump to letter">
+				{#each LETTERS as L (L)}
+					{#if present.has(L)}
+						<a href="#letter-{L.toLowerCase()}">{L}</a>
+					{:else}
+						<span class="off" aria-hidden="true">{L}</span>
+					{/if}
 				{/each}
-			</dl>
-		</section>
-	{/each}
+			</nav>
+			<p class="count small muted" aria-live="polite">
+				{#if query.trim()}
+					{filtered.length} of {TERMS.length} terms match “{query.trim()}”.
+				{:else}
+					{TERMS.length} terms. Each has a stable link — click a term's name to copy it from the address
+					bar.
+				{/if}
+			</p>
+		</div>
+
+		{#if filtered.length === 0}
+			<p class="muted empty">
+				Nothing matches “{query}”. Try a shorter word, or look in the
+				<a href={toolHref('formulas')}>formula reference</a>.
+			</p>
+		{/if}
+
+		{#each groups as g (g.letter)}
+			<section
+				class="letter"
+				id="letter-{g.letter.toLowerCase()}"
+				aria-labelledby="letter-{g.letter.toLowerCase()}-h"
+			>
+				<h2 id="letter-{g.letter.toLowerCase()}-h">{g.letter}</h2>
+				<dl>
+					{#each g.terms as t (t.term)}
+						{@const id = slugify(t.term)}
+						<div class="entry" {id} tabindex="-1">
+							<dt>
+								<a class="name" href="#{id}"
+									>{#each highlight(t.term) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
+											>{:else}{part.s}{/if}{/each}</a
+								>
+								{#if t.aka?.length}<span class="aka"
+										>also {#each highlight(t.aka.join(', ')) as part, i (i)}{#if part.hit}<mark
+													>{part.s}</mark
+												>{:else}{part.s}{/if}{/each}</span
+									>{/if}
+							</dt>
+							<dd>
+								<p class="def">
+									{#each highlight(t.def) as part, i (i)}{#if part.hit}<mark>{part.s}</mark
+											>{:else}{part.s}{/if}{/each}
+								</p>
+								{#if t.tex}<div class="tex"><Tex math={`\\displaystyle ${t.tex}`} /></div>{/if}
+								{#if t.see?.length || t.tools?.length}
+									<p class="links small">
+										{#if t.see?.length}
+											<span class="lbl">See also</span>
+											{#each t.see as s, i (s)}{#if i > 0}{', '}{/if}<a
+													href="#{slugify(s)}"
+													onclick={(e) => goTo(e, slugify(s))}>{s}</a
+												>{/each}
+										{/if}
+										{#if t.tools?.length}
+											<span class="lbl tools-lbl">Try</span>
+											{#each t.tools as slug, i (slug)}{#if i > 0}{', '}{/if}<a
+													class="tool"
+													href={toolHref(slug)}>{toolBySlug(slug)?.nav ?? slug}</a
+												>{/each}
+										{/if}
+									</p>
+								{/if}
+							</dd>
+						</div>
+					{/each}
+				</dl>
+			</section>
+		{/each}
+	</div>
 </ToolLayout>
 
 <style>
+	/* Carries --finder-h without adding a box, so the sticky finder and sections keep their layout. */
+	.page {
+		display: contents;
+	}
 	.finder {
 		background: var(--surface);
 		border: 1px solid var(--border);
@@ -248,8 +268,9 @@
 		scroll-margin-top: 64px;
 	}
 	@media (min-width: 760px) {
+		/* below the sticky finder (top: 60px), whose height grows when the letter row wraps */
 		.letter {
-			scroll-margin-top: 190px;
+			scroll-margin-top: calc(60px + var(--finder-h, 129px) + 0.5rem);
 		}
 	}
 	.letter h2 {
@@ -271,7 +292,7 @@
 	}
 	@media (min-width: 760px) {
 		.entry {
-			scroll-margin-top: 190px;
+			scroll-margin-top: calc(60px + var(--finder-h, 129px) + 0.5rem);
 		}
 	}
 	.entry:target,

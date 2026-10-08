@@ -24,9 +24,10 @@
 		bandSection,
 		bandsFromPreset,
 		cascade,
+		draggedGain,
+		effectiveFreq,
 		eqTypeInfo,
 		freeSlot,
-		gainFromLevel,
 		markerLevel,
 		maxFreq,
 		sanitizeBand,
@@ -93,7 +94,7 @@
 	const analogTotal = $derived.by(() => {
 		if (!showAnalog) return null;
 		const on = bands.filter((b) => b.enabled);
-		return grid.map((f) => on.reduce((s, b) => s + analogBandDb(b, f), 0));
+		return grid.map((f) => on.reduce((s, b) => s + analogBandDb(b, f, fs), 0));
 	});
 
 	const selected = $derived(bands.find((b) => b.id === selectedId) ?? null);
@@ -138,7 +139,7 @@
 		evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, [f]).magDb[0];
 	const markers = $derived<Marker[]>(
 		ordered.map((b) => {
-			const f = Math.min(b.f, maxFreq(fs));
+			const f = effectiveFreq(b, fs);
 			const lvl = markerLevel(b, eqTypeInfo(b.type).usesGain ? 0 : ownDbAt(b, f));
 			const y = Number.isFinite(lvl) ? Math.max(-range + 1, Math.min(range - 1, lvl)) : -range + 1;
 			return {
@@ -157,11 +158,17 @@
 	let lastDragEnd = 0;
 	const tidyF = (f: number) => Number(Math.min(maxFreq(fs), Math.max(20, f)).toPrecision(4));
 
+	// The gain follows the vertical movement since the drag started, not the
+	// pointer's absolute level: a handle drawn clamped to the visible range would
+	// otherwise reset an off-scale gain on a purely sideways drag.
+	let dragRef: { id: string | number; y0: number; gain0: number } | null = null;
 	function onDrag(id: string | number, x: number, y: number) {
 		const b = bands.find((v) => v.id === id);
 		if (!b) return;
 		b.f = tidyF(x);
-		if (eqTypeInfo(b.type).usesGain) b.gain = gainFromLevel(b, y);
+		if (!eqTypeInfo(b.type).usesGain) return;
+		if (dragRef?.id !== id) dragRef = { id, y0: y, gain0: b.gain };
+		b.gain = draggedGain(b, dragRef.gain0, y - dragRef.y0);
 	}
 	function onWheel(id: string | number, dy: number) {
 		const b = bands.find((v) => v.id === id);
@@ -174,6 +181,7 @@
 	function onSelect(id: string | number) {
 		selectedId = Number(id);
 		capNote = false;
+		dragRef = null; // a press on a handle starts a new drag
 	}
 	function onPlotClick(x: number, y: number) {
 		// a click also fires at the end of every marker drag — ignore those
@@ -237,7 +245,7 @@
 		let worst = 0;
 		let fWorst = 0;
 		for (let i = 0; i < grid.length; i++) {
-			const a = on.reduce((s, b) => s + analogBandDb(b, grid[i]), 0);
+			const a = on.reduce((s, b) => s + analogBandDb(b, grid[i], fs), 0);
 			const d = db[i];
 			if (!Number.isFinite(a) || !Number.isFinite(d) || Math.abs(a) > 60 || Math.abs(d) > 60)
 				continue;
@@ -299,9 +307,14 @@
 	const presetOptions = PRESETS.map((p) => ({ value: p.id, label: p.name }));
 	const presetInfo = $derived(PRESETS.find((p) => p.id === presetId));
 	const hzTip = (v: number) => formatSI(v, 'Hz', 4);
+	// a band above maxFreq(fs) runs at the limit: list the frequency it runs at
+	const clamped = (b: EqBand) => effectiveFreq(b, fs) < b.f;
+	const clampNote = (b: EqBand) =>
+		`Set to ${formatSI(b.f, 'Hz', 4)}, above 0.49·fs: the band runs at ${formatSI(effectiveFreq(b, fs), 'Hz', 4)}.`;
 	const bandLabel = (b: EqBand) => {
 		const t = eqTypeInfo(b.type);
-		return `${formatSI(b.f, 'Hz', 3)}${t.usesGain ? ` · ${b.gain > 0 ? '+' : ''}${trimNumber(b.gain, 3)} dB` : ''} · Q ${trimNumber(b.q, 3)}`;
+		const f = `${formatSI(effectiveFreq(b, fs), 'Hz', 3)}${clamped(b) ? ' (max)' : ''}`;
+		return `${f}${t.usesGain ? ` · ${b.gain > 0 ? '+' : ''}${trimNumber(b.gain, 3)} dB` : ''} · Q ${trimNumber(b.q, 3)}`;
 	};
 </script>
 
@@ -331,7 +344,9 @@
 							>
 								<span class="dot" style:background={slotColor(b.slot)} aria-hidden="true"></span>
 								<span class="name">{b.slot + 1}. {eqTypeInfo(b.type).short}</span>
-								<span class="meta">{bandLabel(b)}</span>
+								<span class="meta" title={clamped(b) ? clampNote(b) : undefined}
+									>{bandLabel(b)}</span
+								>
 							</button>
 							<label class="en" title="Enable band {b.slot + 1}">
 								<input
@@ -371,13 +386,18 @@
 				/>
 				<Slider
 					label="Frequency"
-					value={selected.f}
+					value={effectiveFreq(selected, fs)}
 					min={20}
 					max={maxFreq(fs)}
 					log
 					unit="Hz"
 					onchange={(v) => update({ f: v })}
 				/>
+				{#if clamped(selected)}
+					<p class="small muted note">
+						{clampNote(selected)} A higher sample rate restores it.
+					</p>
+				{/if}
 				<Slider
 					label="Q"
 					value={selected.q}
@@ -431,7 +451,10 @@
 			height={360}
 			{markers}
 			onmarkerdrag={onDrag}
-			onmarkerdragend={() => (lastDragEnd = performance.now())}
+			onmarkerdragend={() => {
+				lastDragEnd = performance.now();
+				dragRef = null;
+			}}
 			onmarkerwheel={onWheel}
 			onmarkerselect={onSelect}
 			onplotclick={onPlotClick}
@@ -567,15 +590,17 @@
 		</p>
 		<Tex
 			display
-			math={'H\\big(e^{j\\pi}\\big) = H_a(j\\infty) = 1 \\quad\\text{(0 dB for a bell)}'}
+			math={'H\\big(e^{j\\pi}\\big) = H_a(j\\infty) = \\begin{cases} 1 & \\text{bell, low shelf (0 dB)} \\\\ A^2 & \\text{high shelf (the full } G\\text{ dB)} \\end{cases}'}
 		/>
 		<p>
-			A wide bell or a high shelf near f<sub>s</sub>/2 is therefore forced back to 0 dB at Nyquist
-			and comes out narrower and asymmetric — "cramped". Turn on <em>Analog prototype</em> to see
-			the difference. Usual remedies: run the EQ oversampled (2× or 4× f<sub>s</sub>), use designs
-			with a prescribed Nyquist gain (Orfanidis 1997) or magnitude-matched biquads (Vicanek's
-			"matched second-order filters"), or accept it — at 96 kHz most of the audio band is far from
-			Nyquist.
+			A wide bell near f<sub>s</sub>/2 is therefore forced back to 0 dB at Nyquist and comes out
+			narrower and asymmetric — "cramped"; a low shelf with its corner near f<sub>s</sub>/2 is
+			pulled back to 0 dB there in the same way. A high shelf is pinned the other way: it reaches
+			its full gain exactly at Nyquist, so its transition is squeezed into a steeper slope than the
+			analog prototype's. Turn on <em>Analog prototype</em> to see the difference. Usual remedies:
+			run the EQ oversampled (2× or 4× f<sub>s</sub>), use designs with a prescribed Nyquist gain
+			(Orfanidis 1997) or magnitude-matched biquads (Vicanek's "matched second-order filters"), or
+			accept it — at 96 kHz most of the audio band is far from Nyquist.
 		</p>
 		<Callout kind="try">
 			<ul>
@@ -604,6 +629,9 @@
 <style>
 	.tight {
 		margin: -0.6rem 0 1rem;
+	}
+	.note {
+		margin: -0.2rem 0 0;
 	}
 	.bands {
 		list-style: none;
