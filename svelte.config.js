@@ -1,7 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
-// Set BASE_PATH (e.g. "/filterplayground") when deploying to a sub-path such as GitHub Pages.
+// Set BASE_PATH (e.g. "/filterplayground") only when the site is served from a sub-path.
 const base = process.env.BASE_PATH ?? '';
 
 /** @type {import('@sveltejs/kit').Config} */

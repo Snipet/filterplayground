@@ -47,11 +47,22 @@ and the component APIs used by every tool page.
 ## Deployment
 
 The build output in `build/` is a fully static site (every page prerendered) and
-can be hosted anywhere. When it is served from a sub-path, set `BASE_PATH`:
+can be hosted anywhere.
+
+**Cloudflare Workers.** `wrangler.jsonc` serves `build/` as Workers static
+assets. To deploy from GitHub, connect the repository to a Worker (Workers &
+Pages → Create → Import a repository) and set:
+
+- build command: `npm run build`
+- deploy command: `npx wrangler deploy`
+
+The Worker name in the dashboard must match `name` in `wrangler.jsonc`
+(`filterplayground`). Every push to `main` then builds and deploys. To deploy
+from your machine instead: `npm run build && npx wrangler deploy`.
+
+When the site is served from a sub-path rather than a domain root, set
+`BASE_PATH` at build time:
 
 ```bash
 BASE_PATH=/filterplayground npm run build
 ```
-
-`.github/workflows/deploy.yml` publishes to GitHub Pages on every push to
-`main`. Enable it once under **Settings → Pages → Source: GitHub Actions**.

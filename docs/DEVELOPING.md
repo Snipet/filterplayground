@@ -12,7 +12,8 @@ npm run dev        # http://localhost:5173
 npm run check      # svelte-check (must report 0 errors, 0 warnings)
 npm test           # vitest unit tests (DSP validated against SciPy)
 npm run build      # static site in build/
-BASE_PATH=/filterplayground npm run build   # for a GitHub Pages project site
+BASE_PATH=/filterplayground npm run build   # only when served from a sub-path
+npx wrangler deploy  # deploy build/ to Cloudflare Workers (see wrangler.jsonc)
 ```
 
 `tests/fixtures/generate_reference.py` regenerates the SciPy reference data
