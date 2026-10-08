@@ -4,14 +4,17 @@
  */
 import { fftReal, nextPow2 } from '$lib/dsp/fft';
 import { WINDOWS, windowInfo, windowMetrics, windowValues, type WindowMetrics, type WindowType } from '$lib/dsp/windows';
+import { chebwinFast } from '$lib/features/fir-designer/windowing';
 
 export interface WindowChoice {
 	type: WindowType;
 	param?: number;
 }
 
+/** Window values; Dolph–Chebyshev via the table-driven fast path (same values as the shared chebwin). */
 export function makeWindow(c: WindowChoice, N: number, periodic: boolean): number[] {
 	const p = windowInfo(c.type).param ? (c.param ?? windowInfo(c.type).param!.default) : undefined;
+	if (c.type === 'chebyshev' && N > 1) return periodic ? chebwinFast(N + 1, p!).slice(0, N) : chebwinFast(N, p!);
 	return windowValues(c.type, N, p, periodic);
 }
 

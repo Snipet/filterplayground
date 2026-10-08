@@ -63,11 +63,11 @@
 			solve === 'f0' ? { label: 'Resonance f₀', value: formatSI(res.f0, 'Hz', 4), primary: true } : null,
 			solve === 'L' ? { label: 'Inductance L', value: formatSI(res.L, 'H', 4), primary: true } : null,
 			solve === 'C' ? { label: 'Capacitance C', value: formatSI(res.C, 'F', 4), primary: true } : null,
-			{ label: 'Z₀ = √(L/C)', value: formatSI(characteristicImpedance(res.L, res.C), 'Ω', 4), hint: 'Characteristic impedance: |X_L| = |X_C| = Z₀ at resonance' },
-			{ label: 'X_L at f', value: formatSI(xl, 'Ω', 4) },
-			{ label: 'X_C at f', value: formatSI(xc, 'Ω', 4) },
-			{ label: 'Series LC reactance', value: fmtX(xSeries), hint: 'X_L − X_C' },
-			{ label: 'Parallel LC reactance', value: fmtX(xPar), hint: 'X_L·X_C/(X_C − X_L)' }
+			{ label: 'Z₀ = √(L/C)', value: formatSI(characteristicImpedance(res.L, res.C), 'Ω', 4), hint: 'Characteristic impedance: both reactances equal Z₀ at resonance' },
+			{ label: 'Inductive reactance at f', value: formatSI(xl, 'Ω', 4) },
+			{ label: 'Capacitive reactance at f', value: formatSI(xc, 'Ω', 4) },
+			{ label: 'Series LC reactance', value: fmtX(xSeries), hint: 'XL − XC' },
+			{ label: 'Parallel LC reactance', value: fmtX(xPar), hint: 'XL·XC/(XC − XL)' }
 		].filter((r) => r !== null)}
 	/>
 

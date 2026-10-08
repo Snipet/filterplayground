@@ -591,7 +591,7 @@
 			from the attenuation <Tex math={'A=-20\\log_{10}\\min(\\delta_p,\\delta_s)'} /> (a window gives equal ripple in both
 			bands) and the transition width <Tex math={'\\Delta\\omega=2\\pi\\,\\Delta f/f_s'} />:
 		</p>
-		<Tex display math={'\\beta=\\begin{cases}0.1102\\,(A-8.7) & A>50\\\\ 0.5842\\,(A-21)^{0.4}+0.07886\\,(A-21) & 21\\le A\\le 50\\\\ 0 & A<21\\end{cases}\\qquad N=\\left\\lceil\\frac{A-7.95}{2.285\\,\\Delta\\omega}\\right\\rceil+1'} />
+		<Tex display math={'\\beta=\\begin{cases}0.1102\\,(A-8.7) & A>50\\\\ 0.5842\\,(A-21)^{0.4}+0.07886\\,(A-21) & 21\\le A\\le 50\\\\ 0 & A<21\\end{cases}\\qquad N=\\left\\lceil\\frac{A-7.95}{2.285\\,\\Delta\\omega}+1\\right\\rceil'} />
 
 		<h3>Frequency sampling</h3>
 		<p>
@@ -657,7 +657,7 @@
 		<p>
 			For every method the required length grows with the attenuation and inversely with the transition width:
 			<Tex math={'N\\propto A/\\Delta f'} />. Halving the transition band doubles the taps (and the delay and the
-			multiplications per sample); asking for 20 dB more attenuation costs roughly a third more taps.
+			multiplications per sample); going from 60 to 80 dB of attenuation costs roughly 40 % more taps.
 		</p>
 
 		<Callout kind="try">

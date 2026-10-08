@@ -72,13 +72,18 @@ export function mulberry32(seed: number): () => number {
 	};
 }
 
-/** Random taps with the symmetry of the type (uniform in [−1, 1], normalised to a peak of 1). */
+/**
+ * Random taps with the symmetry of the type: uniform in [−1, 1] under a raised-cosine
+ * envelope (which pushes some zeros well off the unit circle, so quadruples show up),
+ * normalised to a peak of 1.
+ */
 export function randomTaps(t: LpType, N: number, seed: number): number[] {
 	const r = mulberry32(seed);
 	const h = new Array<number>(N).fill(0);
 	const anti = isAnti(t);
 	for (let i = 0; i < Math.ceil(N / 2); i++) {
-		const v = 2 * r() - 1;
+		const env = 0.5 - 0.5 * Math.cos((2 * Math.PI * (i + 1)) / (N + 1));
+		const v = (2 * r() - 1) * env;
 		h[i] = v;
 		h[N - 1 - i] = anti ? -v : v;
 	}
@@ -211,7 +216,8 @@ export function groupZeros(zs: readonly Complex[], tol = 1e-4): ZeroGroup[] {
 			groups.push({ kind: 'minus1', members: [z] });
 			continue;
 		}
-		const onCircle = Math.abs(r - 1) < tol * 50;
+		// tight test: a quadruple just off the circle must not pass as two unit-circle pairs
+		const onCircle = Math.abs(r - 1) < 1e-6;
 		const inv = { re: z.re / (r * r), im: -z.im / (r * r) }; // 1/z
 		if (real) {
 			const j = take({ re: 1 / z.re, im: 0 }, 0);

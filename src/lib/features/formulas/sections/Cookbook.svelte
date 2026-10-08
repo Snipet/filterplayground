@@ -2,6 +2,7 @@
 	import Section from '../Section.svelte';
 	import Eqs from '../Eqs.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
+	import { toolHref } from '$lib/paths';
 
 	const t = String.raw;
 
@@ -20,7 +21,7 @@
 <Section id="rbj-cookbook" title="Audio EQ Cookbook biquads (RBJ)" tools={['biquad', 'parametric-eq', 'structures']}>
 	<p>
 		Robert Bristow-Johnson's bilinear-transformed second-order sections. Every filter is
-		<Tex math={t`H(z)=\dfrac{b_0+b_1z^{-1}+b_2z^{-2}}{a_0+a_1z^{-1}+a_2z^{-2}}`} />; divide all six coefficients by a₀ before use.
+		<Tex math={t`H(z)=\dfrac{b_0+b_1z^{-1}+b_2z^{-2}}{a_0+a_1z^{-1}+a_2z^{-2}}`} />; divide all six coefficients by a₀ before use. Every one of them is live in the <a href={toolHref('biquad')}>biquad cookbook</a>.
 	</p>
 	<h3 id="rbj-variables">Intermediate variables</h3>
 	<div class="cols">

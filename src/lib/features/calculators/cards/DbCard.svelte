@@ -1,10 +1,9 @@
 <script lang="ts">
 	import CalcCard from '../CalcCard.svelte';
-	import Results from '../Results.svelte';
 	import NumberInput from '$lib/components/controls/NumberInput.svelte';
 	import Segmented from '$lib/components/controls/Segmented.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
-	import { formatSI, trimNumber } from '$lib/dsp/units';
+	import { trimNumber } from '$lib/dsp/units';
 	import { ampToDb, dbToAmp, powToDb, dbToPow, levelToVrms, levelsFromVrms } from '../math';
 
 	let { id, title }: { id: string; title: string } = $props();
@@ -14,7 +13,6 @@
 	let vrms = $state(1);
 
 	const lv = $derived(levelsFromVrms(vrms));
-	const fin = (v: number) => Number.isFinite(v) && v > 0;
 </script>
 
 <CalcCard {id} {title} blurb="Edit any field — the others follow. Levels assume a sine wave for peak values.">
@@ -48,13 +46,9 @@
 			<NumberInput label="dBu (re 0.775 V)" value={lv.dBu} unit="dBu" onchange={(v) => (vrms = levelToVrms(v, 'dBu'))} />
 			<NumberInput label="dBm @ 600 Ω" value={lv.dBm600} unit="dBm" onchange={(v) => (vrms = levelToVrms(v, 'dBm600'))} />
 			<NumberInput label="dBm @ 50 Ω" value={lv.dBm50} unit="dBm" onchange={(v) => (vrms = levelToVrms(v, 'dBm50'))} />
+			<NumberInput label="Power into 600 Ω" value={lv.p600 * 1e3} unit="mW" digits={6} min={1e-15} logStep={1.1} onchange={(v) => (vrms = Math.sqrt(v * 1e-3 * 600))} />
+			<NumberInput label="Power into 50 Ω" value={lv.p50 * 1e3} unit="mW" digits={6} min={1e-15} logStep={1.1} onchange={(v) => (vrms = Math.sqrt(v * 1e-3 * 50))} />
 		</div>
-		<Results
-			rows={[
-				{ label: 'Power into 50 Ω', value: fin(lv.p50) ? formatSI(lv.p50, 'W', 4) : '—' },
-				{ label: 'Power into 600 Ω', value: fin(lv.p600) ? formatSI(lv.p600, 'W', 4) : '—' }
-			]}
-		/>
 	{/if}
 
 	{#snippet formula()}

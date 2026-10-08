@@ -2,6 +2,7 @@
 	import Section from '../Section.svelte';
 	import Eqs from '../Eqs.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
+	import { toolHref } from '$lib/paths';
 
 	const t = String.raw;
 </script>
@@ -21,7 +22,7 @@
 			<p>
 				<strong>Prewarping:</strong> design the analog filter at <Tex math={t`\Omega_c=\frac{2}{T}\tan\frac{\omega_c}{2}=2f_s\tan\frac{\pi f_c}{f_s}`} /> so the
 				critical frequency lands exactly at f<sub>c</sub>. (Equivalently use <Tex math={t`s=\frac{\Omega_c}{\tan(\omega_c/2)}\frac{1-z^{-1}}{1+z^{-1}}`} />.)
-				Only one frequency per band edge can be matched exactly.
+				Only one frequency per band edge can be matched exactly; the <a href={toolHref('calculators')}>prewarp calculator</a> does the arithmetic.
 			</p>
 		</div>
 		<div>

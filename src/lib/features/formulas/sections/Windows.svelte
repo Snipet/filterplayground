@@ -2,6 +2,7 @@
 	import Section from '../Section.svelte';
 	import Eqs from '../Eqs.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
+	import { toolHref } from '$lib/paths';
 
 	const t = String.raw;
 
@@ -22,7 +23,7 @@
 
 <Section id="windows" title="Window functions" tools={['windows', 'fir-designer']}>
 	<p>
-		Symmetric windows for filter design use n = 0 … M with M = N − 1; for spectral analysis use the periodic (DFT-even) form with M = N. Widths are in DFT
+		Symmetric windows for filter design use n = 0 … M with M = N − 1; for spectral analysis use the periodic (DFT-even) form with M = N. The <a href={toolHref('windows')}>window explorer</a> computes these metrics for any length and parameter. Widths are in DFT
 		bins (multiples of f<sub>s</sub>/N): ENBW, −3 dB bandwidth and the null-to-null main-lobe width. Peak sidelobe and scalloping loss are in dB, sidelobe
 		roll-off in dB/octave.
 	</p>

@@ -10,7 +10,7 @@ import {
 	windowLevelAt,
 	type ToneSetup
 } from '../src/lib/features/windows/analysis';
-import { windowMetrics, type WindowType } from '../src/lib/dsp/windows';
+import { windowMetrics, windowValues, type WindowType } from '../src/lib/dsp/windows';
 
 function verdict(type: WindowType, s: ToneSetup, periodic = false) {
 	const w = makeWindow({ type }, s.N, periodic);
@@ -47,6 +47,16 @@ describe('windows: leakage experiment', () => {
 	it('coherent sampling: integer-bin tones without padding are resolved by every periodic window', () => {
 		const s: ToneSetup = { N: 64, f1: 10, f2: 16, weakDb: -60, pad: 1 };
 		for (const t of ['rectangular', 'hann', 'blackmanharris'] as const) expect(verdict(t, s, true).resolved, t).toBe(true);
+	});
+});
+
+describe('windows: fast Chebyshev path', () => {
+	it('matches the shared window, symmetric and periodic', () => {
+		for (const periodic of [false, true]) {
+			const a = makeWindow({ type: 'chebyshev', param: 90 }, 48, periodic);
+			const b = windowValues('chebyshev', 48, 90, periodic);
+			a.forEach((v, i) => expect(Math.abs(v - b[i])).toBeLessThan(1e-9));
+		}
 	});
 });
 

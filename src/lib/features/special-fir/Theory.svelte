@@ -93,8 +93,8 @@
 		With the ideal response <Tex math={'h_d[n]=\\tfrac12\\operatorname{sinc}\\big((n-M)/2\\big)'} />, every even offset from the
 		centre lands on a zero of the sinc, and windowing keeps them zero. Nearly half the taps vanish, and the symmetry makes
 		the passband and stopband ripples equal (δ<sub>p</sub> = δ<sub>s</sub>). As the decimate-by-2 (or interpolate-by-2)
-		stage of a multirate chain, its polyphase form needs only about N/4 multiplies per input sample, one branch being a
-		pure delay × ½. Choose N = 4K + 3; with N = 4K + 1 the outermost taps are zero.
+		stage of a multirate chain, its polyphase form needs only about N/4 multiplies per output sample (N/8 per input
+		sample), one branch being a pure delay × ½. Choose N = 4K + 3; with N = 4K + 1 the outermost taps are zero.
 	</p>
 {:else if type === 'cic'}
 	<h3>CIC filters</h3>

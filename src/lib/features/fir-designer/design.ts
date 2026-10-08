@@ -5,7 +5,6 @@
  */
 import {
 	firls,
-	firwin,
 	firwin2,
 	passbandRippleToDelta,
 	remezOrderEstimate,
@@ -15,6 +14,7 @@ import {
 import { remez, type RemezResult } from '$lib/dsp/remez';
 import { kaiserBeta, kaiserOrder } from '$lib/dsp/windows';
 import { fftReal, nextPow2 } from '$lib/dsp/fft';
+import { cachedWindow, firwinFast } from './windowing';
 import type { BandType } from '$lib/dsp/types';
 
 export type Method = 'window' | 'kaiser' | 'ls' | 'fsamp' | 'pm';
@@ -490,12 +490,12 @@ export function designAt(cfg: FirConfig, N: number): FirDesign {
 	switch (cfg.method) {
 		case 'window': {
 			const cutoffs = firwinCutoffs(cfg.spec);
-			return { ...base, h: firwin(N, cutoffs, cfg.window, passZero(cfg.spec.band), cfg.fs), cutoffs };
+			return { ...base, h: firwinFast(N, cutoffs, cfg.window, passZero(cfg.spec.band), cfg.fs), cutoffs };
 		}
 		case 'kaiser': {
 			const beta = kaiserBeta(kaiserAttenuation(cfg.spec));
 			const cutoffs = firwinCutoffs(cfg.spec);
-			return { ...base, h: firwin(N, cutoffs, { type: 'kaiser', param: beta }, passZero(cfg.spec.band), cfg.fs), cutoffs, beta };
+			return { ...base, h: firwinFast(N, cutoffs, { type: 'kaiser', param: beta }, passZero(cfg.spec.band), cfg.fs), cutoffs, beta };
 		}
 		case 'ls': {
 			const n = N % 2 === 0 ? N + 1 : N;
@@ -503,7 +503,9 @@ export function designAt(cfg: FirConfig, N: number): FirDesign {
 		}
 		case 'fsamp': {
 			const points = cfg.shape === 'custom' ? bandsToPoints(bands, cfg.fs) : fsampPoints(cfg.spec, cfg.fs, cfg.fsampFrac ?? 0.5);
-			return { ...base, h: firwin2(N, points.freq, points.gain, cfg.fs, cfg.window), points };
+			const w = cachedWindow(cfg.window.type, N, cfg.window.param);
+			const h0 = firwin2(N, points.freq, points.gain, cfg.fs, null);
+			return { ...base, h: h0.map((v, i) => v * w[i]), points };
 		}
 		case 'pm': {
 			const r = remez(N, bands, cfg.fs, { symmetry: sym, relativeWeighting: sym === 'odd' && cfg.relWeight });

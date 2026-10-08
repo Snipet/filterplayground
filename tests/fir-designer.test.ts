@@ -19,6 +19,9 @@ import {
 	type Spec
 } from '../src/lib/features/fir-designer/design';
 import { scipyRecipe, matlabRecipe } from '../src/lib/features/fir-designer/recipes';
+import { chebwinFast, firwinFast } from '../src/lib/features/fir-designer/windowing';
+import { windowValues } from '../src/lib/dsp/windows';
+import { firwin, firwin2 } from '../src/lib/dsp/fir';
 import { evaluate } from '../src/lib/dsp/response';
 
 const fs = 48000;
@@ -217,5 +220,35 @@ describe('fir-designer: decimation keeps gaps', () => {
 		expect(d.x[k - 1]).toBeLessThan(2000);
 		expect(d.x[k + 1]).toBeGreaterThanOrEqual(2000);
 		expect(d.x.filter((v, i) => Number.isFinite(d.y[i]) && v >= 2000 && v < 2003)).toEqual([]);
+	});
+});
+
+describe('fir-designer: fast windows', () => {
+	it('table-driven Chebyshev window matches the shared implementation', () => {
+		for (const N of [2, 3, 16, 17, 64, 101, 256]) {
+			const a = chebwinFast(N, 80);
+			const b = windowValues('chebyshev', N, 80);
+			expect(a.length).toBe(N);
+			for (let i = 0; i < N; i++) expect(Math.abs(a[i] - b[i])).toBeLessThan(1e-9);
+		}
+	});
+	it('firwinFast reproduces firwin', () => {
+		const cases: [number, number[], boolean][] = [
+			[31, [7000], true],
+			[40, [5000, 9000], false],
+			[33, [6000], false],
+			[41, [4000, 11000], true]
+		];
+		for (const w of [{ type: 'hamming' as const }, { type: 'chebyshev' as const, param: 70 }, { type: 'kaiser' as const, param: 5 }])
+			for (const [N, c, pz] of cases) {
+				const a = firwinFast(N, c, w, pz, 48000);
+				const b = firwin(N, c, w, pz, 48000);
+				for (let i = 0; i < N; i++) expect(Math.abs(a[i] - b[i])).toBeLessThan(1e-12);
+			}
+	});
+	it('frequency sampling with a cached window equals firwin2', () => {
+		const d = designAt(cfg({ method: 'fsamp', auto: false, window: { type: 'blackman' } }), 51);
+		const ref = firwin2(51, d.points!.freq, d.points!.gain, fs, { type: 'blackman' });
+		for (let i = 0; i < 51; i++) expect(Math.abs(d.h[i] - ref[i])).toBeLessThan(1e-12);
 	});
 });

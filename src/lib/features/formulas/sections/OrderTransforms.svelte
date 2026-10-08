@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Section from '../Section.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
+	import { toolHref } from '$lib/paths';
 
 	const t = String.raw;
 </script>
@@ -35,7 +36,7 @@
 	</div>
 	<p>
 		High-pass specs use <Tex math={t`\Omega_s=\omega_p/\omega_s`} />; band-pass specs map each stopband edge through the LP→BP transformation and keep the
-		tighter one, <Tex math={t`\Omega_s=\min_i\big|\omega_{s,i}^2-\omega_0^2\big|/(B\,\omega_{s,i})`} />. Digital specs are prewarped first.
+		tighter one, <Tex math={t`\Omega_s=\min_i\big|\omega_{s,i}^2-\omega_0^2\big|/(B\,\omega_{s,i})`} />. Digital specs are prewarped first. The <a href={toolHref('order-calculator')}>order calculator</a> evaluates all of these at once.
 	</p>
 
 	<h3 id="frequency-transformations">Analog frequency transformations</h3>

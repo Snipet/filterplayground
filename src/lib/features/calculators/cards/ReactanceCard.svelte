@@ -80,7 +80,7 @@
 	</div>
 	<Results
 		rows={[
-			solve === 'X' ? { label: `Reactance |X_${part}|`, value: formatSI(res.X, 'Ω', 4), primary: true } : null,
+			solve === 'X' ? { label: part === 'C' ? 'Capacitive reactance' : 'Inductive reactance', value: formatSI(res.X, 'Ω', 4), primary: true } : null,
 			solve === 'f' ? { label: 'Frequency f', value: formatSI(res.f, 'Hz', 4), primary: true } : null,
 			solve === 'val' ? { label: name, value: formatSI(res.val, unit, 4), primary: true } : null,
 			{ label: 'Impedance Z', value: `${part === 'C' ? '−' : '+'}j ${formatSI(res.X, 'Ω', 4)}` },

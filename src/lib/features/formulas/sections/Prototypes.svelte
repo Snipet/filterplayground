@@ -2,6 +2,7 @@
 	import Section from '../Section.svelte';
 	import Eqs from '../Eqs.svelte';
 	import Tex from '$lib/components/content/Tex.svelte';
+	import { toolHref } from '$lib/paths';
 
 	const t = String.raw;
 
@@ -26,7 +27,7 @@
 			<h3 id="butterworth">Butterworth (maximally flat)</h3>
 			<Eqs items={[t`|H(j\omega)|^2=\frac{1}{1+\omega^{2N}}`, t`p_k=e^{\,j\pi(2k+N-1)/(2N)},\quad k=1,\dots,N`]} />
 			<p>
-				The poles are equally spaced on the unit circle in the left half-plane: <Tex math={t`p_k=-\sin\theta_k+j\cos\theta_k`} /> with
+				Compare all the families side by side in the <a href={toolHref('family-compare')}>family comparison</a>. The poles are equally spaced on the unit circle in the left half-plane: <Tex math={t`p_k=-\sin\theta_k+j\cos\theta_k`} /> with
 				<Tex math={t`\theta_k=\frac{(2k-1)\pi}{2N}`} />, so each pair has <Tex math={t`Q_k=\frac{1}{2\sin\theta_k}`} />. −3 dB at ω = 1 for every N.
 			</p>
 		</div>

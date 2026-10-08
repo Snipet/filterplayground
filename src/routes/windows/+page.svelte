@@ -432,7 +432,7 @@
 		<p>
 			The <strong>Kaiser</strong> window <Tex math={'w[n]=I_0\\!\\left(\\beta\\sqrt{1-\\big(\\tfrac{2n}{N-1}-1\\big)^2}\\right)\\big/ I_0(\\beta)'} /> is a
 			near-optimal approximation to the <strong>DPSS</strong> (Slepian) window, which maximises the fraction of energy inside a
-			band |f| ≤ NW/N bins — the formal answer to “most concentrated main lobe”. The <strong>Dolph–Chebyshev</strong> window
+			band |f| ≤ W = NW/N cycles/sample (± NW bins) — the formal answer to “most concentrated main lobe”. The <strong>Dolph–Chebyshev</strong> window
 			solves a different optimum: for a given sidelobe level it has the narrowest main lobe, and all its sidelobes sit
 			exactly at that level (equiripple), because its transform is a Chebyshev polynomial
 			<Tex math={'W(\\omega)\\propto T_{N-1}\\big(x_0\\cos(\\omega/2)\\big)'} />.
@@ -449,7 +449,7 @@
 
 		<Callout kind="try">
 			<ul>
-				<li>In the leakage demo, the rectangle and Hamming hide the −55 dB tone while Hann shows it: far from the main lobe, sidelobe <em>decay</em> matters more than the first sidelobe.</li>
+				<li>In the leakage demo the rectangle hides the −55 dB tone while Hann and Blackman–Harris show it. Put Hamming in slot D: despite its lower first sidelobe it hides the tone too — far from the main lobe, sidelobe <em>decay</em> matters more.</li>
 				<li>Reduce the separation to about 2.6 bins and raise the weak tone to −30 dB: now the wide Blackman–Harris main lobe swallows it and Hamming wins.</li>
 				<li>Set the strong tone to exactly 10 bins and the separation to 6, with zero padding off and periodic windows: every window resolves the tone — the DFT samples land on the leakage nulls (coherent sampling).</li>
 				<li>Put a Kaiser window in slot D and sweep β from 0 to 15: watch the sidelobes drop and the main lobe widen continuously.</li>
