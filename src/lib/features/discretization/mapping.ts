@@ -9,7 +9,8 @@ import { bilinear, discretize, prewarp } from '$lib/dsp/transforms';
 import { evaluate, linspace, logspace } from '$lib/dsp/response';
 import type { BandType, ZPK } from '$lib/dsp/types';
 
-export type MethodId = 'bilinear-prewarp' | 'bilinear' | 'matched' | 'impulse' | 'backward-euler' | 'forward-euler';
+export type MethodId =
+	'bilinear-prewarp' | 'bilinear' | 'matched' | 'impulse' | 'backward-euler' | 'forward-euler';
 
 export interface MethodInfo {
 	id: MethodId;
@@ -23,20 +24,42 @@ export interface MethodInfo {
 export const ANALOG_COLOR = 'var(--s1)';
 
 export const METHODS: MethodInfo[] = [
-	{ id: 'bilinear-prewarp', name: 'Bilinear, prewarped', color: 'var(--s2)', formula: 's = 2f_s\\frac{z-1}{z+1},\\ \\omega_c\\to 2f_s\\tan\\frac{\\omega_c}{2f_s}' },
-	{ id: 'bilinear', name: 'Bilinear (no prewarp)', color: 'var(--s3)', formula: 's = 2f_s\\frac{z-1}{z+1}' },
-	{ id: 'matched', name: 'Matched-Z', color: 'var(--s4)', formula: 'z_i = e^{s_i T},\\ p_i = e^{p_i T}' },
+	{
+		id: 'bilinear-prewarp',
+		name: 'Bilinear, prewarped',
+		color: 'var(--s2)',
+		formula: 's = 2f_s\\frac{z-1}{z+1},\\ \\omega_c\\to 2f_s\\tan\\frac{\\omega_c}{2f_s}'
+	},
+	{
+		id: 'bilinear',
+		name: 'Bilinear (no prewarp)',
+		color: 'var(--s3)',
+		formula: 's = 2f_s\\frac{z-1}{z+1}'
+	},
+	{
+		id: 'matched',
+		name: 'Matched-Z',
+		color: 'var(--s4)',
+		formula: 'z_i = e^{s_i T},\\ p_i = e^{p_i T}'
+	},
 	{ id: 'impulse', name: 'Impulse invariance', color: 'var(--s5)', formula: 'h[n] = T\\,h(nT)' },
-	{ id: 'backward-euler', name: 'Backward Euler', color: 'var(--s6)', formula: 's = \\frac{z-1}{zT}' },
+	{
+		id: 'backward-euler',
+		name: 'Backward Euler',
+		color: 'var(--s6)',
+		formula: 's = \\frac{z-1}{zT}'
+	},
 	{ id: 'forward-euler', name: 'Forward Euler', color: 'var(--s7)', formula: 's = \\frac{z-1}{T}' }
 ];
 
-export const methodInfo = (id: MethodId): MethodInfo => METHODS.find((m) => m.id === id) ?? METHODS[0];
+export const methodInfo = (id: MethodId): MethodInfo =>
+	METHODS.find((m) => m.id === id) ?? METHODS[0];
 
 const isBand = (b: BandType) => b === 'bandpass' || b === 'bandstop';
 
 /** Analog frequency (Hz) that the bilinear transform maps onto digital frequency f. */
-export const warpedHz = (f: number, fs: number): number => prewarp(Math.min(f, 0.49999 * fs), fs) / (2 * Math.PI);
+export const warpedHz = (f: number, fs: number): number =>
+	prewarp(Math.min(f, 0.49999 * fs), fs) / (2 * Math.PI);
 
 export interface MethodResult {
 	/** The analog filter that was actually discretised (prewarped for 'bilinear-prewarp'). */
@@ -146,7 +169,14 @@ export function sPlaneGrid(fs: number, R: number, method: MethodId): GridLine[] 
 	const nyq = fs / 2;
 	const out: GridLine[] = [];
 	const wSamples = wraps ? linspace(-R, R, 721) : axisSamples(R, 200 * fs);
-	const sigmaSamples = wraps ? linspace(-R, 0, 241) : [...logspace(R * 1.02, 200 * fs, 60).map((v) => -v).reverse(), ...linspace(-R, 0, 161)];
+	const sigmaSamples = wraps
+		? linspace(-R, 0, 241)
+		: [
+				...logspace(R * 1.02, 200 * fs, 60)
+					.map((v) => -v)
+					.reverse(),
+				...linspace(-R, 0, 161)
+			];
 	// constant σ (σ = 0 is the jω axis)
 	const sigmas = [-0.4, -0.2, -0.1, -0.05].map((k) => k * fs).filter((v) => -v <= R);
 	for (const sg of [...sigmas, 0]) {
@@ -169,7 +199,11 @@ export function sPlaneGrid(fs: number, R: number, method: MethodId): GridLine[] 
 	const step = fs / 8;
 	for (let k = -Math.floor(R / step); k <= Math.floor(R / step); k++) {
 		const w = k * step;
-		out.push({ kind: 'omega', aliased: Math.abs(w) > nyq + 1e-9, pts: sigmaSamples.map((sg) => c(sg, w)) });
+		out.push({
+			kind: 'omega',
+			aliased: Math.abs(w) > nyq + 1e-9,
+			pts: sigmaSamples.map((sg) => c(sg, w))
+		});
 	}
 	return out;
 }
@@ -184,7 +218,13 @@ export function mapLine(method: MethodId, pts: Complex[], fs: number): Complex[]
 // ---------------------------------------------------------------------------
 
 /** Frequencies (Hz) inside the passband of an analog design, below Nyquist. */
-export function passbandGrid(band: BandType, f1: number, f2: number, fs: number, n = 300): number[] {
+export function passbandGrid(
+	band: BandType,
+	f1: number,
+	f2: number,
+	fs: number,
+	n = 300
+): number[] {
 	const nyq = fs / 2;
 	const top = (f: number) => Math.min(f, nyq * 0.999);
 	switch (band) {
@@ -195,7 +235,10 @@ export function passbandGrid(band: BandType, f1: number, f2: number, fs: number,
 		case 'bandpass':
 			return f1 < nyq ? linspace(f1, top(f2), n) : [];
 		case 'bandstop':
-			return [...logspace(Math.min(f1, nyq) / 1000, top(f1), n), ...(f2 < nyq ? linspace(f2, nyq * 0.999, n) : [])];
+			return [
+				...logspace(Math.min(f1, nyq) / 1000, top(f1), n),
+				...(f2 < nyq ? linspace(f2, nyq * 0.999, n) : [])
+			];
 	}
 }
 

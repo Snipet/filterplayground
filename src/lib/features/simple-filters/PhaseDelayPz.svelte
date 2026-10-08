@@ -29,7 +29,14 @@
 	const color = (i: number) => entries[i].color ?? seriesColor(i);
 
 	const phase = $derived<Series[]>(
-		responses.map((r, i) => ({ x: r.f, y: r.phaseDeg, label: entries[i].label, color: color(i), dash: entries[i].dash, format: (v: number) => `${trimNumber(v, 4)}°` }))
+		responses.map((r, i) => ({
+			x: r.f,
+			y: r.phaseDeg,
+			label: entries[i].label,
+			color: color(i),
+			dash: entries[i].dash,
+			format: (v: number) => `${trimNumber(v, 4)}°`
+		}))
 	);
 	const delay = $derived<Series[]>(
 		responses.map((r, i) => {
@@ -47,7 +54,8 @@
 	);
 	const delayLimits = $derived.by((): [number, number] | undefined => {
 		const vals: number[] = [];
-		for (const s of delay) for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) vals.push(s.y[i]);
+		for (const s of delay)
+			for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) vals.push(s.y[i]);
 		if (!vals.length) return undefined;
 		vals.sort((a, b) => a - b);
 		const p = (q: number) => vals[Math.min(vals.length - 1, Math.floor(q * vals.length))];
@@ -103,7 +111,14 @@
 		/>
 	</div>
 	<div class="card">
-		<PoleZeroPlot zeros={pz.z} poles={pz.p} domain="z" {fs} height={Math.max(height, 260)} title="Poles & zeros (z-plane)" />
+		<PoleZeroPlot
+			zeros={pz.z}
+			poles={pz.p}
+			domain="z"
+			{fs}
+			height={Math.max(height, 260)}
+			title="Poles & zeros (z-plane)"
+		/>
 	</div>
 </div>
 

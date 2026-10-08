@@ -14,16 +14,27 @@
 	import TimeCard from '$lib/features/iir-designer/TimeCard.svelte';
 	import BlockDiagram from '$lib/features/simple-filters/BlockDiagram.svelte';
 	import PhaseDelayPz from '$lib/features/simple-filters/PhaseDelayPz.svelte';
-	import { SIMPLE_FILTERS, defaults, resolve, type Built, type ParamValues, type SimpleFilter } from '$lib/features/simple-filters/catalog';
+	import {
+		SIMPLE_FILTERS,
+		defaults,
+		resolve,
+		type Built,
+		type ParamValues,
+		type SimpleFilter
+	} from '$lib/features/simple-filters/catalog';
 	import { formatSI } from '$lib/dsp/units';
 	import { readSharedState } from '$lib/share';
 
 	let selectedId = $state('ema');
 	let fs = $state(48000);
-	let values = $state<Record<string, ParamValues>>(Object.fromEntries(SIMPLE_FILTERS.map((f) => [f.id, defaults(f)])));
+	let values = $state<Record<string, ParamValues>>(
+		Object.fromEntries(SIMPLE_FILTERS.map((f) => [f.id, defaults(f)]))
+	);
 	let scale = $state<'log' | 'linear'>('log');
 
-	const def = $derived<SimpleFilter>(SIMPLE_FILTERS.find((f) => f.id === selectedId) ?? SIMPLE_FILTERS[0]);
+	const def = $derived<SimpleFilter>(
+		SIMPLE_FILTERS.find((f) => f.id === selectedId) ?? SIMPLE_FILTERS[0]
+	);
 	const vals = $derived(values[def.id]);
 
 	const shared = $derived({ id: selectedId, fs, values: vals });
@@ -38,8 +49,10 @@
 			const src = st.values as ParamValues;
 			for (const p of f.params) {
 				const v = src[p.key];
-				if (p.kind === 'slider' && typeof v === 'number' && Number.isFinite(v)) values[f.id][p.key] = v;
-				if (p.kind === 'choice' && typeof v === 'string' && p.options.some((o) => o.value === v)) values[f.id][p.key] = v;
+				if (p.kind === 'slider' && typeof v === 'number' && Number.isFinite(v))
+					values[f.id][p.key] = v;
+				if (p.kind === 'choice' && typeof v === 'string' && p.options.some((o) => o.value === v))
+					values[f.id][p.key] = v;
 			}
 		}
 	});
@@ -51,31 +64,52 @@
 		scale = f.scale;
 	}
 
-	const built = $derived.by((): { b: Built; error?: undefined } | { b?: undefined; error: string } => {
-		try {
-			const b = def.build(vals, fs);
-			return { b };
-		} catch (e) {
-			return { error: e instanceof Error ? e.message : String(e) };
+	const built = $derived.by(
+		(): { b: Built; error?: undefined } | { b?: undefined; error: string } => {
+			try {
+				const b = def.build(vals, fs);
+				return { b };
+			} catch (e) {
+				return { error: e instanceof Error ? e.message : String(e) };
+			}
 		}
-	});
+	);
 
 	const entries = $derived.by((): FilterEntry[] => {
 		if (!built.b) return [];
 		const out: FilterEntry[] = [{ filter: built.b.filter, label: def.name, color: 'var(--s1)' }];
-		if (built.b.reference) out.push({ filter: { kind: 'analog', zpk: built.b.reference.zpk }, label: built.b.reference.label, color: 'var(--s2)', dash: '6 4' });
+		if (built.b.reference)
+			out.push({
+				filter: { kind: 'analog', zpk: built.b.reference.zpk },
+				label: built.b.reference.label,
+				color: 'var(--s2)',
+				dash: '6 4'
+			});
 		return out;
 	});
 
-	const fsOptions = [1000, 8000, 16000, 44100, 48000, 96000].map((v) => ({ value: v, label: formatSI(v, 'Hz', 4) }));
+	const fsOptions = [1000, 8000, 16000, 44100, 48000, 96000].map((v) => ({
+		value: v,
+		label: formatSI(v, 'Hz', 4)
+	}));
 </script>
 
-<ToolLayout slug="simple-filters" share={shared} related={['biquad', 'pole-zero', 'iir-designer', 'structures', 'signal-lab']}>
+<ToolLayout
+	slug="simple-filters"
+	share={shared}
+	related={['biquad', 'pole-zero', 'iir-designer', 'structures', 'signal-lab']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Filter">
 			<div class="catalog" role="radiogroup" aria-label="Filter">
 				{#each SIMPLE_FILTERS as f, i (f.id)}
-					<button type="button" role="radio" aria-checked={f.id === selectedId} class:active={f.id === selectedId} onclick={() => select(f.id)}>
+					<button
+						type="button"
+						role="radio"
+						aria-checked={f.id === selectedId}
+						class:active={f.id === selectedId}
+						onclick={() => select(f.id)}
+					>
 						<span class="idx">{i + 1}</span>{f.name}
 					</button>
 				{/each}
@@ -100,9 +134,20 @@
 							onchange={(v) => (values[def.id][p.key] = v)}
 						/>
 					{:else if p.options.length <= 3}
-						<Segmented label={p.label} size="small" value={String(vals[p.key])} options={p.options} onchange={(v) => (values[def.id][p.key] = v)} />
+						<Segmented
+							label={p.label}
+							size="small"
+							value={String(vals[p.key])}
+							options={p.options}
+							onchange={(v) => (values[def.id][p.key] = v)}
+						/>
 					{:else}
-						<Select label={p.label} value={String(vals[p.key])} options={p.options} onchange={(v) => (values[def.id][p.key] = v)} />
+						<Select
+							label={p.label}
+							value={String(vals[p.key])}
+							options={p.options}
+							onchange={(v) => (values[def.id][p.key] = v)}
+						/>
 					{/if}
 				{/if}
 			{/each}
@@ -122,7 +167,9 @@
 			<div class="split">
 				<div class="diagram">
 					<BlockDiagram diagram={b.diagram} label="{def.name} block diagram" />
-					<p class="small muted cap">Direct form: z⁻ᵏ blocks delay by k samples, triangles multiply, circles add.</p>
+					<p class="small muted cap">
+						Direct form: z⁻ᵏ blocks delay by k samples, triangles multiply, circles add.
+					</p>
 				</div>
 				<div class="side">
 					<h4>Typical uses</h4>
@@ -149,62 +196,106 @@
 		/>
 		<PhaseDelayPz {entries} {fs} {scale} fmin={fs * 1e-5} />
 
-		<TimeCard entries={[{ filter: b.filter, label: def.name, color: 'var(--s1)' }]} n={b.n} subtitle="What the difference equation does to a single 1 (impulse) and to a constant 1 (step)." />
+		<TimeCard
+			entries={[{ filter: b.filter, label: def.name, color: 'var(--s1)' }]}
+			n={b.n}
+			subtitle="What the difference equation does to a single 1 (impulse) and to a constant 1 (step)."
+		/>
 	{/if}
 
 	{#snippet theory()}
 		<h2>Small filters, big jobs</h2>
 		<p>
-			Most real-world filtering is done by filters with one or two poles. They are cheap, easy to reason about, and each one is a
-			lesson in how pole and zero positions shape a response. On the unit circle <Tex math={'z=e^{j\\omega}'} /> the gain is a ratio
-			of distances:
+			Most real-world filtering is done by filters with one or two poles. They are cheap, easy to
+			reason about, and each one is a lesson in how pole and zero positions shape a response. On the
+			unit circle <Tex math={'z=e^{j\\omega}'} /> the gain is a ratio of distances:
 		</p>
-		<Tex display math={'|H(e^{j\\omega})| = |b_0|\\,\\frac{\\prod_i |e^{j\\omega}-z_i|}{\\prod_k |e^{j\\omega}-p_k|}'} />
+		<Tex
+			display
+			math={'|H(e^{j\\omega})| = |b_0|\\,\\frac{\\prod_i |e^{j\\omega}-z_i|}{\\prod_k |e^{j\\omega}-p_k|}'}
+		/>
 		<p>
-			A pole close to the circle makes a peak where the circle passes near it; a zero on the circle makes a perfect null. Put a zero
-			and a pole close together (DC blocker, notch) and they cancel everywhere except right next to them.
+			A pole close to the circle makes a peak where the circle passes near it; a zero on the circle
+			makes a perfect null. Put a zero and a pole close together (DC blocker, notch) and they cancel
+			everywhere except right next to them.
 		</p>
 		<h3>The one-pole family</h3>
 		<p>
-			The EMA <Tex math={'y[n]=\\alpha x[n]+(1-\\alpha)y[n-1]'} /> has a single pole at p = 1 − α. Sampling an RC low-pass with
-			time constant τ gives exactly this pole, <Tex math={'p=e^{-T/\\tau}'} />, so α = 1 − e<sup>−T/τ</sup>. Setting
-			|H|² = ½ gives the exact −3 dB relation
+			The EMA <Tex math={'y[n]=\\alpha x[n]+(1-\\alpha)y[n-1]'} /> has a single pole at p = 1 − α. Sampling
+			an RC low-pass with time constant τ gives exactly this pole, <Tex math={'p=e^{-T/\\tau}'} />,
+			so α = 1 − e<sup>−T/τ</sup>. Setting |H|² = ½ gives the exact −3 dB relation
 		</p>
-		<Tex display math={'\\cos\\omega_c = 1-\\frac{\\alpha^2}{2(1-\\alpha)}\\quad\\Longleftrightarrow\\quad \\alpha = -y+\\sqrt{y^2+2y},\\ \\ y=1-\\cos\\omega_c'} />
+		<Tex
+			display
+			math={'\\cos\\omega_c = 1-\\frac{\\alpha^2}{2(1-\\alpha)}\\quad\\Longleftrightarrow\\quad \\alpha = -y+\\sqrt{y^2+2y},\\ \\ y=1-\\cos\\omega_c'}
+		/>
 		<p>
-			For f<sub>c</sub> ≪ f<sub>s</sub> both reduce to the familiar <Tex math={'\\alpha\\approx 1-e^{-2\\pi f_c/f_s}\\approx 2\\pi f_c/f_s'} />;
-			near Nyquist they differ, and above α = 2√2 − 2 ≈ 0.83 the filter never reaches −3 dB at all. The high-pass, DC blocker and
-			leaky integrator are the same structure with a zero added at z = 1 or the input scaling changed.
+			For f<sub>c</sub> ≪ f<sub>s</sub> both reduce to the familiar <Tex
+				math={'\\alpha\\approx 1-e^{-2\\pi f_c/f_s}\\approx 2\\pi f_c/f_s'}
+			/>; near Nyquist they differ, and above α = 2√2 − 2 ≈ 0.83 the filter never reaches −3 dB at
+			all. The high-pass, DC blocker and leaky integrator are the same structure with a zero added
+			at z = 1 or the input scaling changed.
 		</p>
 		<h3>Delays: moving averages and combs</h3>
-		<p>A delay of D samples, z<sup>−D</sup>, has a phase that winds D times around the circle, so anything built from it repeats every f<sub>s</sub>/D:</p>
-		<Tex display math={'H_{\\text{FF}}(z)=1+g z^{-D}\\ \\ (\\text{zeros at } z^D=-g),\\qquad H_{\\text{FB}}(z)=\\frac{1}{1-g z^{-D}}\\ \\ (\\text{poles at } z^D = g,\\ |p| = |g|^{1/D})'} />
 		<p>
-			The moving average is a feed-forward comb divided by an integrator: <Tex math={'\\tfrac1N\\sum_{k<N} z^{-k}=\\tfrac1N\\frac{1-z^{-N}}{1-z^{-1}}'} />.
-			The comb places N zeros evenly on the circle; the integrator's pole at z = 1 cancels the one at DC, leaving nulls at every
-			k·f<sub>s</sub>/N. In floating point the cancellation is not exact, so recursive averages are run in integer arithmetic (as
-			in CIC decimators) or periodically re-summed.
+			A delay of D samples, z<sup>−D</sup>, has a phase that winds D times around the circle, so
+			anything built from it repeats every f<sub>s</sub>/D:
+		</p>
+		<Tex
+			display
+			math={'H_{\\text{FF}}(z)=1+g z^{-D}\\ \\ (\\text{zeros at } z^D=-g),\\qquad H_{\\text{FB}}(z)=\\frac{1}{1-g z^{-D}}\\ \\ (\\text{poles at } z^D = g,\\ |p| = |g|^{1/D})'}
+		/>
+		<p>
+			The moving average is a feed-forward comb divided by an integrator: <Tex
+				math={'\\tfrac1N\\sum_{k<N} z^{-k}=\\tfrac1N\\frac{1-z^{-N}}{1-z^{-1}}'}
+			/>. The comb places N zeros evenly on the circle; the integrator's pole at z = 1 cancels the
+			one at DC, leaving nulls at every k·f<sub>s</sub>/N. In floating point the cancellation is not
+			exact, so recursive averages are run in integer arithmetic (as in CIC decimators) or
+			periodically re-summed.
 		</p>
 		<h3>Resonators and notches</h3>
 		<p>
-			A conjugate pole pair <Tex math={'p=re^{\\pm j\\theta}'} /> rings at θ = 2πf<sub>0</sub>/f<sub>s</sub> with a −3 dB bandwidth of
-			about <Tex math={'B\\approx (1-r)f_s/\\pi'} /> (hence r ≈ e<sup>−πB/f<sub>s</sub></sup>) and an envelope decaying as rⁿ. Put zeros on
-			the circle at the same angle and you have a notch: the zeros null f<sub>0</sub>, the poles restore the gain elsewhere.
+			A conjugate pole pair <Tex math={'p=re^{\\pm j\\theta}'} /> rings at θ = 2πf<sub>0</sub>/f<sub
+				>s</sub
+			>
+			with a −3 dB bandwidth of about <Tex math={'B\\approx (1-r)f_s/\\pi'} /> (hence r ≈ e<sup
+				>−πB/f<sub>s</sub></sup
+			>) and an envelope decaying as rⁿ. Put zeros on the circle at the same angle and you have a
+			notch: the zeros null f<sub>0</sub>, the poles restore the gain elsewhere.
 		</p>
 		<h3>All-pass and differentiator</h3>
 		<p>
-			The first-order all-pass <Tex math={'H(z)=\\frac{c+z^{-1}}{1+cz^{-1}}'} /> has its zero at −1/c, the mirror image of the pole, so
-			|H| = 1 exactly. Its group delay at DC is (1 − c)/(1 + c) samples: choose c = (1 − d)/(1 + d) for a fractional delay d. The
-			first difference <Tex math={'1-e^{-j\\omega}=2j\\sin(\\omega/2)\\,e^{-j\\omega/2}'} /> behaves like jω (a differentiator scaled
-			by T) for small ω, with half a sample of delay, and reaches its maximum gain of 2 at Nyquist.
+			The first-order all-pass <Tex math={'H(z)=\\frac{c+z^{-1}}{1+cz^{-1}}'} /> has its zero at −1/c,
+			the mirror image of the pole, so |H| = 1 exactly. Its group delay at DC is (1 − c)/(1 + c) samples:
+			choose c = (1 − d)/(1 + d) for a fractional delay d. The first difference <Tex
+				math={'1-e^{-j\\omega}=2j\\sin(\\omega/2)\\,e^{-j\\omega/2}'}
+			/> behaves like jω (a differentiator scaled by T) for small ω, with half a sample of delay, and
+			reaches its maximum gain of 2 at Nyquist.
 		</p>
 		<Callout kind="try">
 			<ul>
-				<li>One-pole low-pass at 48 kHz: set the cutoff to 10 kHz and switch between <em>1 − e^(−2πfc/fs)</em> and <em>Exact −3 dB</em> — compare the measured −3 dB frequency.</li>
-				<li>Moving average at fs = 1 kHz with N = 20: the nulls land on 50, 100, 150 Hz — a classic mains-hum rejector.</li>
-				<li>Comb filter with g = 0.9: switch from feed-forward to feedback. Notches become resonant peaks and the impulse response starts to ring.</li>
-				<li>Resonator with <em>Fixed</em> scaling: sweep f₀ from 500 Hz to 20 kHz with and without zeros at ±1 — only the version with zeros keeps its peak gain.</li>
-				<li>Leaky integrator: switch to <em>Accumulator</em> and look at the step response ramp and the pole sitting on the unit circle.</li>
+				<li>
+					One-pole low-pass at 48 kHz: set the cutoff to 10 kHz and switch between <em
+						>1 − e^(−2πfc/fs)</em
+					>
+					and <em>Exact −3 dB</em> — compare the measured −3 dB frequency.
+				</li>
+				<li>
+					Moving average at fs = 1 kHz with N = 20: the nulls land on 50, 100, 150 Hz — a classic
+					mains-hum rejector.
+				</li>
+				<li>
+					Comb filter with g = 0.9: switch from feed-forward to feedback. Notches become resonant
+					peaks and the impulse response starts to ring.
+				</li>
+				<li>
+					Resonator with <em>Fixed</em> scaling: sweep f₀ from 500 Hz to 20 kHz with and without zeros
+					at ±1 — only the version with zeros keeps its peak gain.
+				</li>
+				<li>
+					Leaky integrator: switch to <em>Accumulator</em> and look at the step response ramp and the
+					pole sitting on the unit circle.
+				</li>
 			</ul>
 		</Callout>
 	{/snippet}

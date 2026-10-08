@@ -25,7 +25,9 @@
 	const ff = $derived([...diagram.ff].sort((a, b) => a.delay - b.delay));
 	const fb = $derived([...diagram.fb].sort((a, b) => a.delay - b.delay));
 	const hasFb = $derived(fb.length > 0);
-	const rows = $derived([...new Set([0, ...ff.map((t) => t.delay), ...fb.map((t) => t.delay)])].sort((a, b) => a - b));
+	const rows = $derived(
+		[...new Set([0, ...ff.map((t) => t.delay), ...fb.map((t) => t.delay)])].sort((a, b) => a - b)
+	);
 	// vertical position of each row; the gap above the last feed-forward tap grows when it carries a note
 	const ys = $derived.by(() => {
 		const out: number[] = [];
@@ -88,7 +90,13 @@
 	);
 </script>
 
-<svg class="bd" viewBox="0 0 {W} {height}" style:max-width="{Math.round(W * 1.2)}px" role="img" aria-label="{label}. {desc}">
+<svg
+	class="bd"
+	viewBox="0 0 {W} {height}"
+	style:max-width="{Math.round(W * 1.2)}px"
+	role="img"
+	aria-label="{label}. {desc}"
+>
 	<!-- input -->
 	<text class="io" x="4" y={rowY(0) + 5}>x[n]</text>
 	<line x1="34" y1={rowY(0)} x2={xL} y2={rowY(0)} />
@@ -97,7 +105,9 @@
 	{/if}
 	{#each ffBlocks as b, i (i)}
 		<rect class="box" x={xL - 20} y={b.y - 12} width="40" height="24" rx="3" />
-		<text class="z" x={xL} y={b.y + 5} text-anchor="middle">z<tspan class="exp" dy="-6">−{b.k}</tspan></text>
+		<text class="z" x={xL} y={b.y + 5} text-anchor="middle"
+			>z<tspan class="exp" dy="-6">−{b.k}</tspan></text
+		>
 		{#if diagram.ffNote && i === ffBlocks.length - 1}
 			<text class="note" x={xL + 26} y={b.y - 2}>⋮ {diagram.ffNote}</text>
 		{/if}
@@ -112,7 +122,9 @@
 		<line x1={xR} y1={rowY(0)} x2={xR} y2={rowY(fbLast)} />
 		{#each fbBlocks as b, i (i)}
 			<rect class="box" x={xR - 20} y={b.y - 12} width="40" height="24" rx="3" />
-			<text class="z" x={xR} y={b.y + 5} text-anchor="middle">z<tspan class="exp" dy="-6">−{b.k}</tspan></text>
+			<text class="z" x={xR} y={b.y + 5} text-anchor="middle"
+				>z<tspan class="exp" dy="-6">−{b.k}</tspan></text
+			>
 		{/each}
 	{/if}
 
@@ -123,7 +135,10 @@
 			{#if n.d !== ffLast}<circle class="dot" cx={xL} cy={n.y} r="3" />{/if}
 			{#if n.adder}<path class="head" d={arrowR(end, n.y)} />{/if}
 			{#if n.ff.coef !== 1}
-				<path class="mul" d="M{xMulL - 10},{n.y - 10}L{xMulL + 10},{n.y}L{xMulL - 10},{n.y + 10}Z" />
+				<path
+					class="mul"
+					d="M{xMulL - 10},{n.y - 10}L{xMulL + 10},{n.y}L{xMulL - 10},{n.y + 10}Z"
+				/>
 				<text class="coef" x={xMulL} y={n.y - 16} text-anchor="middle">{fmt(n.ff.coef)}</text>
 			{/if}
 		{/if}
@@ -133,7 +148,10 @@
 			{#if n.d !== fbLast && n.d !== 0}<circle class="dot" cx={xR} cy={n.y} r="3" />{/if}
 			{#if n.adder}<path class="head" d={arrowL(end, n.y)} />{/if}
 			{#if n.fb.coef !== 1}
-				<path class="mul" d="M{xMulR + 10},{n.y - 10}L{xMulR - 10},{n.y}L{xMulR + 10},{n.y + 10}Z" />
+				<path
+					class="mul"
+					d="M{xMulR + 10},{n.y - 10}L{xMulR - 10},{n.y}L{xMulR + 10},{n.y + 10}Z"
+				/>
 				<text class="coef" x={xMulR} y={n.y - 16} text-anchor="middle">{fmt(n.fb.coef)}</text>
 			{/if}
 		{/if}

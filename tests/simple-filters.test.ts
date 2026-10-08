@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { SIMPLE_FILTERS, alphaExact3dB, cutoff3dB, defaults, gainDbAt, type Built, type ParamValues } from '../src/lib/features/simple-filters/catalog';
+import {
+	SIMPLE_FILTERS,
+	alphaExact3dB,
+	cutoff3dB,
+	defaults,
+	gainDbAt,
+	type Built,
+	type ParamValues
+} from '../src/lib/features/simple-filters/catalog';
 import { evaluate, linspace } from '../src/lib/dsp/response';
 import { digitalTf } from '../src/lib/dsp/convert';
 import type { TF } from '../src/lib/dsp/types';
@@ -50,9 +58,17 @@ describe('one-pole low-pass', () => {
 		expect(alphaExact3dB(24000 - 1e-9, 48000)).toBeCloseTo(2 * Math.SQRT2 - 2, 6);
 	});
 	it('the exponential approximation is good at low fc and drifts high', () => {
-		const lo = cutoff3dB(tfOf(build('ema', { mode: 'fc', fc: 100, fcMethod: 'approx' })), 48000, 'lp')!;
+		const lo = cutoff3dB(
+			tfOf(build('ema', { mode: 'fc', fc: 100, fcMethod: 'approx' })),
+			48000,
+			'lp'
+		)!;
 		expect(lo / 100).toBeCloseTo(1, 2);
-		const hi = cutoff3dB(tfOf(build('ema', { mode: 'fc', fc: 10000, fcMethod: 'approx' })), 48000, 'lp')!;
+		const hi = cutoff3dB(
+			tfOf(build('ema', { mode: 'fc', fc: 10000, fcMethod: 'approx' })),
+			48000,
+			'lp'
+		)!;
 		expect(hi).toBeGreaterThan(10000 * 1.1);
 	});
 	it('time constant mode: step reaches 63 % after τ', () => {
@@ -62,7 +78,10 @@ describe('one-pole low-pass', () => {
 		expect(tf.b[0]).toBeCloseTo(1 - Math.exp(-1 / (fs * tau)), 12);
 	});
 	it('unity DC gain', () => {
-		expect(gainDbAt(tfOf(build('ema', { mode: 'alpha', alpha: 0.3 })), 48000, 0)).toBeCloseTo(0, 10);
+		expect(gainDbAt(tfOf(build('ema', { mode: 'alpha', alpha: 0.3 })), 48000, 0)).toBeCloseTo(
+			0,
+			10
+		);
 	});
 });
 
@@ -91,7 +110,10 @@ describe('high-pass, DC blocker, leaky integrator', () => {
 		expect(gainDbAt(tf, 48000, 24000)).toBeCloseTo(20 * Math.log10(2 / (1 + R)), 9);
 	});
 	it('leaky integrator DC gain 1/(1 − R); accumulator is marginally stable', () => {
-		expect(gainDbAt(tfOf(build('leaky', { kind: 'leaky', leak: 0.1 })), 48000, 0)).toBeCloseTo(20, 9);
+		expect(gainDbAt(tfOf(build('leaky', { kind: 'leaky', leak: 0.1 })), 48000, 0)).toBeCloseTo(
+			20,
+			9
+		);
 		const acc = build('leaky', { kind: 'acc' });
 		expect(tfOf(acc).a).toEqual([1, -1]);
 		expect(acc.stats.find((s) => s.label === 'Stability')?.status).toBe('warning');
@@ -108,7 +130,8 @@ describe('moving average and combs', () => {
 		const a = evaluate(rec.filter, f).magDb;
 		const b = evaluate(dir.filter, f).magDb;
 		a.forEach((v, i) => expect(v).toBeCloseTo(b[i], 6));
-		for (const null_ of [50, 100, 150]) expect(evaluate(dir.filter, [null_]).mag[0]).toBeLessThan(1e-12);
+		for (const null_ of [50, 100, 150])
+			expect(evaluate(dir.filter, [null_]).mag[0]).toBeLessThan(1e-12);
 	});
 	it('feed-forward comb: peaks 1+|g|, dips 1−|g| at the right frequencies', () => {
 		const fs = 48000;
@@ -170,7 +193,10 @@ describe('all-pass and differentiator', () => {
 	});
 	it('first difference: +6.02 dB at Nyquist; central difference has a zero there', () => {
 		const fs = 48000;
-		expect(gainDbAt(tfOf(build('diff', { variant: 'backward' })), fs, fs / 2)).toBeCloseTo(6.0206, 3);
+		expect(gainDbAt(tfOf(build('diff', { variant: 'backward' })), fs, fs / 2)).toBeCloseTo(
+			6.0206,
+			3
+		);
 		expect(gainDbAt(tfOf(build('diff', { variant: 'central' })), fs, fs / 2)).toBeLessThan(-200);
 	});
 });

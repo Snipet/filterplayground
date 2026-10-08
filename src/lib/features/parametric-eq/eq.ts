@@ -6,7 +6,8 @@
 import { biquad, type BiquadType } from '$lib/dsp/biquad';
 import type { SOS } from '$lib/dsp/types';
 
-export type EqType = 'peaking' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass' | 'notch' | 'bandpass' | 'allpass';
+export type EqType =
+	'peaking' | 'lowshelf' | 'highshelf' | 'lowpass' | 'highpass' | 'notch' | 'bandpass' | 'allpass';
 
 export interface EqTypeInfo {
 	id: EqType;
@@ -26,7 +27,8 @@ export const EQ_TYPES: EqTypeInfo[] = [
 	{ id: 'allpass', name: 'All-pass', short: 'All-pass', usesGain: false }
 ];
 
-export const eqTypeInfo = (t: EqType): EqTypeInfo => EQ_TYPES.find((e) => e.id === t) ?? EQ_TYPES[0];
+export const eqTypeInfo = (t: EqType): EqTypeInfo =>
+	EQ_TYPES.find((e) => e.id === t) ?? EQ_TYPES[0];
 
 export const MAX_BANDS = 8;
 export const MIN_Q = 0.1;
@@ -86,33 +88,57 @@ export function analogBandDb(b: EqBand, f: number): number {
 	const w2 = w * w;
 	switch (b.type) {
 		case 'lowpass':
-			nr = 1; ni = 0; dr = 1 - w2; di = w / Q;
+			nr = 1;
+			ni = 0;
+			dr = 1 - w2;
+			di = w / Q;
 			break;
 		case 'highpass':
-			nr = -w2; ni = 0; dr = 1 - w2; di = w / Q;
+			nr = -w2;
+			ni = 0;
+			dr = 1 - w2;
+			di = w / Q;
 			break;
 		case 'bandpass':
-			nr = 0; ni = w / Q; dr = 1 - w2; di = w / Q;
+			nr = 0;
+			ni = w / Q;
+			dr = 1 - w2;
+			di = w / Q;
 			break;
 		case 'notch':
-			nr = 1 - w2; ni = 0; dr = 1 - w2; di = w / Q;
+			nr = 1 - w2;
+			ni = 0;
+			dr = 1 - w2;
+			di = w / Q;
 			break;
 		case 'allpass':
-			nr = 1 - w2; ni = -w / Q; dr = 1 - w2; di = w / Q;
+			nr = 1 - w2;
+			ni = -w / Q;
+			dr = 1 - w2;
+			di = w / Q;
 			break;
 		case 'peaking':
-			nr = 1 - w2; ni = (w * A) / Q; dr = 1 - w2; di = w / (A * Q);
+			nr = 1 - w2;
+			ni = (w * A) / Q;
+			dr = 1 - w2;
+			di = w / (A * Q);
 			break;
 		case 'lowshelf': {
 			const sA = Math.sqrt(A);
 			// A·(s² + (√A/Q)s + A) / (A s² + (√A/Q)s + 1)
-			nr = A * (A - w2); ni = (A * sA * w) / Q; dr = 1 - A * w2; di = (sA * w) / Q;
+			nr = A * (A - w2);
+			ni = (A * sA * w) / Q;
+			dr = 1 - A * w2;
+			di = (sA * w) / Q;
 			break;
 		}
 		case 'highshelf': {
 			const sA = Math.sqrt(A);
 			// A·(A s² + (√A/Q)s + 1) / (s² + (√A/Q)s + A)
-			nr = A * (1 - A * w2); ni = (A * sA * w) / Q; dr = A - w2; di = (sA * w) / Q;
+			nr = A * (1 - A * w2);
+			ni = (A * sA * w) / Q;
+			dr = A - w2;
+			di = (sA * w) / Q;
 			break;
 		}
 	}
@@ -150,7 +176,7 @@ export interface Preset {
 }
 
 // Butterworth Q values for a 4th-order response built from two biquads
-const BW4 = [0.5411961, 1.3065630];
+const BW4 = [0.5411961, 1.306563];
 
 export const PRESETS: Preset[] = [
 	{
@@ -175,7 +201,8 @@ export const PRESETS: Preset[] = [
 	{
 		id: 'loudness',
 		name: 'Loudness',
-		description: 'Boost lows and highs, as the ear loses sensitivity there at low listening levels.',
+		description:
+			'Boost lows and highs, as the ear loses sensitivity there at low listening levels.',
 		bands: [
 			{ type: 'lowshelf', f: 120, q: 0.6, gain: 8 },
 			{ type: 'peaking', f: 3000, q: 1, gain: -1.5 },
@@ -185,7 +212,8 @@ export const PRESETS: Preset[] = [
 	{
 		id: 'telephone',
 		name: 'Telephone band-limit',
-		description: '300 Hz – 3.4 kHz, 24 dB/oct each side: two biquads with Butterworth Q values make a 4th-order Butterworth.',
+		description:
+			'300 Hz – 3.4 kHz, 24 dB/oct each side: two biquads with Butterworth Q values make a 4th-order Butterworth.',
 		bands: [
 			{ type: 'highpass', f: 300, q: BW4[0], gain: 0 },
 			{ type: 'highpass', f: 300, q: BW4[1], gain: 0 },
@@ -203,7 +231,8 @@ export const PRESETS: Preset[] = [
 	{
 		id: 'rumble',
 		name: 'Rumble filter',
-		description: '4th-order Butterworth high-pass at 25 Hz removes turntable rumble and stage thumps.',
+		description:
+			'4th-order Butterworth high-pass at 25 Hz removes turntable rumble and stage thumps.',
 		bands: [
 			{ type: 'highpass', f: 25, q: BW4[0], gain: 0 },
 			{ type: 'highpass', f: 25, q: BW4[1], gain: 0 }
@@ -223,7 +252,8 @@ export const PRESETS: Preset[] = [
 	{
 		id: 'cramp',
 		name: 'Cramping demo',
-		description: 'A wide bell at 16 kHz: watch it squeeze against Nyquist compared with its analog prototype.',
+		description:
+			'A wide bell at 16 kHz: watch it squeeze against Nyquist compared with its analog prototype.',
 		bands: [{ type: 'peaking', f: 16000, q: 0.7, gain: 9 }]
 	}
 ];
@@ -242,7 +272,16 @@ export function sanitizeBand(v: unknown, id: number): EqBand | null {
 	const q = Number(o.q);
 	const gain = Number(o.gain);
 	const slot = Number(o.slot);
-	if (!type || !(f > 0) || !(q > 0) || !Number.isFinite(gain) || !Number.isInteger(slot) || slot < 0 || slot >= MAX_BANDS) return null;
+	if (
+		!type ||
+		!(f > 0) ||
+		!(q > 0) ||
+		!Number.isFinite(gain) ||
+		!Number.isInteger(slot) ||
+		slot < 0 ||
+		slot >= MAX_BANDS
+	)
+		return null;
 	return {
 		id,
 		slot,

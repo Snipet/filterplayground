@@ -3,7 +3,7 @@
  * digital filters in any representation.
  */
 import { type Complex, abs, abs2, c, div, mul } from './complex';
-import { digitalTf } from './convert';
+import { digitalTf, sos2zpk } from './convert';
 import type { DigitalFilter, Filter, SOS, TF, ZPK } from './types';
 
 export function linspace(a: number, b: number, n: number): number[] {
@@ -228,7 +228,8 @@ export function evaluate(filter: Filter, fHz: readonly number[]): Response {
 }
 
 function evalDigital(f: DigitalFilter, w: readonly number[]): { H: Complex[]; gd: number[] } {
-	if (f.sos) return { H: freqzSos(f.sos, w), gd: groupDelaySos(f.sos, w) };
+	// Group delay from the roots is exact; the polynomial ratio loses precision near zeros.
+	if (f.sos) return { H: freqzSos(f.sos, w), gd: groupDelayZpk(sos2zpk(f.sos), w) };
 	if (f.zpk) return { H: freqzZpk(f.zpk, w), gd: groupDelayZpk(f.zpk, w) };
 	const tf = digitalTf(f);
 	return { H: freqzTf(tf, w), gd: groupDelayTf(tf, w) };

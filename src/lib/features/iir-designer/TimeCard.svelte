@@ -25,7 +25,12 @@
 	import Plot, { type Series } from '$lib/components/plot/Plot.svelte';
 	import Segmented from '$lib/components/controls/Segmented.svelte';
 	import { seriesColor } from '$lib/components/plot/scales';
-	import { digitalImpulseResponse, digitalStepResponse, suggestDigitalLength, analogTimeResponse } from '$lib/dsp/time';
+	import {
+		digitalImpulseResponse,
+		digitalStepResponse,
+		suggestDigitalLength,
+		analogTimeResponse
+	} from '$lib/dsp/time';
 	import { trimNumber } from '$lib/dsp/units';
 
 	interface Props {
@@ -39,7 +44,15 @@
 		yLimits?: [number, number];
 		height?: number;
 	}
-	let { entries, analog = [], n, title = 'Time response', subtitle, yLimits, height = 240 }: Props = $props();
+	let {
+		entries,
+		analog = [],
+		n,
+		title = 'Time response',
+		subtitle,
+		yLimits,
+		height = 240
+	}: Props = $props();
 
 	let mode = $state<'impulse' | 'step'>('impulse');
 
@@ -54,7 +67,11 @@
 		const out: Series[] = entries.map((e, i) => {
 			let y: number[];
 			try {
-				y = Array.from(mode === 'impulse' ? digitalImpulseResponse(e.filter, N) : digitalStepResponse(e.filter, N));
+				y = Array.from(
+					mode === 'impulse'
+						? digitalImpulseResponse(e.filter, N)
+						: digitalStepResponse(e.filter, N)
+				);
 			} catch {
 				y = [];
 			}
@@ -87,7 +104,9 @@
 		return out;
 	});
 
-	const hasDirac = $derived(mode === 'impulse' && analog.some((a) => a.zpk.z.length >= a.zpk.p.length));
+	const hasDirac = $derived(
+		mode === 'impulse' && analog.some((a) => a.zpk.z.length >= a.zpk.p.length)
+	);
 </script>
 
 <Card {title} {subtitle}>
@@ -101,11 +120,20 @@
 			]}
 		/>
 	{/snippet}
-	<Plot {series} xLabel="Sample n" yLabel={mode === 'impulse' ? 'h[n]' : 'Step response'} {height} {yLimits} exportName={mode} />
+	<Plot
+		{series}
+		xLabel="Sample n"
+		yLabel={mode === 'impulse' ? 'h[n]' : 'Step response'}
+		{height}
+		{yLimits}
+		exportName={mode}
+	/>
 	{#if analog.length && mode === 'impulse'}
 		<p class="small muted note">
-			Analog curves show T·h(nT) — the analog impulse response sampled at the same instants and scaled by T = 1/fs, which
-			is exactly what impulse invariance reproduces.{#if hasDirac}{' '}The analog response also has a Dirac impulse at t = 0 (a direct feed-through term) that sampling cannot capture.{/if}
+			Analog curves show T·h(nT) — the analog impulse response sampled at the same instants and
+			scaled by T = 1/fs, which is exactly what impulse invariance reproduces.{#if hasDirac}{' '}The
+				analog response also has a Dirac impulse at t = 0 (a direct feed-through term) that sampling
+				cannot capture.{/if}
 		</p>
 	{/if}
 </Card>

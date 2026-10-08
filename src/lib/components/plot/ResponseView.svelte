@@ -178,6 +178,13 @@
 		return [-lim, lim];
 	});
 
+	// Constant delays (linear phase) need a minimum span or the axis zooms into rounding noise.
+	const gdMinSpan = $derived.by(() => {
+		let m = 0;
+		for (const s of gdSeries) for (let i = 0; i < s.y.length; i++) if (Number.isFinite(s.y[i])) m = Math.max(m, Math.abs(s.y[i]));
+		return isAnalog ? Math.max(m * 0.5, 1e-12) : Math.max(2, m * 0.25);
+	});
+
 	// ---------------- pole-zero ----------------
 	const pz = $derived.by((): { z: Complex[]; p: Complex[] } => {
 		if (!first) return { z: [], p: [] };
@@ -219,9 +226,11 @@
 				);
 			const imp = filters.map((f) => (f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'impulse', dur, 500) : null));
 			const stp = filters.map((f) => (f.filter.kind === 'analog' ? analogTimeResponse(f.filter.zpk, 'step', dur, 500) : null));
+			// only analog entries can share an analog time axis
+			const keep = (_: unknown, i: number) => filters[i].filter.kind === 'analog';
 			return {
-				impulse: imp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })),
-				step: stp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })),
+				impulse: imp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })).filter(keep),
+				step: stp.map((r, i) => ({ x: r?.t ?? [], y: r?.y ?? [], label: filters[i].label, color: colorOf(i), dash: filters[i].dash })).filter(keep),
 				dirac: imp.some((r) => r?.dirac),
 				unit: 's'
 			};
@@ -233,6 +242,7 @@
 			);
 		const idx = Array.from({ length: n }, (_, i) => i);
 		const stem = n <= 72;
+		const digitalOnly = (_: unknown, i: number) => filters[i].filter.kind === 'digital';
 		return {
 			impulse: filters.map((f, i) => ({
 				x: idx,
@@ -241,7 +251,7 @@
 				color: colorOf(i),
 				dash: f.dash,
 				kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
-			})),
+			})).filter(digitalOnly),
 			step: filters.map((f, i) => ({
 				x: idx,
 				y: f.filter.kind === 'digital' ? Array.from(digitalStepResponse(f.filter, n)) : [],
@@ -249,7 +259,7 @@
 				color: colorOf(i),
 				dash: f.dash,
 				kind: stem && filters.length === 1 ? ('stem' as const) : ('line' as const)
-			})),
+			})).filter(digitalOnly),
 			dirac: false,
 			unit: 'samples'
 		};
@@ -338,6 +348,7 @@
 						xFormat={freqFormat}
 						xTooltipFormat={hzTooltip}
 						yLimits={gdLimits}
+						minYSpan={gdMinSpan}
 						height={smallHeight}
 						title="Group delay"
 						legend={false}

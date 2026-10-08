@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { METHODS, digitalFrequency, discretizeWith, mapLine, mapS, maxDbError, passbandGrid, sPlaneGrid, warpedHz } from '../src/lib/features/discretization/mapping';
+import {
+	METHODS,
+	digitalFrequency,
+	discretizeWith,
+	mapLine,
+	mapS,
+	maxDbError,
+	passbandGrid,
+	sPlaneGrid,
+	warpedHz
+} from '../src/lib/features/discretization/mapping';
 import { designAnalog } from '../src/lib/dsp/design';
 import { evaluate, findCrossing, linspace } from '../src/lib/dsp/response';
 import { abs, c } from '../src/lib/dsp/complex';
@@ -11,7 +21,11 @@ const spec = { family: 'butter' as const, band: 'lowpass' as const, order: 4, f1
 const f3 = (zpk: ZPK) => {
 	const f = linspace(0, fs / 2, 20001);
 	const db = evaluate({ kind: 'digital', fs, zpk }, f).magDb;
-	return findCrossing(f, db.map((v) => v - db[0]), -3.0103)!;
+	return findCrossing(
+		f,
+		db.map((v) => v - db[0]),
+		-3.0103
+	)!;
 };
 
 describe('discretizeWith', () => {
@@ -52,7 +66,13 @@ describe('discretizeWith', () => {
 	it('every other method keeps stability', () => {
 		for (const m of METHODS.filter((x) => x.id !== 'forward-euler'))
 			for (const band of ['lowpass', 'highpass', 'bandpass', 'bandstop'] as const)
-				expect(discretizeWith(m.id, { family: 'ellip', band, order: 4, f1: 1000, f2: 2500, rp: 1, rs: 50 }, fs).stable).toBe(true);
+				expect(
+					discretizeWith(
+						m.id,
+						{ family: 'ellip', band, order: 4, f1: 1000, f2: 2500, rp: 1, rs: 50 },
+						fs
+					).stable
+				).toBe(true);
 	});
 	it('prewarping is exact at the cutoff only; the passband shape stays warped', () => {
 		const analog = designAnalog(spec);
@@ -70,7 +90,8 @@ describe('discretizeWith', () => {
 describe('s → z mappings', () => {
 	const T = 1 / fs;
 	it('bilinear: jω axis → unit circle, left half-plane → inside', () => {
-		for (const w of [0, 1000, 1e5, -3e4]) expect(abs(mapS('bilinear', c(0, w), fs))).toBeCloseTo(1, 12);
+		for (const w of [0, 1000, 1e5, -3e4])
+			expect(abs(mapS('bilinear', c(0, w), fs))).toBeCloseTo(1, 12);
 		expect(abs(mapS('bilinear', c(-500, 2e4), fs))).toBeLessThan(1);
 	});
 	it('forward Euler: jω axis → Re z = 1; backward Euler: jω axis → circle |z − ½| = ½', () => {
@@ -94,6 +115,7 @@ describe('s → z mappings', () => {
 		expect(g.some((l) => l.kind === 'jw' && l.aliased)).toBe(true);
 		// image of the jω axis lies on the unit circle for bilinear
 		const jw = sPlaneGrid(fs, 0.75 * fs, 'bilinear').filter((l) => l.kind === 'jw');
-		for (const l of jw) for (const z of mapLine('bilinear', l.pts, fs)) expect(abs(z)).toBeCloseTo(1, 9);
+		for (const l of jw)
+			for (const z of mapLine('bilinear', l.pts, fs)) expect(abs(z)).toBeCloseTo(1, 9);
 	});
 });

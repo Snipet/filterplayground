@@ -49,7 +49,12 @@
 	let presetId = $state(PRESETS[0].id);
 	let capNote = $state(false);
 
-	const shared = $derived({ fs, range, showAnalog, bands: bands.map(({ slot, type, f, q, gain, enabled }) => ({ slot, type, f, q, gain, enabled })) });
+	const shared = $derived({
+		fs,
+		range,
+		showAnalog,
+		bands: bands.map(({ slot, type, f, q, gain, enabled }) => ({ slot, type, f, q, gain, enabled }))
+	});
 	onMount(() => {
 		const st = readSharedState<typeof shared>();
 		if (!st) return;
@@ -78,7 +83,12 @@
 	const filter = $derived({ kind: 'digital' as const, fs, sos });
 	const total = $derived(evaluate(filter, grid));
 	const bandDb = $derived(
-		new Map(ordered.map((b) => [b.id, evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, grid).magDb]))
+		new Map(
+			ordered.map((b) => [
+				b.id,
+				evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, grid).magDb
+			])
+		)
 	);
 	const analogTotal = $derived.by(() => {
 		if (!showAnalog) return null;
@@ -91,10 +101,24 @@
 
 	const series = $derived.by((): Series[] => {
 		const out: Series[] = [
-			{ x: grid, y: total.magDb, label: 'Total', color: 'var(--text)', width: 3, format: (v) => `${trimNumber(Math.abs(v) < 0.0005 ? 0 : v, 4)} dB` }
+			{
+				x: grid,
+				y: total.magDb,
+				label: 'Total',
+				color: 'var(--text)',
+				width: 3,
+				format: (v) => `${trimNumber(Math.abs(v) < 0.0005 ? 0 : v, 4)} dB`
+			}
 		];
 		if (analogTotal)
-			out.push({ x: grid, y: analogTotal, label: 'Analog prototype (no cramping)', color: 'var(--muted)', dash: '6 4', format: (v) => `${trimNumber(v, 4)} dB` });
+			out.push({
+				x: grid,
+				y: analogTotal,
+				label: 'Analog prototype (no cramping)',
+				color: 'var(--muted)',
+				dash: '6 4',
+				format: (v) => `${trimNumber(v, 4)} dB`
+			});
 		for (const b of ordered) {
 			if (!b.enabled) continue;
 			out.push({
@@ -110,7 +134,8 @@
 		return out;
 	});
 
-	const ownDbAt = (b: EqBand, f: number) => evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, [f]).magDb[0];
+	const ownDbAt = (b: EqBand, f: number) =>
+		evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, [f]).magDb[0];
 	const markers = $derived<Marker[]>(
 		ordered.map((b) => {
 			const f = Math.min(b.f, maxFreq(fs));
@@ -141,7 +166,9 @@
 	function onWheel(id: string | number, dy: number) {
 		const b = bands.find((v) => v.id === id);
 		if (!b || dy === 0) return;
-		b.q = Number(Math.min(MAX_Q, Math.max(MIN_Q, b.q * Math.pow(1.12, -Math.sign(dy)))).toPrecision(3));
+		b.q = Number(
+			Math.min(MAX_Q, Math.max(MIN_Q, b.q * Math.pow(1.12, -Math.sign(dy)))).toPrecision(3)
+		);
 		selectedId = b.id;
 	}
 	function onSelect(id: string | number) {
@@ -160,7 +187,15 @@
 			return;
 		}
 		capNote = false;
-		const b: EqBand = { id: nextId++, slot, type, f: tidyF(f), q: 1, gain: Math.max(-MAX_GAIN, Math.min(MAX_GAIN, gain)), enabled: true };
+		const b: EqBand = {
+			id: nextId++,
+			slot,
+			type,
+			f: tidyF(f),
+			q: 1,
+			gain: Math.max(-MAX_GAIN, Math.min(MAX_GAIN, gain)),
+			enabled: true
+		};
 		bands.push(b);
 		selectedId = b.id;
 	}
@@ -196,14 +231,16 @@
 			if (db[i] < db[iMin]) iMin = i;
 		}
 		let iGd = 0;
-		for (let i = 1; i < gdMs.length; i++) if (Math.abs(gdMs[i]) > Math.abs(gdMs[iGd]) || !Number.isFinite(gdMs[iGd])) iGd = i;
+		for (let i = 1; i < gdMs.length; i++)
+			if (Math.abs(gdMs[i]) > Math.abs(gdMs[iGd]) || !Number.isFinite(gdMs[iGd])) iGd = i;
 		const on = bands.filter((b) => b.enabled);
 		let worst = 0;
 		let fWorst = 0;
 		for (let i = 0; i < grid.length; i++) {
 			const a = on.reduce((s, b) => s + analogBandDb(b, grid[i]), 0);
 			const d = db[i];
-			if (!Number.isFinite(a) || !Number.isFinite(d) || Math.abs(a) > 60 || Math.abs(d) > 60) continue;
+			if (!Number.isFinite(a) || !Number.isFinite(d) || Math.abs(a) > 60 || Math.abs(d) > 60)
+				continue;
 			if (Math.abs(d - a) > Math.abs(worst)) {
 				worst = d - a;
 				fWorst = grid[i];
@@ -211,35 +248,53 @@
 		}
 		const zpk = sos2zpk(sos);
 		const r = Math.max(0, ...zpk.p.map(abs));
-		const at = (v: number, i: number) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${trimNumber(v, 3)} dB @ ${formatSI(grid[i], 'Hz', 3)}` : '−∞ dB');
+		const at = (v: number, i: number) =>
+			Number.isFinite(v)
+				? `${v > 0 ? '+' : ''}${trimNumber(v, 3)} dB @ ${formatSI(grid[i], 'Hz', 3)}`
+				: '−∞ dB';
 		return [
 			{ label: 'Bands', value: `${on.length} on · ${bands.length}/${MAX_BANDS} used` },
 			{ label: 'Largest boost', value: db[iMax] > 0.005 ? at(db[iMax], iMax) : 'none' },
 			{ label: 'Deepest cut', value: db[iMin] < -0.005 ? at(db[iMin], iMin) : 'none' },
 			{
 				label: 'Peak group delay',
-				value: Number.isFinite(gdMs[iGd]) ? `${trimNumber(gdMs[iGd], 3)} ms @ ${formatSI(grid[iGd], 'Hz', 3)}` : '—',
+				value: Number.isFinite(gdMs[iGd])
+					? `${trimNumber(gdMs[iGd], 3)} ms @ ${formatSI(grid[iGd], 'Hz', 3)}`
+					: '—',
 				hint: 'Minimum-phase EQ delays mostly where the magnitude changes fastest.'
 			},
 			{
 				label: 'Cramping vs analog',
-				value: on.length ? `${trimNumber(Math.abs(worst), 3)} dB${Math.abs(worst) > 0.05 ? ` @ ${formatSI(fWorst, 'Hz', 3)}` : ''}` : '—',
+				value: on.length
+					? `${trimNumber(Math.abs(worst), 3)} dB${Math.abs(worst) > 0.05 ? ` @ ${formatSI(fWorst, 'Hz', 3)}` : ''}`
+					: '—',
 				status: on.length ? (Math.abs(worst) < 1 ? 'good' : 'warning') : undefined,
 				hint: 'Largest difference between the digital EQ and its analog prototype (bilinear warping near fs/2).'
 			},
-			{ label: 'Stability', value: `${r < 1 ? 'stable' : 'unstable'}, |p| ≤ ${trimNumber(r, 4)}`, status: r < 1 ? 'good' : 'critical', hint: 'Largest pole radius of the cascade; must be below 1.' }
+			{
+				label: 'Stability',
+				value: `${r < 1 ? 'stable' : 'unstable'}, |p| ≤ ${trimNumber(r, 4)}`,
+				status: r < 1 ? 'good' : 'critical',
+				hint: 'Largest pole radius of the cascade; must be below 1.'
+			}
 		];
 	});
 
 	const gdLimits = $derived.by((): [number, number] | undefined => {
-		const vals = gdMs.filter(Number.isFinite).map(Math.abs).sort((a, b) => a - b);
+		const vals = gdMs
+			.filter(Number.isFinite)
+			.map(Math.abs)
+			.sort((a, b) => a - b);
 		if (!vals.length) return undefined;
 		const p = vals[Math.floor(vals.length * 0.98)] ?? vals[vals.length - 1];
 		const lim = Math.max(p * 1.3, 0.01);
 		return [-lim, lim];
 	});
 
-	const fsOptions = [16000, 22050, 32000, 44100, 48000, 88200, 96000, 192000].map((v) => ({ value: v, label: formatSI(v, 'Hz', 4) }));
+	const fsOptions = [16000, 22050, 32000, 44100, 48000, 88200, 96000, 192000].map((v) => ({
+		value: v,
+		label: formatSI(v, 'Hz', 4)
+	}));
 	const typeOptions = EQ_TYPES.map((t) => ({ value: t.id, label: t.name }));
 	const presetOptions = PRESETS.map((p) => ({ value: p.id, label: p.name }));
 	const presetInfo = $derived(PRESETS.find((p) => p.id === presetId));
@@ -250,7 +305,12 @@
 	};
 </script>
 
-<ToolLayout slug="parametric-eq" share={shared} wideControls related={['biquad', 'iir-designer', 'signal-lab', 'crossover', 'structures']}>
+<ToolLayout
+	slug="parametric-eq"
+	share={shared}
+	wideControls
+	related={['biquad', 'iir-designer', 'signal-lab', 'crossover', 'structures']}
+>
 	{#snippet controls()}
 		<ControlGroup title="Setup" columns={2}>
 			<Select label="Preset" value={presetId} options={presetOptions} onchange={loadPreset} />
@@ -263,39 +323,91 @@
 				<ul class="bands" aria-label="EQ bands">
 					{#each ordered as b (b.id)}
 						<li class:selected={b.id === selectedId} class:off={!b.enabled}>
-							<button type="button" class="pick" aria-pressed={b.id === selectedId} onclick={() => onSelect(b.id)}>
+							<button
+								type="button"
+								class="pick"
+								aria-pressed={b.id === selectedId}
+								onclick={() => onSelect(b.id)}
+							>
 								<span class="dot" style:background={slotColor(b.slot)} aria-hidden="true"></span>
 								<span class="name">{b.slot + 1}. {eqTypeInfo(b.type).short}</span>
 								<span class="meta">{bandLabel(b)}</span>
 							</button>
 							<label class="en" title="Enable band {b.slot + 1}">
-								<input type="checkbox" checked={b.enabled} onchange={(e) => (b.enabled = (e.target as HTMLInputElement).checked)} />
+								<input
+									type="checkbox"
+									checked={b.enabled}
+									onchange={(e) => (b.enabled = (e.target as HTMLInputElement).checked)}
+								/>
 								<span class="visually-hidden">Enable band {b.slot + 1}</span>
 							</label>
-							<button type="button" class="btn ghost small del" onclick={() => removeBand(b.id)} aria-label="Delete band {b.slot + 1}">✕</button>
+							<button
+								type="button"
+								class="btn ghost small del"
+								onclick={() => removeBand(b.id)}
+								aria-label="Delete band {b.slot + 1}">✕</button
+							>
 						</li>
 					{/each}
 				</ul>
 			{:else}
 				<p class="small muted">No bands. Click anywhere on the plot or use the button below.</p>
 			{/if}
-			<button type="button" class="btn small add" onclick={() => addBand()} disabled={bands.length >= MAX_BANDS}>+ Add band</button>
+			<button
+				type="button"
+				class="btn small add"
+				onclick={() => addBand()}
+				disabled={bands.length >= MAX_BANDS}>+ Add band</button
+			>
 		</ControlGroup>
 
 		{#if selected && selInfo}
 			<ControlGroup title="Band {selected.slot + 1}">
-				<Select label="Type" value={selected.type} options={typeOptions} onchange={(v) => update({ type: v })} />
-				<Slider label="Frequency" value={selected.f} min={20} max={maxFreq(fs)} log unit="Hz" onchange={(v) => update({ f: v })} />
-				<Slider label="Q" value={selected.q} min={MIN_Q} max={MAX_Q} log onchange={(v) => update({ q: v })} />
+				<Select
+					label="Type"
+					value={selected.type}
+					options={typeOptions}
+					onchange={(v) => update({ type: v })}
+				/>
+				<Slider
+					label="Frequency"
+					value={selected.f}
+					min={20}
+					max={maxFreq(fs)}
+					log
+					unit="Hz"
+					onchange={(v) => update({ f: v })}
+				/>
+				<Slider
+					label="Q"
+					value={selected.q}
+					min={MIN_Q}
+					max={MAX_Q}
+					log
+					onchange={(v) => update({ q: v })}
+				/>
 				{#if selInfo.usesGain}
-					<Slider label="Gain" value={selected.gain} min={-MAX_GAIN} max={MAX_GAIN} step={0.1} unit="dB" onchange={(v) => update({ gain: v })} />
+					<Slider
+						label="Gain"
+						value={selected.gain}
+						min={-MAX_GAIN}
+						max={MAX_GAIN}
+						step={0.1}
+						unit="dB"
+						onchange={(v) => update({ gain: v })}
+					/>
 				{/if}
-				<Toggle checked={selected.enabled} label="Enabled" onchange={(v) => update({ enabled: v })} />
+				<Toggle
+					checked={selected.enabled}
+					label="Enabled"
+					onchange={(v) => update({ enabled: v })}
+				/>
 			</ControlGroup>
 		{/if}
 		<p class="small muted">
-			Click empty plot space to add a bell, drag a handle to move it{selInfo?.usesGain !== false ? ' (up/down sets the gain)' : ''}, scroll over a
-			handle to change its Q.
+			Click empty plot space to add a bell, drag a handle to move it{selInfo?.usesGain !== false
+				? ' (up/down sets the gain)'
+				: ''}, scroll over a handle to change its Q.
 		</p>
 	{/snippet}
 
@@ -343,7 +455,15 @@
 	<div class="pair">
 		<Card>
 			<Plot
-				series={[{ x: grid, y: total.phaseDeg, label: 'Total', color: 'var(--text)', format: (v) => `${trimNumber(v, 4)}°` }]}
+				series={[
+					{
+						x: grid,
+						y: total.phaseDeg,
+						label: 'Total',
+						color: 'var(--text)',
+						format: (v) => `${trimNumber(v, 4)}°`
+					}
+				]}
 				xScale="log"
 				xDomain={[20, nyq]}
 				xLabel="Frequency (Hz)"
@@ -358,7 +478,15 @@
 		</Card>
 		<Card>
 			<Plot
-				series={[{ x: grid, y: gdMs, label: 'Total', color: 'var(--text)', format: (v) => `${trimNumber(v, 4)} ms` }]}
+				series={[
+					{
+						x: grid,
+						y: gdMs,
+						label: 'Total',
+						color: 'var(--text)',
+						format: (v) => `${trimNumber(v, 4)} ms`
+					}
+				]}
 				xScale="log"
 				xDomain={[20, nyq]}
 				xLabel="Frequency (Hz)"
@@ -374,59 +502,99 @@
 		</Card>
 	</div>
 
-	<Card title="Export" subtitle="The whole EQ as a cascade of biquads, one section per enabled band (RBJ cookbook coefficients, a₀ = 1).">
+	<Card
+		title="Export"
+		subtitle="The whole EQ as a cascade of biquads, one section per enabled band (RBJ cookbook coefficients, a₀ = 1)."
+	>
 		<ExportPanel kind="digital" {sos} {fs} name="eq" />
 	</Card>
 
 	{#snippet theory()}
 		<h2>How a parametric EQ works</h2>
 		<p>
-			Each band is one second-order section — a biquad from Robert Bristow-Johnson's <em>Audio EQ Cookbook</em> — and the EQ is
-			simply their cascade. Because the transfer functions multiply, their responses <strong>add in dB</strong> and their phases add:
+			Each band is one second-order section — a biquad from Robert Bristow-Johnson's <em
+				>Audio EQ Cookbook</em
+			>
+			— and the EQ is simply their cascade. Because the transfer functions multiply, their responses
+			<strong>add in dB</strong> and their phases add:
 		</p>
-		<Tex display math={'H(z)=\\prod_{k=1}^{K} H_k(z)\\quad\\Rightarrow\\quad 20\\log_{10}|H| = \\sum_k 20\\log_{10}|H_k|,\\qquad \\varphi = \\sum_k \\varphi_k'} />
+		<Tex
+			display
+			math={'H(z)=\\prod_{k=1}^{K} H_k(z)\\quad\\Rightarrow\\quad 20\\log_{10}|H| = \\sum_k 20\\log_{10}|H_k|,\\qquad \\varphi = \\sum_k \\varphi_k'}
+		/>
 		<p>That is why the bold total curve is exactly the sum of the thin band curves.</p>
 		<h3>The peaking (bell) filter and constant Q</h3>
-		<p>Every RBJ band is an analog prototype mapped with the prewarped bilinear transform. For the bell, with A = 10<sup>G/40</sup> and s normalised to ω₀:</p>
+		<p>
+			Every RBJ band is an analog prototype mapped with the prewarped bilinear transform. For the
+			bell, with A = 10<sup>G/40</sup> and s normalised to ω₀:
+		</p>
 		<Tex display math={'H(s)=\\frac{s^2+s\\,\\dfrac{A}{Q}+1}{s^2+\\dfrac{s}{AQ}+1}'} />
 		<p>
-			At ω₀ the gain is A² (G dB), far away it is 1 (0 dB). Solving <Tex math={'|H(j\\omega)|^2 = A^2'} /> — the points where the
-			response reaches half the peak gain in dB — gives <Tex math={'(1-\\omega^2)^2 = \\omega^2/Q^2'} />, which does not depend on A:
-			the half-gain bandwidth is ω₀/Q whatever the boost. This <em>constant-Q</em> behaviour means turning the gain knob does not
-			change how wide the bell looks. Swapping A → 1/A swaps numerator and denominator, so a cut is the exact inverse of the same boost.
+			At ω₀ the gain is A² (G dB), far away it is 1 (0 dB). Solving <Tex
+				math={'|H(j\\omega)|^2 = A^2'}
+			/> — the points where the response reaches half the peak gain in dB — gives <Tex
+				math={'(1-\\omega^2)^2 = \\omega^2/Q^2'}
+			/>, which does not depend on A: the half-gain bandwidth is ω₀/Q whatever the boost. This
+			<em>constant-Q</em> behaviour means turning the gain knob does not change how wide the bell looks.
+			Swapping A → 1/A swaps numerator and denominator, so a cut is the exact inverse of the same boost.
 		</p>
 		<h3>Shelves</h3>
-		<Tex display math={'H_{\\text{low shelf}}(s)=A\\,\\frac{s^2+\\frac{\\sqrt A}{Q}s+A}{A s^2+\\frac{\\sqrt A}{Q}s+1}'} />
+		<Tex
+			display
+			math={'H_{\\text{low shelf}}(s)=A\\,\\frac{s^2+\\frac{\\sqrt A}{Q}s+A}{A s^2+\\frac{\\sqrt A}{Q}s+1}'}
+		/>
 		<p>
-			A low shelf has gain A² below ω₀ and 1 above, passing through half the dB gain at ω₀ (the handle sits there). Q sets the slope:
-			Q = 0.707 is the steepest shelf without overshoot; larger Q adds a dip and a bump around the transition.
+			A low shelf has gain A² below ω₀ and 1 above, passing through half the dB gain at ω₀ (the
+			handle sits there). Q sets the slope: Q = 0.707 is the steepest shelf without overshoot;
+			larger Q adds a dip and a bump around the transition.
 		</p>
 		<h3>Minimum phase</h3>
 		<p>
-			Bells and shelves have all their poles and zeros inside the unit circle: they are <em>minimum phase</em>. For such filters the
-			phase is fixed by the magnitude (they are a Hilbert-transform pair through ln|H|), so phase shift and group delay concentrate where
-			the magnitude changes fastest and vanish where it is flat. The delay is short — fractions of a millisecond for typical bands — and
-			there is no pre-ringing, unlike a linear-phase FIR EQ that delays everything by half its length. Notches, low-pass and high-pass
-			bands are also minimum phase; the all-pass is not (its zeros mirror its poles outside the circle).
+			Bells and shelves have all their poles and zeros inside the unit circle: they are <em
+				>minimum phase</em
+			>. For such filters the phase is fixed by the magnitude (they are a Hilbert-transform pair
+			through ln|H|), so phase shift and group delay concentrate where the magnitude changes fastest
+			and vanish where it is flat. The delay is short — fractions of a millisecond for typical bands
+			— and there is no pre-ringing, unlike a linear-phase FIR EQ that delays everything by half its
+			length. Notches, low-pass and high-pass bands are also minimum phase; the all-pass is not (its
+			zeros mirror its poles outside the circle).
 		</p>
 		<h3>Cramping near Nyquist</h3>
 		<p>
-			The bilinear transform squeezes the whole analog frequency axis into 0…f<sub>s</sub>/2. Prewarping puts f₀ exactly where you
-			asked, but the response at Nyquist is pinned to the analog response at infinity:
+			The bilinear transform squeezes the whole analog frequency axis into 0…f<sub>s</sub>/2.
+			Prewarping puts f₀ exactly where you asked, but the response at Nyquist is pinned to the
+			analog response at infinity:
 		</p>
-		<Tex display math={'H\\big(e^{j\\pi}\\big) = H_a(j\\infty) = 1 \\quad\\text{(0 dB for a bell)}'} />
+		<Tex
+			display
+			math={'H\\big(e^{j\\pi}\\big) = H_a(j\\infty) = 1 \\quad\\text{(0 dB for a bell)}'}
+		/>
 		<p>
-			A wide bell or a high shelf near f<sub>s</sub>/2 is therefore forced back to 0 dB at Nyquist and comes out narrower and
-			asymmetric — "cramped". Turn on <em>Analog prototype</em> to see the difference. Usual remedies: run the EQ oversampled (2× or 4×
-			f<sub>s</sub>), use designs with a prescribed Nyquist gain (Orfanidis 1997) or magnitude-matched biquads (Vicanek's "matched
-			second-order filters"), or accept it — at 96 kHz most of the audio band is far from Nyquist.
+			A wide bell or a high shelf near f<sub>s</sub>/2 is therefore forced back to 0 dB at Nyquist
+			and comes out narrower and asymmetric — "cramped". Turn on <em>Analog prototype</em> to see
+			the difference. Usual remedies: run the EQ oversampled (2× or 4× f<sub>s</sub>), use designs
+			with a prescribed Nyquist gain (Orfanidis 1997) or magnitude-matched biquads (Vicanek's
+			"matched second-order filters"), or accept it — at 96 kHz most of the audio band is far from
+			Nyquist.
 		</p>
 		<Callout kind="try">
 			<ul>
-				<li>Load <em>Cramping demo</em>, switch on the analog prototype and drag the bell from 2 kHz up to 18 kHz.</li>
-				<li>Set a bell to +9 dB, then −9 dB: the cut is the mirror image of the boost, and the half-gain width stays the same.</li>
-				<li>In <em>Telephone band-limit</em>, change one of the two high-pass Q values (0.541 and 1.307) to 0.707: the corner is no longer Butterworth.</li>
-				<li>Load <em>Mains hum notches</em> and look at the group delay: sharp spikes at each notch, flat elsewhere.</li>
+				<li>
+					Load <em>Cramping demo</em>, switch on the analog prototype and drag the bell from 2 kHz
+					up to 18 kHz.
+				</li>
+				<li>
+					Set a bell to +9 dB, then −9 dB: the cut is the mirror image of the boost, and the
+					half-gain width stays the same.
+				</li>
+				<li>
+					In <em>Telephone band-limit</em>, change one of the two high-pass Q values (0.541 and
+					1.307) to 0.707: the corner is no longer Butterworth.
+				</li>
+				<li>
+					Load <em>Mains hum notches</em> and look at the group delay: sharp spikes at each notch, flat
+					elsewhere.
+				</li>
 				<li>Switch the sample rate from 48 kHz to 96 kHz and watch the cramping figure drop.</li>
 			</ul>
 		</Callout>

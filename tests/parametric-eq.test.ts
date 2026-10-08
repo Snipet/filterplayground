@@ -1,9 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { analogBandDb, bandSection, bandsFromPreset, cascade, EQ_TYPES, freeSlot, gainFromLevel, markerLevel, PRESETS, sanitizeBand, type EqBand } from '../src/lib/features/parametric-eq/eq';
+import {
+	analogBandDb,
+	bandSection,
+	bandsFromPreset,
+	cascade,
+	EQ_TYPES,
+	freeSlot,
+	gainFromLevel,
+	markerLevel,
+	PRESETS,
+	sanitizeBand,
+	type EqBand
+} from '../src/lib/features/parametric-eq/eq';
 import { evaluate } from '../src/lib/dsp/response';
 
-const band = (over: Partial<EqBand>): EqBand => ({ id: 1, slot: 0, type: 'peaking', f: 1000, q: 1, gain: 6, enabled: true, ...over });
-const digitalDb = (b: EqBand, fs: number, f: number) => evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, [f]).magDb[0];
+const band = (over: Partial<EqBand>): EqBand => ({
+	id: 1,
+	slot: 0,
+	type: 'peaking',
+	f: 1000,
+	q: 1,
+	gain: 6,
+	enabled: true,
+	...over
+});
+const digitalDb = (b: EqBand, fs: number, f: number) =>
+	evaluate({ kind: 'digital', fs, sos: [bandSection(b, fs)] }, [f]).magDb[0];
 
 describe('analog prototypes match the RBJ biquads far below Nyquist', () => {
 	const fs = 192000;
@@ -74,6 +96,9 @@ describe('bands and slots', () => {
 		expect(sanitizeBand({ type: 'bogus', f: 100, q: 1, gain: 0, slot: 0 }, 1)).toBeNull();
 		expect(sanitizeBand({ type: 'peaking', f: -1, q: 1, gain: 0, slot: 0 }, 1)).toBeNull();
 		expect(sanitizeBand({ type: 'peaking', f: 100, q: 1, gain: 0, slot: 9 }, 1)).toBeNull();
-		expect(sanitizeBand({ type: 'peaking', f: 100, q: 100, gain: 99, slot: 3 }, 1)).toMatchObject({ q: 30, gain: 24 });
+		expect(sanitizeBand({ type: 'peaking', f: 100, q: 100, gain: 99, slot: 3 }, 1)).toMatchObject({
+			q: 30,
+			gain: 24
+		});
 	});
 });

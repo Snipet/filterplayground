@@ -37,7 +37,14 @@ export function sectionInfo(s: readonly number[]): SectionInfo {
 			poleAngle = Math.abs(Math.atan2(p.im, p.re));
 		}
 	}
-	return { coef, poles: zpk.p, zeros: zpk.z, poleR, poleAngle, order: coef[4] === 0 && coef[2] === 0 ? 1 : 2 };
+	return {
+		coef,
+		poles: zpk.p,
+		zeros: zpk.z,
+		poleR,
+		poleAngle,
+		order: coef[4] === 0 && coef[2] === 0 ? 1 : 2
+	};
 }
 
 /** Largest root magnitude of a real polynomial given in ascending powers of z⁻¹. */
@@ -148,7 +155,8 @@ export interface RecipeSpec {
 }
 
 const fmt = (v: number) => num(v, 10);
-const pyList = (v: number | [number, number]) => (Array.isArray(v) ? `[${v.map(fmt).join(', ')}]` : fmt(v));
+const pyList = (v: number | [number, number]) =>
+	Array.isArray(v) ? `[${v.map(fmt).join(', ')}]` : fmt(v);
 const isBand = (b: BandType) => b === 'bandpass' || b === 'bandstop';
 
 /** SciPy call that designs exactly this filter (bilinear with prewarping). */
@@ -191,8 +199,15 @@ y = signal.sosfilt(sos, x)                       # filter a signal x`;
 /** MATLAB (Signal Processing Toolbox) equivalent. */
 export function matlabRecipe(r: RecipeSpec): string | null {
 	const nyq = 'fs/2';
-	const wn = isBand(r.band) ? `[${fmt(r.f1)} ${fmt(r.f2 ?? r.f1 * 2)}]/(${nyq})` : `${fmt(r.f1)}/(${nyq})`;
-	const ftype = { lowpass: "'low'", highpass: "'high'", bandpass: "'bandpass'", bandstop: "'stop'" }[r.band];
+	const wn = isBand(r.band)
+		? `[${fmt(r.f1)} ${fmt(r.f2 ?? r.f1 * 2)}]/(${nyq})`
+		: `${fmt(r.f1)}/(${nyq})`;
+	const ftype = {
+		lowpass: "'low'",
+		highpass: "'high'",
+		bandpass: "'bandpass'",
+		bandstop: "'stop'"
+	}[r.band];
 	const calls: Partial<Record<AnalogFamily, string>> = {
 		butter: `butter(${r.order}, ${wn}, ${ftype})`,
 		cheby1: `cheby1(${r.order}, ${fmt(r.rp)}, ${wn}, ${ftype})`,

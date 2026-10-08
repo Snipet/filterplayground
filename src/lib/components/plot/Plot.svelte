@@ -367,7 +367,11 @@
 		if (dragging === null) hoverPx = null;
 	}
 
+	/** Set when a marker is pressed, so the click that follows isn't treated as a plot click. */
+	let pressedMarker = false;
+
 	function startDrag(ev: PointerEvent, m: Marker) {
+		pressedMarker = true;
 		onmarkerselect?.(m.id);
 		if (!m.draggable) return;
 		ev.preventDefault();
@@ -392,6 +396,10 @@
 	}
 
 	function onClick(ev: MouseEvent) {
+		if (pressedMarker) {
+			pressedMarker = false;
+			return;
+		}
 		if (!onplotclick || !svgEl) return;
 		const { px, py } = localPoint(ev);
 		if (px < margin.left || px > margin.left + innerW || py < margin.top || py > margin.top + innerH) return;
