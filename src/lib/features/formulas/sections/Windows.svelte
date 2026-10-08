@@ -12,7 +12,7 @@
 		{ name: 'Hann', w: t`0.5-0.5\cos\frac{2\pi n}{M}`, psl: '−31.5', roll: '−18', enbw: '1.50', w3: '1.44', mainlobe: '4', scallop: '1.42' },
 		{ name: 'Hamming', w: t`0.54-0.46\cos\frac{2\pi n}{M}`, psl: '−42.7', roll: '−6', enbw: '1.36', w3: '1.30', mainlobe: '4', scallop: '1.75' },
 		{ name: 'Blackman', w: t`0.42-0.5\cos\frac{2\pi n}{M}+0.08\cos\frac{4\pi n}{M}`, psl: '−58.1', roll: '−18', enbw: '1.73', w3: '1.64', mainlobe: '6', scallop: '1.10' },
-		{ name: 'Blackman–Harris (4-term)', w: t`a_0-a_1\cos\frac{2\pi n}{M}+a_2\cos\frac{4\pi n}{M}-a_3\cos\frac{6\pi n}{M}`, psl: '−92.0', roll: '−6', enbw: '2.00', w3: '1.90', mainlobe: '8', scallop: '0.83' },
+		{ name: 'Blackman–Harris (4-term)', w: t`\textstyle\sum_{k=0}^{3}(-1)^k a_k\cos\frac{2\pi kn}{M}`, psl: '−92.0', roll: '−6', enbw: '2.00', w3: '1.90', mainlobe: '8', scallop: '0.83' },
 		{ name: 'Kaiser, β = 2π', w: t`\frac{I_0\big(\beta\sqrt{1-(2n/M-1)^2}\big)}{I_0(\beta)}`, psl: '−45.9', roll: '−6', enbw: '1.50', w3: '1.43', mainlobe: '4.47', scallop: '1.45' },
 		{ name: 'Kaiser, β = 3π', w: t`\text{(same, larger }\beta)`, psl: '−69.6', roll: '−6', enbw: '1.80', w3: '1.71', mainlobe: '6.32', scallop: '1.02' },
 		{ name: 'Gaussian, σ = 0.4', w: t`\exp\!\Big[-\frac12\Big(\frac{n-M/2}{\sigma M/2}\Big)^2\Big]`, psl: '−43.3', roll: '−6', enbw: '1.45', w3: '1.37', mainlobe: '—', scallop: '1.58' },
@@ -23,7 +23,8 @@
 <Section id="windows" title="Window functions" tools={['windows', 'fir-designer']}>
 	<p>
 		Symmetric windows for filter design use n = 0 … M with M = N − 1; for spectral analysis use the periodic (DFT-even) form with M = N. Widths are in DFT
-		bins (multiples of f<sub>s</sub>/N), levels in dB.
+		bins (multiples of f<sub>s</sub>/N): ENBW, −3 dB bandwidth and the null-to-null main-lobe width. Peak sidelobe and scalloping loss are in dB, sidelobe
+		roll-off in dB/octave.
 	</p>
 	<div class="tw">
 		<table class="win">
@@ -32,11 +33,11 @@
 					<th>Window</th>
 					<th>w[n]</th>
 					<th class="num">Peak sidelobe</th>
-					<th class="num">Roll-off (dB/oct)</th>
-					<th class="num">ENBW (bins)</th>
-					<th class="num">−3 dB width</th>
-					<th class="num">Null-to-null</th>
-					<th class="num">Scalloping loss</th>
+					<th class="num">Roll-off</th>
+					<th class="num">ENBW</th>
+					<th class="num">−3 dB BW</th>
+					<th class="num">Main lobe</th>
+					<th class="num">Scallop</th>
 				</tr>
 			</thead>
 			<tbody>

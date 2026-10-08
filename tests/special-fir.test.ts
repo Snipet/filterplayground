@@ -76,7 +76,7 @@ describe('special-fir: pulse shaping', () => {
 		expect(m.f[k] * sps).toBeCloseTo(0.3, 2);
 		// Gaussian-filtered NRZ has ISI but the eye stays open at BT = 0.3
 		const e = eyeDiagram(h, sps, true);
-		expect(e.opening).toBeGreaterThan(0.5);
+		expect(e.opening).toBeGreaterThan(0.4);
 		expect(e.opening).toBeLessThan(1);
 	});
 });

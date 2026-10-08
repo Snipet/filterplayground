@@ -456,7 +456,7 @@
 		</p>
 		<h3>FIR length estimates</h3>
 		<p>
-			FIR length depends on the transition width <Tex math={'\\Delta f=|f_s-f_p|/f_s'} /> (cycles/sample) rather than on a frequency ratio,
+			FIR length depends on the transition width <Tex math={'\\Delta f=|f_\\text{stop}-f_\\text{pass}|/f_s'} /> (cycles/sample) rather than on a frequency ratio,
 			and grows as <Tex math={'1/\\Delta f'} />:
 		</p>
 		<p><strong>Kaiser window</strong> (A = −20·log₁₀ δ in dB):</p>

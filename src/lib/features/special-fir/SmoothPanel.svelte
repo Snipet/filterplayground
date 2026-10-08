@@ -114,9 +114,11 @@
 	<Plot series={demoSeries} xLabel="Sample n" yLabel={d === 0 ? 'Amplitude' : `d${d === 2 ? '²' : ''}x/dn${d === 2 ? '²' : ''}`} height={280} exportName="smoothing" />
 </Card>
 
-<Card title="Coefficients" subtitle={isSg ? 'Savitzky–Golay taps (index relative to the centre). Negative side lobes are what preserve peak heights.' : 'Equal taps 1/L.'}>
+{#if isSg}
+	<Card title="Coefficients" subtitle="Savitzky–Golay taps (index relative to the centre). The negative side taps are what preserve peak heights.">
 	<Plot series={tapSeries} xLabel="k (relative to centre)" height={200} legend={false} exportName="taps" />
 </Card>
+{/if}
 
 <Card title="Export">
 	<ExportPanel kind="digital" fir={main} {fs} recipes={[{ label: isSg ? 'SciPy' : 'NumPy', code: recipe }]} name={isSg ? 'savgol' : 'moving_average'} />

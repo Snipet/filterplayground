@@ -26,7 +26,7 @@
 			<h3 id="kaiser-formulas">Kaiser window design</h3>
 			<Eqs items={[t`w[n]=\frac{I_0\!\Big(\beta\sqrt{1-\big(\frac{2n}{M}-1\big)^2}\Big)}{I_0(\beta)}`, t`A=-20\log_{10}\min(\delta_p,\delta_s)`]} />
 			<Tex display math={t`\beta=\begin{cases}0.1102\,(A-8.7) & A>50\\ 0.5842\,(A-21)^{0.4}+0.07886\,(A-21) & 21\le A\le50\\ 0 & A<21\end{cases}`} />
-			<Eqs items={[t`N\approx\frac{A-7.95}{14.36\,\Delta f}+1`, t`\Delta f=\frac{|f_s-f_p|}{F_s}`]} />
+			<Eqs items={[t`N\approx\frac{A-7.95}{14.36\,\Delta f}+1`, t`\Delta f=\frac{|f_\text{stop}-f_\text{pass}|}{f_s}`]} />
 			<p class="small-note">I₀ is the zeroth-order modified Bessel function of the first kind. In SciPy, <code>kaiserord(A, 2Δf)</code> (width relative to Nyquist).</p>
 		</div>
 	</div>

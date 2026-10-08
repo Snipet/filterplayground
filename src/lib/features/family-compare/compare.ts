@@ -155,7 +155,7 @@ export function familyMetrics(zpk: ZPK): FamilyMetrics {
 
 	// step response
 	const T = settleSpan(zpk);
-	const st = analogTimeResponse(zpk, 'step', T, 6000);
+	const st = analogTimeResponse(zpk, 'step', T, 4000);
 	const yf = H0.re;
 	const { t, y } = st;
 	const over = Math.max(0, (Math.max(...y) / yf - 1) * 100);

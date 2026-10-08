@@ -59,9 +59,9 @@
 	const vlines = $derived(
 		kind === 'rc'
 			? [
-					{ value: (Rs / 2) * (1 - beta), label: '(1−β)·Rs/2' },
+					{ value: (Rs / 2) * (1 - beta), label: undefined },
 					{ value: Rs / 2, label: 'Rs/2' },
-					{ value: (Rs / 2) * (1 + beta), label: '(1+β)·Rs/2' }
+					{ value: (Rs / 2) * (1 + beta), label: '(1+β)Rs/2' }
 				].filter((v, i) => i === 1 || beta > 0.02)
 			: [{ value: bt * Rs, label: 'BT·Rs' }]
 	);
@@ -95,7 +95,7 @@
 		}
 		out.push({
 			label: kind === 'gaussian' ? 'Peak ISI (NRZ)' : eyeMode === 'rc' ? 'Peak ISI (RC)' : 'Peak ISI (RRC→RRC)',
-			value: `${trimNumber(100 * eye.peakIsi, 3)} %`,
+			value: eye.peakIsi < 1e-9 ? '0 % (exact)' : `${trimNumber(100 * eye.peakIsi, 3)} %`,
 			status: kind === 'gaussian' ? undefined : eye.peakIsi < 1e-3 ? 'good' : eye.peakIsi < 0.05 ? 'warning' : 'critical',
 			hint: 'Largest deviation of the samples at the symbol instants from ±1'
 		});
@@ -119,7 +119,7 @@
 	<Plot series={pulseSeries} xLabel="Time (symbols)" yLabel="Amplitude" height={250} exportName="pulse" />
 </Card>
 
-<ResponseView {filters} views={[]} {vlines} title="Magnitude (normalised to 0 dB at DC)" dbRange={100} />
+<ResponseView {filters} views={[]} {vlines} title={kind === 'rc' ? 'Magnitude (0 dB at DC; lines at (1−β)Rs/2, Rs/2, (1+β)Rs/2)' : 'Magnitude (0 dB at DC)'} dbRange={100} />
 
 <Card
 	title="Eye diagram"

@@ -446,11 +446,15 @@ a_q = [${qDf.tf.a.map((v) => num(v, 10)).join(', ')}]`;
 		</div>
 	</Card>
 
-	<Card title="Where can a quantised pole go?" subtitle="Every pole position a second-order section can realise with {gridBits}-bit coefficients (upper half plane). × = poles of the filter above.">
+	<Card title="Where can a quantised pole go?" subtitle="Every pole position a second-order section can realise with {gridBits}-bit coefficients (upper half plane).">
 		{#snippet actions()}
 			<Toggle label="Zoom near z = 1" bind:checked={gridZoom} />
 		{/snippet}
 		<div class="grid-ctl"><Slider label="Grid word length" bind:value={gridBits} min={3} max={7} integer unit="bits" /></div>
+		<ul class="pz-legend" aria-label="Legend">
+			<li><svg width="14" height="12" aria-hidden="true"><circle cx="7" cy="6" r="2.4" fill="var(--s1)" /></svg>Realisable pole position</li>
+			<li><svg width="14" height="12" aria-hidden="true"><path d="M2,1l10,10M2,11l10,-10" stroke="var(--s2)" stroke-width="2" /></svg>Poles of the filter above (unquantised)</li>
+		</ul>
 		<div class="two">
 			<div>
 				{#snippet dfOv(ctx: PlotContext)}{@render gridOverlay(ctx, dfGrid)}{/snippet}

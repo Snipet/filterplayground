@@ -13,7 +13,7 @@
 	import Tex from '$lib/components/content/Tex.svelte';
 	import { FAMILIES, type AnalogFamily, type BesselNorm } from '$lib/dsp/analog';
 	import { freqsZpk, groupDelayAnalogZpk, linspace, logspace, unwrap } from '$lib/dsp/response';
-	import { analogTimeResponse } from '$lib/dsp/time';
+	import { analogTimeResponse, type TimeResponse } from '$lib/dsp/time';
 	import { formatSI, trimNumber } from '$lib/dsp/units';
 	import { abs } from '$lib/dsp/complex';
 	import { readSharedState } from '$lib/share';
@@ -60,51 +60,83 @@
 	// ---------------- designs (normalised: cutoff at 1 rad/s; independent of fc) ----------------
 	const settings = $derived<CompareSettings>({ order, rp, rs, mode, besselNative });
 
+	interface Curves {
+		magDb: number[];
+		passDb: number[];
+		phase: number[];
+		gd: number[];
+	}
 	interface Entry {
 		id: AnalogFamily;
+		key: string;
 		name: string;
 		short: string;
 		color: string;
 		zpk: ZPK;
 		m: FamilyMetrics;
+		c: Curves;
+	}
+
+	const U_LOG = logspace(0.02, 50, 600);
+	const U_LIN = linspace(0, 2, 401);
+	const U_GD = logspace(0.02, 10, 500);
+	const W = 2 * Math.PI;
+
+	function computeCurves(zpk: ZPK): Curves {
+		const Hl = freqsZpk(zpk, U_LOG);
+		const Hp = freqsZpk(zpk, U_LIN);
+		const peak = Math.max(...Hp.map(abs), abs(Hl[0]));
+		return {
+			magDb: Hl.map((h) => 20 * Math.log10(Math.max(abs(h), 1e-12))),
+			passDb: Hp.map((h) => 20 * Math.log10(Math.max(abs(h) / peak, 1e-12))),
+			phase: unwrap(Hl.map((h) => Math.atan2(h.im, h.re))).map((v) => (v * 180) / Math.PI),
+			gd: groupDelayAnalogZpk(zpk, U_GD)
+		};
+	}
+
+	// Per-family results depend only on the parameters that family uses, so a cache keyed
+	// on those keeps sliders smooth (dragging Rp only recomputes Chebyshev I and elliptic).
+	// Plain (non-reactive) maps: they are memo tables, not state.
+	const entryCache = new Map<string, Entry | string>();
+	const timeCache = new Map<string, { step: TimeResponse; imp: TimeResponse }>();
+	function familyKey(id: AnalogFamily, s: CompareSettings): string {
+		const parts: (string | number)[] = [id, s.order, s.mode];
+		if (id === 'cheby1' || id === 'ellip') parts.push(s.rp);
+		if (id === 'cheby2' || id === 'ellip') parts.push(s.rs);
+		if (id === 'bessel' && s.mode === 'native') parts.push(s.besselNative);
+		return parts.join('|');
+	}
+	function getEntry(f: (typeof FAMILIES)[number], s: CompareSettings): Entry | string {
+		const key = familyKey(f.id, s);
+		const hit = entryCache.get(key);
+		if (hit !== undefined) return hit;
+		let out: Entry | string;
+		try {
+			const zpk = designNormalised(f.id, s);
+			if (!zpk.p.every((p) => Number.isFinite(p.re) && Number.isFinite(p.im) && p.re < 0)) throw new Error('unstable or invalid poles');
+			out = { id: f.id, key, name: f.name, short: f.short, color: FAMILY_COLOR[f.id], zpk, m: familyMetrics(zpk), c: computeCurves(zpk) };
+		} catch (e) {
+			out = `${f.name}: ${e instanceof Error ? e.message : String(e)}`;
+		}
+		if (entryCache.size > 400) entryCache.clear();
+		entryCache.set(key, out);
+		return out;
 	}
 
 	const designs = $derived.by(() => {
 		const out: Entry[] = [];
 		const errors: string[] = [];
 		for (const f of shown) {
-			try {
-				const zpk = designNormalised(f.id, settings);
-				if (!zpk.p.every((p) => Number.isFinite(p.re) && Number.isFinite(p.im) && p.re < 0)) throw new Error('unstable or invalid poles');
-				out.push({ id: f.id, name: f.name, short: f.short, color: FAMILY_COLOR[f.id], zpk, m: familyMetrics(zpk) });
-			} catch (e) {
-				errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`);
-			}
+			const e = getEntry(f, settings);
+			if (typeof e === 'string') errors.push(e);
+			else out.push(e);
 		}
 		return { list: out, errors };
 	});
 	const list = $derived(designs.list);
 
 	// ---------------- frequency-domain curves ----------------
-	const U_LOG = logspace(0.02, 50, 600);
-	const U_LIN = linspace(0, 2, 401);
-	const U_GD = logspace(0.02, 10, 500);
-	const W = 2 * Math.PI;
-
-	const curves = $derived(
-		list.map((e) => {
-			const Hl = freqsZpk(e.zpk, U_LOG);
-			const Hp = freqsZpk(e.zpk, U_LIN);
-			const peak = Math.max(...Hp.map(abs), abs(Hl[0]));
-			return {
-				e,
-				magDb: Hl.map((h) => 20 * Math.log10(Math.max(abs(h), 1e-12))),
-				passDb: Hp.map((h) => 20 * Math.log10(Math.max(abs(h) / peak, 1e-12))),
-				phase: unwrap(Hl.map((h) => Math.atan2(h.im, h.re))).map((v) => (v * 180) / Math.PI),
-				gd: groupDelayAnalogZpk(e.zpk, U_GD)
-			};
-		})
-	);
+	const curves = $derived(list.map((e) => ({ e, ...e.c })));
 
 	const fLog = $derived(U_LOG.map((u) => u * fc));
 	const fLin = $derived(U_LIN.map((u) => u * fc));
@@ -133,17 +165,24 @@
 	const magFloor = $derived(-Math.max(80, Math.ceil((usesRs ? rs + 30 : 80) / 10) * 10));
 
 	// ---------------- time domain ----------------
+	// normalised time span, snapped to a few values so it rarely changes while dragging
+	const SPANS = [8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80];
 	const tSpan = $derived.by(() => {
 		const settles = list.map((e) => e.m.settle).filter((v) => Number.isFinite(v));
-		const longest = settles.length ? Math.max(...settles) : 20;
-		return Math.min(Math.max(longest * 1.25, 8), 80);
+		const want = Math.min(Math.max((settles.length ? Math.max(...settles) : 20) * 1.25, 8), 80);
+		return SPANS.find((v) => v >= want) ?? 80;
 	});
 	const timeData = $derived(
-		list.map((e) => ({
-			e,
-			step: analogTimeResponse(e.zpk, 'step', tSpan, 500),
-			imp: analogTimeResponse(e.zpk, 'impulse', tSpan, 500)
-		}))
+		list.map((e) => {
+			const key = `${e.key}|${tSpan}`;
+			let r = timeCache.get(key);
+			if (!r) {
+				r = { step: analogTimeResponse(e.zpk, 'step', tSpan, 500), imp: analogTimeResponse(e.zpk, 'impulse', tSpan, 500) };
+				if (timeCache.size > 400) timeCache.clear();
+				timeCache.set(key, r);
+			}
+			return { e, ...r };
+		})
 	);
 	const stepSeries = $derived<Series[]>(
 		timeData.map((d) => ({ x: d.step.t.map((t) => t * tScale), y: d.step.y, label: d.e.short, color: d.e.color }))

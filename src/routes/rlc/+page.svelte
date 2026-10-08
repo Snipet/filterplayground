@@ -480,7 +480,7 @@
 	}
 	.circuit {
 		display: grid;
-		grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
 		gap: 1rem 1.4rem;
 		align-items: center;
 	}
@@ -491,17 +491,15 @@
 		min-width: 0;
 	}
 	.tf-row {
-		display: grid;
-		grid-template-columns: 7.2rem minmax(0, 1fr);
-		align-items: center;
-		gap: 0.5rem;
 		border-bottom: 1px solid var(--border);
+		padding-top: 0.35rem;
 	}
 	.tf-row :global(.tex-display) {
-		margin: 0.3em 0;
+		margin: 0.1em 0 0.3em;
 	}
 	.tf-lbl {
-		font-size: 0.78rem;
+		display: block;
+		font-size: 0.75rem;
 		color: var(--muted);
 	}
 	.tf p {
@@ -535,15 +533,6 @@
 		.circuit,
 		.solver {
 			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-	@media (max-width: 480px) {
-		.tf-row {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 0;
-		}
-		.tf-lbl {
-			margin-top: 0.3rem;
 		}
 	}
 </style>

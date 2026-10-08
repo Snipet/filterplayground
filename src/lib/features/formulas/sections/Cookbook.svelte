@@ -7,9 +7,9 @@
 
 	const D = { a0: t`1+\alpha`, a1: t`-2\cos\omega_0`, a2: t`1-\alpha` };
 	const rows: { name: string; b0: string; b1: string; b2: string; a0: string; a1: string; a2: string }[] = [
-		{ name: 'LPF', b0: t`\frac{1-\cos\omega_0}{2}`, b1: t`1-\cos\omega_0`, b2: t`\frac{1-\cos\omega_0}{2}`, ...D },
-		{ name: 'HPF', b0: t`\frac{1+\cos\omega_0}{2}`, b1: t`-(1+\cos\omega_0)`, b2: t`\frac{1+\cos\omega_0}{2}`, ...D },
-		{ name: 'BPF (skirt gain, peak = Q)', b0: t`\frac{\sin\omega_0}{2}=Q\alpha`, b1: t`0`, b2: t`-\frac{\sin\omega_0}{2}`, ...D },
+		{ name: 'LPF', b0: t`\dfrac{1-\cos\omega_0}{2}`, b1: t`1-\cos\omega_0`, b2: t`\dfrac{1-\cos\omega_0}{2}`, ...D },
+		{ name: 'HPF', b0: t`\dfrac{1+\cos\omega_0}{2}`, b1: t`-(1+\cos\omega_0)`, b2: t`\dfrac{1+\cos\omega_0}{2}`, ...D },
+		{ name: 'BPF (skirt gain, peak = Q)', b0: t`\dfrac{\sin\omega_0}{2}=Q\alpha`, b1: t`0`, b2: t`-\dfrac{\sin\omega_0}{2}`, ...D },
 		{ name: 'BPF (0 dB peak)', b0: t`\alpha`, b1: t`0`, b2: t`-\alpha`, ...D },
 		{ name: 'Notch', b0: t`1`, b1: t`-2\cos\omega_0`, b2: t`1`, ...D },
 		{ name: 'APF', b0: t`1-\alpha`, b1: t`-2\cos\omega_0`, b2: t`1+\alpha`, ...D },
@@ -26,11 +26,11 @@
 	<div class="cols">
 		<div>
 			<Eqs items={[t`A=10^{\,\text{dBgain}/40}`, t`\omega_0=2\pi\frac{f_0}{F_s}`]} />
-			<Eqs items={[t`\alpha=\frac{\sin\omega_0}{2Q}`, t`(\text{from }Q)`]} />
+			<Tex display math={t`\alpha=\frac{\sin\omega_0}{2Q}\quad(\text{from }Q)`} />
 		</div>
 		<div>
-			<Eqs items={[t`\alpha=\sin\omega_0\,\sinh\!\Big(\frac{\ln 2}{2}\,\text{BW}\,\frac{\omega_0}{\sin\omega_0}\Big)`, t`(\text{BW in octaves})`]} />
-			<Eqs items={[t`\alpha=\frac{\sin\omega_0}{2}\sqrt{\Big(A+\frac1A\Big)\Big(\frac1S-1\Big)+2}`, t`(\text{shelf slope }S)`]} />
+			<Tex display math={t`\alpha=\sin\omega_0\,\sinh\!\Big(\frac{\ln 2}{2}\,\text{BW}\,\frac{\omega_0}{\sin\omega_0}\Big)\quad(\text{BW in octaves})`} />
+			<Tex display math={t`\alpha=\frac{\sin\omega_0}{2}\sqrt{\Big(A+\frac1A\Big)\Big(\frac1S-1\Big)+2}\quad(\text{shelf slope }S)`} />
 		</div>
 	</div>
 	<p class="small-note">

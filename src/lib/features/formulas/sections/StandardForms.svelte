@@ -8,9 +8,9 @@
 	const t = String.raw;
 
 	const first: { name: string; H: string; note: string }[] = [
-		{ name: 'Low-pass', H: t`\dfrac{\omega_c}{s+\omega_c}`, note: '−3 dB and −45° at ω_c; −20 dB/decade above' },
-		{ name: 'High-pass', H: t`\dfrac{s}{s+\omega_c}`, note: '−3 dB and +45° at ω_c; +20 dB/decade below' },
-		{ name: 'All-pass', H: t`\dfrac{\omega_c-s}{\omega_c+s}`, note: '|H| = 1; phase −2·atan(ω/ω_c), −90° at ω_c' },
+		{ name: 'Low-pass', H: t`\dfrac{\omega_c}{s+\omega_c}`, note: '−3 dB and −45° at the corner; −20 dB/decade above' },
+		{ name: 'High-pass', H: t`\dfrac{s}{s+\omega_c}`, note: '−3 dB and +45° at the corner; +20 dB/decade below' },
+		{ name: 'All-pass', H: t`\dfrac{\omega_c-s}{\omega_c+s}`, note: '|H| = 1; phase −2·atan(ω/ωc), −90° at the corner' },
 		{ name: 'Low shelf', H: t`\dfrac{s+G\,\omega_c}{s+\omega_c}`, note: 'gain G at DC, 1 at high frequency' }
 	];
 

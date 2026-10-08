@@ -57,11 +57,12 @@
 		{ x: demo.n, y: demo.est, label: `Type ${sel} output × fs`, color: COLOR[sel] }
 	]);
 
+	const clean0 = (v: number) => (Math.abs(v) < 1e-9 ? 0 : v);
 	const noiseGain = (hh: number[]) => Math.sqrt(hh.reduce((s, v) => s + v * v, 0));
 	const stats = $derived<Stat[]>([
 		{ label: 'Taps', value: `III: ${n3} · IV: ${n4}` },
 		{ label: 'Delay (N−1)/2', value: `${trimNumber((N - 1) / 2, 4)} samples`, hint: 'Type IV has a half-sample delay, so its output lies between input samples' },
-		{ label: 'Gain at fs/2', value: `III: ${trimNumber(m3.mag[m3.mag.length - 1], 3)} · IV: ${trimNumber(m4.mag[m4.mag.length - 1], 3)}`, hint: 'Ideal: π. Type III is forced to zero at fs/2.' },
+		{ label: 'Gain at fs/2', value: `III: ${trimNumber(clean0(m3.mag[m3.mag.length - 1]), 3)} · IV: ${trimNumber(clean0(m4.mag[m4.mag.length - 1]), 3)}`, hint: 'Ideal: π. Type III is forced to zero at fs/2.' },
 		{
 			label: 'Demo error (RMS)',
 			value: `III: ${trimNumber((100 * d3.rmsErr) / d3.truthRms, 3)} % · IV: ${trimNumber((100 * d4.rmsErr) / d4.truthRms, 3)} %`,

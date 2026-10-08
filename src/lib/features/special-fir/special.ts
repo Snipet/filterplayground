@@ -255,8 +255,8 @@ export function randomSymbols(n: number, seed = 11): number[] {
 /**
  * Pass random ±1 symbols through h and fold the output into 2-symbol traces.
  * `nrz` holds each symbol for sps samples (rectangular input, as in GMSK);
- * otherwise symbols are impulses (zero-stuffed). The output is normalised so the
- * response to a single isolated symbol peaks at 1.
+ * otherwise symbols are impulses (zero-stuffed). Impulse input is normalised so
+ * an isolated symbol peaks at 1; NRZ input so that long runs of one symbol sit at ±1.
  */
 export function eyeDiagram(h: readonly number[], sps: number, nrz: boolean, nTraces = 70, seed = 11): Eye {
 	const L = h.length;
@@ -273,7 +273,8 @@ export function eyeDiagram(h: readonly number[], sps: number, nrz: boolean, nTra
 	const pulse = nrz ? firfilt(h, [...new Array(sps).fill(1), ...new Array(L).fill(0)]) : [...h];
 	let pk = 0;
 	for (let i = 1; i < pulse.length; i++) if (Math.abs(pulse[i]) > Math.abs(pulse[pk])) pk = i;
-	const g = pulse[pk] || 1;
+	// impulses: scale by the pulse peak; NRZ: by the DC gain, so long runs sit at ±1
+	const g = nrz ? h.reduce((a, v) => a + v, 0) || 1 : pulse[pk] || 1;
 	const traces: { x: number[]; y: number[] }[] = [];
 	let peakIsi = 0;
 	let opening = Infinity;
